@@ -3,10 +3,6 @@
     {
       "control": "Password (optional)",
       "explanation": "You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account."
-    },
-    {
-      "control": "Keep settings separate",
-      "explanation": "Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices."
     }
   ],
   "settings-display": [

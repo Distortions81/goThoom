@@ -25,14 +25,6 @@ func TestEmojiExpansionSettingPersistence(t *testing.T) {
 		if err != nil || got.ExpandEmojiNames != enabled {
 			t.Fatalf("setting %v did not round trip: %v", enabled, err)
 		}
-		profile, err := captureCharacterProfile("Emoji Test", want)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err = applyCharacterProfile(gsdef, profile)
-		if err != nil || got.ExpandEmojiNames != enabled {
-			t.Fatalf("profile setting %v did not round trip: %v", enabled, err)
-		}
 	}
 }
 

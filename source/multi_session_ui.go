@@ -48,7 +48,18 @@ func ensureSessionTabBar() {
 	}
 	sessionTabBar = eui.NewRow()
 	sessionTabBar.Fixed = true
+	sessionTabBar.ConstrainToSize = true
 	gameWin.PrependItem(sessionTabBar)
+}
+
+func sessionTabWidths(available float32, count int) (tab, closeButton, addButton float32) {
+	if count < 1 || available <= 0 {
+		return 0, 0, 0
+	}
+	addButton = minFloat32(28, available/float32(count+1))
+	tab = (available - addButton) / float32(count)
+	closeButton = minFloat32(22, tab/2)
+	return tab, closeButton, addButton
 }
 
 func sessionTabLabel(session *Session, available float32) string {
@@ -125,12 +136,9 @@ func refreshSessionTabs() {
 	}
 	sessions := appSessions.snapshot()
 	count := appSessions.count()
-	width := float32(max(1, int(gameWin.GetSize().X)-2*int(gameWin.Padding))) / scale
-	plusWidth := float32(28)
-	tabWidth := (width - plusWidth) / float32(max(1, count))
-	if tabWidth < 34 {
-		tabWidth = 34
-	}
+	contentWidth := gameWin.GetSize().X - 2*(gameWin.Padding+gameWin.BorderPad)
+	width := maxFloat32(1, contentWidth) / scale
+	tabWidth, closeWidth, plusWidth := sessionTabWidths(width, count)
 	items := make([]*eui.ItemData, 0, count+1)
 	selected := appSessions.selectedID()
 	for _, session := range sessions {
@@ -140,12 +148,13 @@ func refreshSessionTabs() {
 		session := session
 		segment := eui.NewRow()
 		segment.Fixed = true
+		segment.ConstrainToSize = true
 		segment.Size = eui.Point{X: tabWidth, Y: sessionTabBarHeight / scale}
-		closeWidth := float32(22)
-		selectWidth := max(float32(12), tabWidth-closeWidth)
+		selectWidth := tabWidth - closeWidth
 		selectButton, selectEvents := eui.NewButton()
 		selectButton.Text = sessionTabLabel(session, selectWidth)
 		selectButton.Size = eui.Point{X: selectWidth, Y: sessionTabBarHeight / scale}
+		selectButton.Position = eui.Point{}
 		selectButton.SetTooltip(fmt.Sprintf("Show Session %d. The shortcut can be changed in Hotkeys.", session.ID()))
 		if session.ID() == selected {
 			selectButton.Color = eui.AccentColor()
@@ -160,6 +169,7 @@ func refreshSessionTabs() {
 		closeButton, closeEvents := eui.NewButton()
 		setMaterialIconOnly(closeButton, "close", "X")
 		closeButton.Size = eui.Point{X: closeWidth, Y: sessionTabBarHeight / scale}
+		closeButton.Position = eui.Point{}
 		closeButton.Disabled = count <= 1
 		if closeButton.Disabled {
 			closeButton.SetTooltip("At least one session tab must remain open.")
@@ -178,6 +188,7 @@ func refreshSessionTabs() {
 	addButton, addEvents := eui.NewButton()
 	setMaterialIconOnly(addButton, "add", "+")
 	addButton.Size = eui.Point{X: plusWidth, Y: sessionTabBarHeight / scale}
+	addButton.Position = eui.Point{}
 	addButton.Disabled = count >= maxSessions
 	if addButton.Disabled {
 		addButton.SetTooltip(fmt.Sprintf("The %d-session limit is reached.", maxSessions))

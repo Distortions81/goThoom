@@ -13,12 +13,11 @@ import (
 func TestAddCharacterRejectsExistingName(t *testing.T) {
 	initFont()
 	originalCharacters, originalDir := characters, dataDirPath
-	originalProfiles := characterProfiles
 	originalWindow := addCharWin
 	originalNameInput, originalPassInput := addCharNameInput, addCharPassInput
-	originalWarn, originalProfileCB := addCharPassWarn, addCharProfileCB
+	originalWarn := addCharPassWarn
 	originalName, originalPass, originalPrev := addCharName, addCharPass, addCharPassPrev
-	originalRemember, originalProfile := addCharRemember, addCharProfile
+	originalRemember := addCharRemember
 	primarySession.login.mu.Lock()
 	originalStaged := primarySession.login.staged
 	primarySession.login.mu.Unlock()
@@ -34,12 +33,11 @@ func TestAddCharacterRejectsExistingName(t *testing.T) {
 			}
 		}
 		characters, dataDirPath = originalCharacters, originalDir
-		characterProfiles = originalProfiles
 		addCharWin = originalWindow
 		addCharNameInput, addCharPassInput = originalNameInput, originalPassInput
-		addCharPassWarn, addCharProfileCB = originalWarn, originalProfileCB
+		addCharPassWarn = originalWarn
 		addCharName, addCharPass, addCharPassPrev = originalName, originalPass, originalPrev
-		addCharRemember, addCharProfile = originalRemember, originalProfile
+		addCharRemember = originalRemember
 		primarySession.login.mu.Lock()
 		primarySession.login.staged = originalStaged
 		primarySession.login.mu.Unlock()
@@ -53,13 +51,9 @@ func TestAddCharacterRejectsExistingName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	characterProfiles = characterProfilesDocument{
-		Version: characterProfilesVersion,
-		Enabled: map[string]bool{"hero": true},
-	}
 	wantHash := stagePasswordUpdate("Hero", "pending", true)
 	addCharWin = nil
-	addCharPass, addCharRemember, addCharProfile = "replacement", false, false
+	addCharPass, addCharRemember = "replacement", false
 	makeAddCharacterWindow()
 	addCharWin.MarkOpen()
 	wantName, wantPass, wantPassHash := name, pass, passHash
@@ -77,9 +71,6 @@ func TestAddCharacterRejectsExistingName(t *testing.T) {
 			}
 			if hash, remember, ok := stagedPasswordSettings("Hero"); !ok || hash != wantHash || !remember {
 				t.Fatal("duplicate replaced the staged password")
-			}
-			if !characterProfileEnabled("Hero") {
-				t.Fatal("duplicate disabled the character's settings profile")
 			}
 			if name != wantName || pass != wantPass || passHash != wantPassHash {
 				t.Fatal("duplicate changed the login selection or credentials")

@@ -15,8 +15,9 @@ func Init() error {
 	return EnsureBoldFontSource(gobold.TTF)
 }
 
-// NewColumn arranges children vertically. Set Size, Fixed, or Scrollable on the
-// returned item when the container needs a fixed viewport instead of auto sizing.
+// NewColumn arranges children vertically. Set Size and Fixed or Scrollable on
+// the returned item when the container needs a fixed viewport instead of auto
+// sizing. ConstrainToSize keeps a non-scrollable flow at its declared size.
 func NewColumn(children ...*ItemData) *ItemData {
 	item := &ItemData{ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL}
 	for _, child := range children {

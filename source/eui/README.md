@@ -52,6 +52,7 @@ func (g *Game) Layout(w, h int) (int, int) { return eui.Layout(w, h) }
 layout, call `SetScreenSize` with its actual dimensions and manage UI scaling
 explicitly. Most widget sizes use logical UI units. Set `Size` when you need an
 explicit width or height; `Fixed` and `Scrollable` create bounded viewports.
+Set `ConstrainToSize` when a non-scrollable flow must not expand to its children.
 
 ## Building UI
 

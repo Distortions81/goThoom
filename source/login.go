@@ -730,10 +730,10 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	}
 	challenge := msg[16 : 16+16]
 
-	profileCharacter := utfFold(request.character)
-	session.setCharacterName(profileCharacter)
+	characterName := utfFold(request.character)
+	session.setCharacterName(characterName)
 	if session == primarySession {
-		playerName = profileCharacter
+		playerName = characterName
 		dispatchMainThread(updateGameWindowTitle)
 		applyLocalLabels()
 		loadShortcuts()
@@ -857,10 +857,10 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
 	if session == primarySession {
 		dispatchMainThread(func() {
-			switchCharacterProfile(profileCharacter)
+			rememberLastCharacter(characterName)
 		})
 		dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
-		if err := session.loadLegacyMacrosForCharacter(profileCharacter); err != nil {
+		if err := session.loadLegacyMacrosForCharacter(characterName); err != nil {
 			log.Printf("legacy macros: %v", err)
 		}
 		dispatchMainThread(func() {
@@ -870,7 +870,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 			lowFPSSince = time.Time{}
 			shaderWarnWin = nil
 		})
-	} else if err := session.loadLegacyMacrosForCharacter(profileCharacter); err != nil {
+	} else if err := session.loadLegacyMacrosForCharacter(characterName); err != nil {
 		log.Printf("legacy macros for session %d: %v", session.ID(), err)
 	}
 
@@ -898,7 +898,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 		return errors.New("session transport already active")
 	}
 	updateSessionConnectStatus(session, "Connected")
-	character := profileCharacter
+	character := characterName
 	dispatchMainThread(func() {
 		if session.transport.connectedGeneration(transportGeneration) {
 			reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(character))

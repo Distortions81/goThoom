@@ -97,8 +97,7 @@ positions and smooth edges as characters move. Text may look slightly softer. Th
 uses the existing movement interpolation and does not enable Motion Smoothing
 if that setting is off.
 
-The preference is saved as `interface.smooth_nametag_motion` and can be kept
-separately for each character through character profiles.
+The preference is saved as `interface.smooth_nametag_motion`.
 
 ### Alternating row colors
 

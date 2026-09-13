@@ -171,13 +171,10 @@ func unscrambleHash(name, h string) string { return scrambleHash(name, h) }
 func removeCharacter(name string) {
 	for i, c := range characters {
 		if c.Name == name {
-			// Profile use belongs to the saved login. Re-adding the same name
-			// later should still start with the global-settings default.
-			setCharacterProfileEnabled(c.Name, false)
 			characters = append(characters[:i], characters[i+1:]...)
 			saveCharacters()
 			if gs.LastCharacter == name {
-				switchCharacterProfile("")
+				rememberLastCharacter("")
 			}
 			return
 		}

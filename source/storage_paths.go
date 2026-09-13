@@ -276,15 +276,12 @@ func changeStoragePath(kind storagePathKind, configuredPath string, copyFiles bo
 		return "", fmt.Errorf("recheck %s path %q: %w", storagePathName(kind), destination, err)
 	}
 
-	candidate := settingsForSave()
+	candidate := gs
 	setStoragePathSetting(&candidate, kind, configuredPath)
 	if err := writeSettingsFile(candidate); err != nil {
 		return "", fmt.Errorf("save %s path: %w", storagePathName(kind), err)
 	}
 	setStoragePathSetting(&gs, kind, configuredPath)
-	if globalSettingsBaseReady {
-		setStoragePathSetting(&globalSettingsBase, kind, configuredPath)
-	}
 	settingsDirty = false
 	return destination, nil
 }

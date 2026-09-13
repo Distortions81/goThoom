@@ -207,6 +207,10 @@ type itemData struct {
 	OnHover func(int)
 
 	Fixed, Scrollable bool
+	// ConstrainToSize prevents a non-scrollable flow from expanding beyond its
+	// declared Size to accommodate children. Use it for an explicitly sized
+	// viewport whose contents must remain within that rectangle.
+	ConstrainToSize bool
 
 	ImageName string
 	Image     *ebiten.Image

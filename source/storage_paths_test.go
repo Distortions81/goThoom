@@ -14,20 +14,12 @@ func preserveStoragePathTestState(t *testing.T) {
 	originalSettings := gs
 	originalActivePaths := activeStoragePaths
 	originalActivated := storagePathsActivated
-	originalGlobalBase := globalSettingsBase
-	originalGlobalReady := globalSettingsBaseReady
-	originalActiveProfile := activeCharacterProfile
-	originalProfiles := characterProfiles
 	originalDirty := settingsDirty
 	t.Cleanup(func() {
 		dataDirPath = originalDataDir
 		gs = originalSettings
 		activeStoragePaths = originalActivePaths
 		storagePathsActivated = originalActivated
-		globalSettingsBase = originalGlobalBase
-		globalSettingsBaseReady = originalGlobalReady
-		activeCharacterProfile = originalActiveProfile
-		characterProfiles = originalProfiles
 		settingsDirty = originalDirty
 	})
 }
@@ -56,8 +48,6 @@ func TestChangeStoragePathCopiesAndVerifiesAssetsBeforeCommit(t *testing.T) {
 	preserveStoragePathTestState(t)
 	dataDirPath = t.TempDir()
 	gs = gsdef
-	globalSettingsBaseReady = false
-	activeCharacterProfile = ""
 	storagePathsActivated = false
 	for name, contents := range map[string]string{
 		CL_ImagesFile:     "image archive",
@@ -173,8 +163,6 @@ func TestSettingCommandValidatesFilePathsBeforeUpdating(t *testing.T) {
 	preserveStoragePathTestState(t)
 	dataDirPath = t.TempDir()
 	gs = gsdef
-	globalSettingsBaseReady = false
-	activeCharacterProfile = ""
 	storagePathsActivated = false
 	activateStoragePaths()
 	entry, err := findSettingEntry("file_paths.go_scripts")

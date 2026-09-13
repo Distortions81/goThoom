@@ -7,6 +7,7 @@ Multi-session:
 - Keep background sessions connected and processing network updates, macros, Go scripts, recordings, reconnects, and separate Text Logs without rendering their scenes.
 - Resume a still-active bard performance at its current time when its tab is selected.
 - Restore open tabs and the selected tab on the next launch without reconnecting automatically.
+- Share one settings configuration across every character and session tab.
 
 Bard music:
 - Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.

@@ -60,14 +60,11 @@ func TestScriptSessionsStartFreshForEveryScope(t *testing.T) {
 	grantScriptPermissionsForTest(t, global)
 	disablescript(owner, "reloaded")
 	oldPackages := scriptPackages
-	oldUI, oldProfile, oldProfiles := uiReady, activeCharacterProfile, characterProfiles
-	oldSettings, oldBase, oldBaseReady := gs, globalSettingsBase, globalSettingsBaseReady
+	oldUI := uiReady
+	oldSettings := gs
 	oldDetails := scriptDetails
 	scriptDetails = nil
 	uiReady = true
-	activeCharacterProfile = ""
-	characterProfiles = characterProfilesDocument{}
-	globalSettingsBaseReady = false
 	source := func(id string) []byte {
 		return []byte(fmt.Sprintf(`package main
 import ("gt2"; "time")
@@ -99,8 +96,8 @@ func Terminate(){gt2.Store("terminated",true)}
 		disablescript(global, "test cleanup")
 		drainScriptDispatcher()
 		scriptPackages = oldPackages
-		uiReady, activeCharacterProfile, characterProfiles = oldUI, oldProfile, oldProfiles
-		gs, globalSettingsBase, globalSettingsBaseReady = oldSettings, oldBase, oldBaseReady
+		uiReady = oldUI
+		gs = oldSettings
 		scriptDetails = oldDetails
 	})
 	applyEnabledScripts()
@@ -112,7 +109,6 @@ func Terminate(){gt2.Store("terminated",true)}
 		t.Fatalf("no-selection enable changed stored scope: %+v", scope)
 	}
 	name = "Alpha"
-	switchCharacterProfile("Alpha")
 	if scriptIsRunning(owner) || scriptIsRunning(global) {
 		t.Fatal("selecting a player started scripts before login")
 	}

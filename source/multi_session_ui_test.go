@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 
 	"gothoom/eui"
@@ -14,6 +15,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	oldSessions, oldViewports := appSessions, appViewports
 	oldGameWindow, oldTabBar := gameWin, sessionTabBar
 	oldFake, oldMovie, oldPCAP := fake, clmov, pcapPath
+	oldScale := eui.UIScale()
 	oldWorkspace := multiSessionWorkspace
 	oldWorkspaceUsed, oldWorkspaceDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
 	appMusicSource.mu.RLock()
@@ -26,6 +28,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 		appSessions, appViewports = oldSessions, oldViewports
 		gameWin, sessionTabBar = oldGameWindow, oldTabBar
 		fake, clmov, pcapPath = oldFake, oldMovie, oldPCAP
+		eui.SetUIScale(oldScale)
 		multiSessionWorkspace = oldWorkspace
 		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldWorkspaceUsed, oldWorkspaceDirty
 		appMusicSource.mu.Lock()
@@ -34,6 +37,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	})
 
 	fake, clmov, pcapPath = false, "", ""
+	eui.SetUIScale(2)
 	appSessions = newSessionManager(mustNewSession(primarySessionID))
 	appViewports = newViewportManager()
 	gameWin = newGameRenderWindow()
@@ -70,6 +74,20 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	}
 	if _, ok := appSessions.addSession(); ok {
 		t.Fatal("added an eleventh session")
+	}
+	wantWidth := gameWin.GetSize().X - 2*(gameWin.Padding+gameWin.BorderPad)
+	if got := sessionTabBar.GetSize().X; math.Abs(float64(got-wantWidth)) > 0.01 {
+		t.Fatalf("ten-tab strip width = %.2f, want %.2f", got, wantWidth)
+	}
+	if got := sessionTabBar.GetSize().Y; math.Abs(float64(got-sessionTabBarHeight)) > 0.01 {
+		t.Fatalf("tab strip height = %.2f, want %d; controls introduced vertical overflow", got, sessionTabBarHeight)
+	}
+	var childWidth float32
+	for _, item := range sessionTabBar.Contents {
+		childWidth += item.GetSize().X
+	}
+	if math.Abs(float64(childWidth-wantWidth)) > 0.01 {
+		t.Fatalf("tab and add widths = %.2f, want %.2f", childWidth, wantWidth)
 	}
 }
 

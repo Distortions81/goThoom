@@ -21,13 +21,5 @@ func TestSmoothNameTagMotionDefaultsAndPersistence(t *testing.T) {
 		if err != nil || got.SmoothNameTagMotion != enabled {
 			t.Fatalf("setting %v did not round trip: %v", enabled, err)
 		}
-		profile, err := captureCharacterProfile("Motion Test", want)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err = applyCharacterProfile(gsdef, profile)
-		if err != nil || got.SmoothNameTagMotion != enabled {
-			t.Fatalf("profile setting %v did not round trip: %v", enabled, err)
-		}
 	}
 }

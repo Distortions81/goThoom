@@ -1700,7 +1700,7 @@ func (item *itemData) resizeFlow(parentSize point) {
 			size = item.contentBounds()
 		}
 
-		if !item.Scrollable {
+		if !item.Scrollable && !item.ConstrainToSize {
 			// Ensure the flow is large enough to contain its children
 			req := item.contentBounds()
 			if req.X > size.X {

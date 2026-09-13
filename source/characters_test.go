@@ -139,29 +139,23 @@ func TestLoadCharacterRejectsInvalidSavedPasswordHash(t *testing.T) {
 	}
 }
 
-func TestRemoveCharacterClearsProfileEnablement(t *testing.T) {
+func TestRemoveCharacterClearsLastCharacter(t *testing.T) {
 	originalDir := dataDirPath
 	originalCharacters := characters
 	originalSettings := gs
-	originalProfiles := characterProfiles
 	dataDirPath = t.TempDir()
 	t.Cleanup(func() {
 		dataDirPath = originalDir
 		characters = originalCharacters
 		gs = originalSettings
-		characterProfiles = originalProfiles
 	})
 
 	characters = []Character{{Name: "Hero"}}
-	gs.LastCharacter = "Someone Else"
-	characterProfiles = characterProfilesDocument{
-		Version: characterProfilesVersion,
-		Enabled: map[string]bool{"hero": true},
-	}
+	gs.LastCharacter = "Hero"
 
 	removeCharacter("Hero")
-	if characterProfileEnabled("Hero") {
-		t.Fatal("removed login retained per-character profile enablement")
+	if gs.LastCharacter != "" {
+		t.Fatalf("removed login remained the last character: %q", gs.LastCharacter)
 	}
 }
 

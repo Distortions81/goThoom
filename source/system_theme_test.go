@@ -170,13 +170,5 @@ func TestSystemThemeDefaultsAndPersistence(t *testing.T) {
 		if err != nil || got.Theme != name {
 			t.Fatalf("saved theme %q changed to %q: %v", name, got.Theme, err)
 		}
-		profile, err := captureCharacterProfile("Theme Test", want)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err = applyCharacterProfile(gsdef, profile)
-		if err != nil || got.Theme != name {
-			t.Fatalf("profile theme %q changed to %q: %v", name, got.Theme, err)
-		}
 	}
 }

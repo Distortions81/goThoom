@@ -710,7 +710,6 @@ const settingsFile = "settings.json"
 
 func loadSettings() bool {
 	defer syncTTSBlocklist()
-	defer func() { gs = initializeCharacterProfiles(gs) }()
 	path := filepath.Join(dataDirPath, settingsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -966,9 +965,33 @@ func saveSettings() {
 		// Skip disk writes in WASM; silently ignore.
 		return
 	}
-	if err := writeSettingsFile(settingsForSave()); err != nil {
+	if err := writeSettingsFile(gs); err != nil {
 		logError("save settings: %v", err)
 	}
+}
+
+func cloneSettings(value settings) settings {
+	data, err := marshalSettingsDocument(value)
+	if err != nil {
+		return value
+	}
+	cloned, err := unmarshalSettingsDocument(data, value)
+	if err != nil {
+		return value
+	}
+	return cloned
+}
+
+func rememberLastCharacter(character string) {
+	character = strings.TrimSpace(character)
+	if character == freeDemoSelection {
+		character = ""
+	}
+	if gs.LastCharacter == character {
+		return
+	}
+	gs.LastCharacter = character
+	settingsDirty = true
 }
 
 func writeSettingsFile(value settings) error {

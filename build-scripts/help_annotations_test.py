@@ -25,7 +25,8 @@ class AnnotationTests(unittest.TestCase):
     def test_explanations_appear_instead_of_label_only_legends(self):
         html=build_help.figure(self.screens['add-character'])
         self.assertIn('When you later press Connect',html)
-        self.assertIn('Server addresses and file locations remain shared',html)
+        self.assertIn('does not create a Clan Lord account',html)
+        self.assertNotIn('Keep settings separate',html)
         self.assertNotIn('<li><b>1</b> Password (optional)</li>',html)
 
     def test_changed_control_cannot_silently_lose_its_explanation(self):

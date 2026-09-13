@@ -1,5 +1,5 @@
 {
-  "version": 55,
+  "version": 59,
   "clVersion": 1501,
   "screens": [
     {
@@ -128,10 +128,11 @@
         },
         {
           "label": "Color Theme",
-          "help": "Hover to preview a palette. Click to keep it; move away or\npress Escape to restore your choice.",
+          "help": "Follow system switches between AccentLight and\nAccentDark with your system appearance. Hover to preview;\nclick to keep a choice.",
           "kind": "Choice",
-          "value": "AccentDark",
+          "value": "Follow system",
           "options": [
+            "Follow system",
             "AccentDark",
             "AccentLight",
             "Arcade",
@@ -382,6 +383,18 @@
           ]
         },
         {
+          "label": "Smooth nametag motion",
+          "help": "Move names and their health bars between pixels for\nsmoother motion. Text may look slightly softer; turn off for\ncrisp, pixel-aligned labels.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            383,
+            186,
+            325,
+            28
+          ]
+        },
+        {
           "label": "Player Health Display",
           "help": "Color bar keeps names stable; Classic changes name color\nas health falls.",
           "kind": "Choice",
@@ -392,7 +405,7 @@
           ],
           "rect": [
             383,
-            188,
+            218,
             325,
             48
           ]
@@ -407,7 +420,7 @@
           ],
           "rect": [
             383,
-            240,
+            270,
             325,
             48
           ]
@@ -418,7 +431,7 @@
           "value": "3 (range 1\u20138)",
           "rect": [
             383,
-            292,
+            322,
             325,
             48
           ]
@@ -429,7 +442,7 @@
           "value": "Off",
           "rect": [
             383,
-            342,
+            372,
             325,
             28
           ]
@@ -440,7 +453,7 @@
           "value": "Off",
           "rect": [
             383,
-            372,
+            402,
             325,
             28
           ]
@@ -451,7 +464,7 @@
           "value": "On",
           "rect": [
             383,
-            450,
+            480,
             335,
             28
           ]
@@ -462,7 +475,7 @@
           "value": "Off",
           "rect": [
             383,
-            480,
+            510,
             335,
             28
           ]
@@ -473,7 +486,7 @@
           "value": "Off",
           "rect": [
             383,
-            510,
+            540,
             335,
             28
           ]
@@ -586,12 +599,24 @@
           ]
         },
         {
+          "label": "Show :smile: as emoji",
+          "help": "Display names such as :smile: and :thumbs_up: as emoji in\nchat and speech bubbles. Turn off to show the names as\nwritten.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            542,
+            335,
+            28
+          ]
+        },
+        {
           "label": "Timestamp format",
           "help": "mo,day,hour,min,sec,yr:01,02,03...",
           "kind": "Input",
           "rect": [
             24,
-            544,
+            574,
             320,
             48
           ]
@@ -758,7 +783,7 @@
         {
           "label": "Sound effect ambience",
           "kind": "Slider",
-          "value": "1.5 (range 0.1\u201310)",
+          "value": "2 (range 0.1\u201310)",
           "rect": [
             24,
             220,
@@ -872,7 +897,29 @@
           "rect": [
             24,
             132,
-            240,
+            224,
+            24
+          ]
+        },
+        {
+          "label": "Open Voices Folder",
+          "help": "Open the piper/voices folder used for additional voice\nmodels.",
+          "kind": "Button",
+          "rect": [
+            252,
+            132,
+            225,
+            24
+          ]
+        },
+        {
+          "label": "Browse More Voices",
+          "help": "Preview and download Piper voices. Install both the .onnx\nmodel and its matching .onnx.json configuration file.",
+          "kind": "Button",
+          "rect": [
+            481,
+            132,
+            225,
             24
           ]
         },
@@ -898,11 +945,119 @@
           ]
         },
         {
+          "label": "Speech",
+          "help": "Speak ordinary player and NPC speech.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            310,
+            224,
+            28
+          ]
+        },
+        {
+          "label": "Whispers",
+          "help": "Speak whispered messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            252,
+            310,
+            225,
+            28
+          ]
+        },
+        {
+          "label": "Yells",
+          "help": "Speak yelled and exclaimed messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            481,
+            310,
+            225,
+            28
+          ]
+        },
+        {
+          "label": "Thoughts",
+          "help": "Speak thought messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            340,
+            224,
+            28
+          ]
+        },
+        {
+          "label": "Actions",
+          "help": "Speak player and world action messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            252,
+            340,
+            225,
+            28
+          ]
+        },
+        {
+          "label": "Ponders",
+          "help": "Speak ponder messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            481,
+            340,
+            225,
+            28
+          ]
+        },
+        {
+          "label": "Monster speech",
+          "help": "Speak monster messages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            370,
+            224,
+            28
+          ]
+        },
+        {
+          "label": "Your messages",
+          "help": "Speak messages sent by your current character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            252,
+            370,
+            225,
+            28
+          ]
+        },
+        {
+          "label": "Notifications",
+          "help": "Speak in-game notification text when TTS is enabled.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            481,
+            370,
+            225,
+            28
+          ]
+        },
+        {
           "label": "TTS test phrase",
           "kind": "Input",
           "rect": [
             24,
-            312,
+            450,
             480,
             48
           ]
@@ -912,7 +1067,7 @@
           "kind": "Button",
           "rect": [
             24,
-            364,
+            502,
             140,
             28
           ]
@@ -922,7 +1077,7 @@
           "kind": "Button",
           "rect": [
             172,
-            364,
+            502,
             200,
             28
           ]
@@ -1549,7 +1704,7 @@
         },
         {
           "label": "Faster Character Shadows",
-          "help": "Uses one cheaper shadow pass, but may shade foreground\nartwork that should cover a shadow.",
+          "help": "Combines directional shadows into one cheaper layer\nbeneath characters and foreground artwork.",
           "kind": "Checkbox",
           "value": "Off",
           "rect": [
@@ -2143,7 +2298,7 @@
       "title": "Add a character",
       "route": "Login \u2192 Add Character",
       "width": 236,
-      "height": 288,
+      "height": 262,
       "controls": [
         {
           "label": "Character",
@@ -2177,23 +2332,11 @@
           ]
         },
         {
-          "label": "Keep settings separate",
-          "help": "Start this character with independent windows, appearance,\naudio, notifications, and related settings.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            16,
-            190,
-            200,
-            24
-          ]
-        },
-        {
           "label": "Add",
           "kind": "Button",
           "rect": [
             16,
-            216,
+            190,
             200,
             24
           ]
@@ -2203,7 +2346,7 @@
           "kind": "Button",
           "rect": [
             16,
-            244,
+            218,
             200,
             24
           ]
@@ -2277,7 +2420,7 @@
           "label": "Sound effect enhancement strength. 1.00 is the normal\nenhanced mix.",
           "help": "Sound effect enhancement strength. 1.00 is the normal\nenhanced mix.",
           "kind": "Slider",
-          "value": "1.5 (range 0.1\u201310)",
+          "value": "2 (range 0.1\u201310)",
           "rect": [
             484,
             70,
@@ -2934,14 +3077,14 @@
       "title": "Gamepad (work in progress)",
       "route": "Settings \u2192 Controls \u2192 Gamepad",
       "width": 386,
-      "height": 724,
+      "height": 764,
       "controls": [
         {
           "label": "Controller",
           "kind": "Choice",
           "rect": [
             16,
-            64,
+            78,
             350,
             44
           ]
@@ -2951,7 +3094,7 @@
           "kind": "Button",
           "rect": [
             16,
-            112,
+            126,
             80,
             24
           ]
@@ -2962,7 +3105,18 @@
           "value": "Off",
           "rect": [
             16,
-            196,
+            210,
+            128,
+            24
+          ]
+        },
+        {
+          "label": "Use standard controller layout when available",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            16,
+            236,
             128,
             24
           ]
@@ -2977,7 +3131,7 @@
           "disabled": true,
           "rect": [
             16,
-            222,
+            262,
             260,
             44
           ]
@@ -2988,7 +3142,7 @@
           "value": "0.1 (range 0.01\u20130.2)",
           "rect": [
             16,
-            270,
+            310,
             260,
             44
           ]
@@ -3003,7 +3157,7 @@
           "disabled": true,
           "rect": [
             16,
-            318,
+            358,
             260,
             44
           ]
@@ -3014,7 +3168,7 @@
           "value": "0.1 (range 0.01\u20130.2)",
           "rect": [
             16,
-            366,
+            406,
             260,
             44
           ]
@@ -3024,7 +3178,7 @@
           "kind": "Input",
           "rect": [
             16,
-            414,
+            454,
             350,
             44
           ]
@@ -3034,7 +3188,7 @@
           "kind": "Input",
           "rect": [
             16,
-            462,
+            502,
             350,
             44
           ]
@@ -3044,7 +3198,7 @@
           "kind": "Input",
           "rect": [
             16,
-            510,
+            550,
             350,
             44
           ]
@@ -3133,7 +3287,7 @@
           "kind": "Button",
           "rect": [
             12,
-            104,
+            120,
             24,
             24
           ]
@@ -3144,7 +3298,7 @@
           "kind": "Button",
           "rect": [
             40,
-            104,
+            120,
             53,
             24
           ]
@@ -3154,7 +3308,7 @@
           "kind": "Button",
           "rect": [
             97,
-            104,
+            120,
             88,
             24
           ]
@@ -3166,7 +3320,7 @@
           "disabled": true,
           "rect": [
             189,
-            104,
+            120,
             88,
             24
           ]
@@ -3178,7 +3332,7 @@
           "value": "Off",
           "rect": [
             645,
-            102,
+            118,
             110,
             24
           ]
@@ -3191,7 +3345,7 @@
           "disabled": true,
           "rect": [
             759,
-            102,
+            118,
             150,
             24
           ]
@@ -3202,7 +3356,7 @@
           "kind": "Button",
           "rect": [
             12,
-            136,
+            168,
             24,
             24
           ]
@@ -3213,7 +3367,7 @@
           "kind": "Button",
           "rect": [
             40,
-            136,
+            168,
             53,
             24
           ]
@@ -3223,7 +3377,7 @@
           "kind": "Button",
           "rect": [
             97,
-            136,
+            168,
             88,
             24
           ]
@@ -3233,7 +3387,7 @@
           "kind": "Button",
           "rect": [
             189,
-            136,
+            168,
             88,
             24
           ]
@@ -3245,7 +3399,7 @@
           "value": "Off",
           "rect": [
             645,
-            134,
+            166,
             110,
             24
           ]
@@ -3258,7 +3412,7 @@
           "disabled": true,
           "rect": [
             759,
-            134,
+            166,
             150,
             24
           ]
@@ -3269,7 +3423,7 @@
           "kind": "Button",
           "rect": [
             12,
-            168,
+            216,
             24,
             24
           ]
@@ -3280,7 +3434,7 @@
           "kind": "Button",
           "rect": [
             40,
-            168,
+            216,
             53,
             24
           ]
@@ -3292,7 +3446,7 @@
           "disabled": true,
           "rect": [
             97,
-            168,
+            216,
             88,
             24
           ]
@@ -3302,7 +3456,7 @@
           "kind": "Button",
           "rect": [
             189,
-            168,
+            216,
             88,
             24
           ]
@@ -3314,7 +3468,7 @@
           "value": "Off",
           "rect": [
             645,
-            166,
+            214,
             110,
             24
           ]
@@ -3327,7 +3481,7 @@
           "disabled": true,
           "rect": [
             759,
-            166,
+            214,
             150,
             24
           ]
@@ -3338,7 +3492,7 @@
           "kind": "Button",
           "rect": [
             12,
-            200,
+            264,
             24,
             24
           ]
@@ -3349,7 +3503,7 @@
           "kind": "Button",
           "rect": [
             40,
-            200,
+            264,
             53,
             24
           ]
@@ -3359,7 +3513,7 @@
           "kind": "Button",
           "rect": [
             97,
-            200,
+            264,
             88,
             24
           ]
@@ -3369,142 +3523,6 @@
           "help": "This macro has no keybinds.",
           "kind": "Button",
           "disabled": true,
-          "rect": [
-            189,
-            200,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Enable for every character.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            645,
-            198,
-            110,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Select a character first.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            759,
-            198,
-            150,
-            24
-          ]
-        },
-        {
-          "label": "Show macro details, commands, and keybindings.",
-          "help": "Show macro details, commands, and keybindings.",
-          "kind": "Button",
-          "rect": [
-            12,
-            232,
-            24,
-            24
-          ]
-        },
-        {
-          "label": "Edit",
-          "help": "Open this macro file.",
-          "kind": "Button",
-          "rect": [
-            40,
-            232,
-            53,
-            24
-          ]
-        },
-        {
-          "label": "Commands",
-          "kind": "Button",
-          "rect": [
-            97,
-            232,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "Keybinds",
-          "help": "This macro has no keybinds.",
-          "kind": "Button",
-          "disabled": true,
-          "rect": [
-            189,
-            232,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Enable for every character.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            645,
-            230,
-            110,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Select a character first.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            759,
-            230,
-            150,
-            24
-          ]
-        },
-        {
-          "label": "Show macro details, commands, and keybindings.",
-          "help": "Show macro details, commands, and keybindings.",
-          "kind": "Button",
-          "rect": [
-            12,
-            264,
-            24,
-            24
-          ]
-        },
-        {
-          "label": "Edit",
-          "help": "Open this macro file.",
-          "kind": "Button",
-          "rect": [
-            40,
-            264,
-            53,
-            24
-          ]
-        },
-        {
-          "label": "Commands",
-          "kind": "Button",
-          "rect": [
-            97,
-            264,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "Keybinds",
-          "kind": "Button",
           "rect": [
             189,
             264,
@@ -3543,7 +3561,7 @@
           "kind": "Button",
           "rect": [
             12,
-            296,
+            312,
             24,
             24
           ]
@@ -3554,7 +3572,7 @@
           "kind": "Button",
           "rect": [
             40,
-            296,
+            312,
             53,
             24
           ]
@@ -3564,7 +3582,7 @@
           "kind": "Button",
           "rect": [
             97,
-            296,
+            312,
             88,
             24
           ]
@@ -3576,7 +3594,7 @@
           "disabled": true,
           "rect": [
             189,
-            296,
+            312,
             88,
             24
           ]
@@ -3588,7 +3606,7 @@
           "value": "Off",
           "rect": [
             645,
-            294,
+            310,
             110,
             24
           ]
@@ -3601,76 +3619,7 @@
           "disabled": true,
           "rect": [
             759,
-            294,
-            150,
-            24
-          ]
-        },
-        {
-          "label": "Show macro details, commands, and keybindings.",
-          "help": "Show macro details, commands, and keybindings.",
-          "kind": "Button",
-          "rect": [
-            12,
-            328,
-            24,
-            24
-          ]
-        },
-        {
-          "label": "Edit",
-          "help": "Open this macro file.",
-          "kind": "Button",
-          "rect": [
-            40,
-            328,
-            53,
-            24
-          ]
-        },
-        {
-          "label": "Commands",
-          "kind": "Button",
-          "rect": [
-            97,
-            328,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "Keybinds",
-          "help": "This macro has no keybinds.",
-          "kind": "Button",
-          "disabled": true,
-          "rect": [
-            189,
-            328,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Enable for every character.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            645,
-            326,
-            110,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Select a character first.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            759,
-            326,
+            310,
             150,
             24
           ]
@@ -3709,9 +3658,7 @@
         },
         {
           "label": "Keybinds",
-          "help": "This macro has no keybinds.",
           "kind": "Button",
-          "disabled": true,
           "rect": [
             189,
             360,
@@ -3750,7 +3697,7 @@
           "kind": "Button",
           "rect": [
             12,
-            392,
+            408,
             24,
             24
           ]
@@ -3761,7 +3708,7 @@
           "kind": "Button",
           "rect": [
             40,
-            392,
+            408,
             53,
             24
           ]
@@ -3771,7 +3718,7 @@
           "kind": "Button",
           "rect": [
             97,
-            392,
+            408,
             88,
             24
           ]
@@ -3783,7 +3730,7 @@
           "disabled": true,
           "rect": [
             189,
-            392,
+            408,
             88,
             24
           ]
@@ -3795,7 +3742,7 @@
           "value": "Off",
           "rect": [
             645,
-            390,
+            406,
             110,
             24
           ]
@@ -3808,76 +3755,7 @@
           "disabled": true,
           "rect": [
             759,
-            390,
-            150,
-            24
-          ]
-        },
-        {
-          "label": "Show macro details, commands, and keybindings.",
-          "help": "Show macro details, commands, and keybindings.",
-          "kind": "Button",
-          "rect": [
-            12,
-            424,
-            24,
-            24
-          ]
-        },
-        {
-          "label": "Edit",
-          "help": "Open this macro file.",
-          "kind": "Button",
-          "rect": [
-            40,
-            424,
-            53,
-            24
-          ]
-        },
-        {
-          "label": "Commands",
-          "kind": "Button",
-          "rect": [
-            97,
-            424,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "Keybinds",
-          "help": "This macro has no keybinds.",
-          "kind": "Button",
-          "disabled": true,
-          "rect": [
-            189,
-            424,
-            88,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Enable for every character.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            645,
-            422,
-            110,
-            24
-          ]
-        },
-        {
-          "label": "On",
-          "help": "Select a character first.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            759,
-            422,
+            406,
             150,
             24
           ]
@@ -3916,7 +3794,9 @@
         },
         {
           "label": "Keybinds",
+          "help": "This macro has no keybinds.",
           "kind": "Button",
+          "disabled": true,
           "rect": [
             189,
             456,
@@ -3955,9 +3835,9 @@
           "kind": "Button",
           "rect": [
             12,
-            488,
+            504,
             24,
-            18
+            2
           ]
         },
         {
@@ -3966,9 +3846,9 @@
           "kind": "Button",
           "rect": [
             40,
-            488,
+            504,
             53,
-            18
+            2
           ]
         },
         {
@@ -3976,9 +3856,9 @@
           "kind": "Button",
           "rect": [
             97,
-            488,
+            504,
             88,
-            18
+            2
           ]
         },
         {
@@ -3988,9 +3868,9 @@
           "disabled": true,
           "rect": [
             189,
-            488,
+            504,
             88,
-            18
+            2
           ]
         },
         {
@@ -4000,9 +3880,9 @@
           "value": "Off",
           "rect": [
             645,
-            486,
+            502,
             110,
-            20
+            4
           ]
         },
         {
@@ -4013,9 +3893,9 @@
           "disabled": true,
           "rect": [
             759,
-            486,
+            502,
             150,
-            20
+            4
           ]
         },
         {
@@ -4252,10 +4132,11 @@
           ]
         },
         {
-          "label": "Enable for Alpha.",
-          "help": "Enable for Alpha.",
+          "label": "Select a saved character on Login before enabling a\nper-player script.",
+          "help": "Select a saved character on Login before enabling a\nper-player script.",
           "kind": "Checkbox",
-          "value": "On",
+          "value": "Off",
+          "disabled": true,
           "rect": [
             70,
             127,
@@ -4279,7 +4160,6 @@
           "label": "Reload this script from disk",
           "help": "Reload this script from disk",
           "kind": "Button",
-          "disabled": true,
           "rect": [
             556,
             123,
@@ -4404,7 +4284,6 @@
         {
           "label": "Reload",
           "kind": "Button",
-          "disabled": true,
           "rect": [
             656,
             476,
@@ -4413,9 +4292,8 @@
           ]
         },
         {
-          "label": "Stop",
+          "label": "Disable",
           "kind": "Button",
-          "disabled": true,
           "rect": [
             756,
             476,
@@ -4618,5 +4496,5 @@
       ]
     }
   ],
-  "updated": "2026-09-09"
+  "updated": "2026-09-13"
 }

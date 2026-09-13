@@ -63,8 +63,6 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
-var addCharProfile bool
-var addCharProfileCB *eui.ItemData
 var editCharWin *eui.WindowData
 var editCharName string
 var editCharPass string
@@ -73,8 +71,6 @@ var editCharPassWarn *eui.ItemData
 var editCharPassPrev string
 var editCharRemember bool
 var editCharRememberCB *eui.ItemData
-var editCharProfile bool
-var editCharProfileCB *eui.ItemData
 var editCharBtn *eui.ItemData
 var deleteCharBtn *eui.ItemData
 
@@ -2972,7 +2968,7 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 	controls.edit = edit
 	controls.edit.Text = "Edit"
 	setMaterialButtonIcon(controls.edit, "edit")
-	controls.edit.SetTooltip("Change the selected character's password, password saving, or settings profile.")
+	controls.edit.SetTooltip("Change the selected character's password or password saving.")
 	controls.edit.Size = controls.add.Size
 	editEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
@@ -3227,11 +3223,7 @@ func updateCharacterButtons() {
 			name = choice.selection
 			passHash = choice.character.passHash
 			pass = ""
-			if choice.demo {
-				switchCharacterProfile("")
-			} else {
-				switchCharacterProfile(choice.selection)
-			}
+			rememberLastCharacter(choice.selection)
 			updateCharacterButtons()
 		},
 	})
@@ -3239,7 +3231,7 @@ func updateCharacterButtons() {
 		button *eui.ItemData
 		help   string
 	}{
-		{editCharBtn, "Change the selected character's password, password saving, or settings profile."},
+		{editCharBtn, "Change the selected character's password or password saving."},
 		{deleteCharBtn, "Delete the selected saved character"},
 	} {
 		if action.button == nil {
@@ -3298,7 +3290,7 @@ func selectCharacterForLoginTarget(target loginSurfaceTarget, characterName, pas
 		name = characterName
 		passHash = passwordHash
 		pass = ""
-		switchCharacterProfile(characterName)
+		rememberLastCharacter(characterName)
 		return
 	}
 	if appViewports == nil {
@@ -3326,11 +3318,6 @@ func openAddCharacterForLogin(target loginSurfaceTarget, anchor *eui.ItemData) {
 	addCharPassPrev = ""
 	clearCapsWarnings()
 	addCharRemember = true
-	addCharProfile = false
-	if addCharProfileCB != nil {
-		addCharProfileCB.Checked = false
-		addCharProfileCB.Dirty = true
-	}
 	if !target.viewport && loginWin != nil {
 		loginWin.Close()
 	}
@@ -3411,19 +3398,6 @@ func makeAddCharacterWindow() {
 	}
 	flow.AddItem(rememberCB)
 
-	profileCB, profileEvents := eui.NewCheckbox()
-	addCharProfileCB = profileCB
-	profileCB.Text = "Keep settings separate"
-	profileCB.SetTooltip("Start this character with independent windows, appearance, audio, notifications, and related settings.")
-	profileCB.Size = eui.Point{X: 200, Y: 24}
-	profileCB.Checked = addCharProfile
-	profileEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			addCharProfile = ev.Checked
-		}
-	}
-	flow.AddItem(profileCB)
-
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add"
 	setMaterialButtonIcon(addBtn, "add")
@@ -3444,12 +3418,10 @@ func makeAddCharacterWindow() {
 			saveCharacters()
 			target := characterEditorTarget
 			hash := stageAddedCharacterPasswordForSession(sessionForLoginTarget(target.sessionID), characterName, addCharPass, addCharRemember)
-			setCharacterProfileEnabled(characterName, addCharProfile)
 			selectCharacterForLoginTarget(target, characterName, hash)
 			refreshLoginCharacterPanels()
 			// Clear the add-character inputs for good UX on repeat adds
 			addCharName = ""
-			addCharProfile = false
 			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharPassPrev = ""
 			clearCapsWarnings()
@@ -3530,7 +3502,6 @@ func prepareEditCharacterForSession(session *Session, characterName string) erro
 	} else if _, remember, staged := stagedPasswordSettings(character.Name); staged {
 		editCharRemember = remember
 	}
-	editCharProfile = characterProfileEnabled(character.Name)
 	editCharPass = ""
 	editCharPassPrev = ""
 	clearPasswordInput(editCharPassInput, &editCharPass)
@@ -3542,11 +3513,6 @@ func prepareEditCharacterForSession(session *Session, characterName string) erro
 	if editCharRememberCB != nil {
 		editCharRememberCB.Checked = editCharRemember
 		editCharRememberCB.Dirty = true
-	}
-	if editCharProfileCB != nil {
-		editCharProfileCB.Checked = editCharProfile
-		editCharProfileCB.Text = "Keep settings separate"
-		editCharProfileCB.Dirty = true
 	}
 	return nil
 }
@@ -3597,18 +3563,6 @@ func makeEditCharacterWindow() {
 	}
 	flow.AddItem(rememberCB)
 
-	profileCB, profileEvents := eui.NewCheckbox()
-	editCharProfileCB = profileCB
-	profileCB.Text = "Keep settings separate"
-	profileCB.SetTooltip("Give this character independent windows, appearance, audio, notifications, and related settings.")
-	profileCB.Size = eui.Point{X: 280, Y: 24}
-	profileEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			editCharProfile = ev.Checked
-		}
-	}
-	flow.AddItem(profileCB)
-
 	btnFlow := eui.NewRow()
 	cancelBtn, cancelEvents := eui.NewButton()
 	cancelBtn.Text = "Cancel"
@@ -3639,9 +3593,8 @@ func makeEditCharacterWindow() {
 			makeErrorWindow("Error: Edit Character: " + err.Error())
 			return
 		}
-		setCharacterProfileEnabled(editCharName, editCharProfile)
 		if !target.viewport && strings.EqualFold(name, editCharName) {
-			switchCharacterProfile(editCharName)
+			rememberLastCharacter(editCharName)
 			passHash = hash
 			pass = ""
 		} else if target.viewport {
@@ -4265,7 +4218,7 @@ func makeLoginWindow() {
 				showPasswordPrompt(false, passwordRememberPreference(name), anchor)
 				return
 			}
-			switchCharacterProfile(name)
+			rememberLastCharacter(name)
 			startLogin()
 			updateCharacterButtons()
 		},

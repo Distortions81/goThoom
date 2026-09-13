@@ -163,12 +163,10 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	originalEditBtn := editCharBtn
 	originalDeleteBtn := deleteCharBtn
 	originalCharacters := characters
-	originalProfiles := characterProfiles
 	originalName := name
 	originalLastCharacter := gs.LastCharacter
 	originalEditName := editCharName
 	originalEditRemember := editCharRemember
-	originalEditProfile := editCharProfile
 	loginWin = nil
 	charactersList = nil
 	editCharBtn = nil
@@ -176,10 +174,6 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	characters = []Character{
 		{Name: "Alice", passHash: "0123456789abcdef0123456789abcdef"},
 		{Name: "Bob", DontRemember: true},
-	}
-	characterProfiles = characterProfilesDocument{
-		Version: characterProfilesVersion,
-		Enabled: map[string]bool{"alice": true},
 	}
 	name = "Alice"
 	gs.LastCharacter = "Alice"
@@ -192,12 +186,10 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 		editCharBtn = originalEditBtn
 		deleteCharBtn = originalDeleteBtn
 		characters = originalCharacters
-		characterProfiles = originalProfiles
 		name = originalName
 		gs.LastCharacter = originalLastCharacter
 		editCharName = originalEditName
 		editCharRemember = originalEditRemember
-		editCharProfile = originalEditProfile
 	})
 
 	makeLoginWindow()
@@ -208,8 +200,8 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	if err := prepareEditCharacter("Alice"); err != nil {
 		t.Fatalf("prepare Alice: %v", err)
 	}
-	if !editCharRemember || !editCharProfile {
-		t.Fatal("Alice's saved password and profile choices were not shown")
+	if !editCharRemember {
+		t.Fatal("Alice's saved-password choice was not shown")
 	}
 
 	name = "Bob"
@@ -217,8 +209,8 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	if err := prepareEditCharacter("Bob"); err != nil {
 		t.Fatalf("prepare Bob: %v", err)
 	}
-	if editCharRemember || editCharProfile {
-		t.Fatal("Bob should default to no saved password and global settings")
+	if editCharRemember {
+		t.Fatal("Bob should default to no saved password")
 	}
 
 	name = freeDemoSelection

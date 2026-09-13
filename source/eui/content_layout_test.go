@@ -40,6 +40,29 @@ func TestButtonWidthIncludesCaptionIconAndHelpAtEveryScale(t *testing.T) {
 	}
 }
 
+func TestConstrainedFlowKeepsDeclaredViewportSize(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := UIScale()
+	t.Cleanup(func() { SetUIScale(oldScale) })
+	SetUIScale(2)
+
+	row := NewRow()
+	row.Fixed = true
+	row.ConstrainToSize = true
+	row.Size = Point{X: 100, Y: 20}
+	button, _ := NewButton()
+	button.Text = "Wide child"
+	button.Size = Point{X: 100, Y: 20}
+	button.Position = Point{X: 4, Y: 4}
+	row.AddItem(button)
+
+	if got := row.GetSize(); got != (Point{X: 200, Y: 40}) {
+		t.Fatalf("constrained flow grew to %+v, want its declared 200x40 pixel viewport", got)
+	}
+}
+
 func TestWindowBodyReservesMeasuredFooterAndPositionGaps(t *testing.T) {
 	if err := Init(); err != nil {
 		t.Fatal(err)

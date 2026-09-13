@@ -42,7 +42,7 @@
           <a class="back-link" href="../index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
           <p class="eyebrow"><span></span> Player guide and reference</p>
           <h1 id="manual-title">goThoom<br><em>user manual.</em></h1>
-          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 9, 2026</p><!-- /help-metadata -->
+          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 59 · Clan Lord 1501 · September 13, 2026</p><!-- /help-metadata -->
           <p class="lede">Everything you need to enter the Lands, arrange the client, tune its sound and picture, automate common actions, and solve the usual problems.</p>
         </div>
         <aside class="manual-start-card" aria-labelledby="start-card-title">
@@ -126,18 +126,18 @@
             </div>
 
             <h3 id="first-launch">Add and connect a character</h3>
-            <p>In the Login window, select <strong>Add Character</strong>, enter the character name and password, and choose whether to remember the password. Leave <strong>Keep settings separate</strong> off to share the global client setup, or opt in when this login should have independent settings. To change those choices later, select the character and open <strong>Edit Character</strong>; there you can enter a new password, change <strong>Save Password</strong>, or choose whether it keeps settings separate. Select the character and press <strong>Connect</strong>. If a saved character has no remembered password, goThoom asks for it when you connect.</p>
+            <p>In the Login window, select <strong>Add Character</strong>, enter the character name and password, and choose whether to remember the password. To change those choices later, select the character and open <strong>Edit Character</strong>. Select the character and press <strong>Connect</strong>. If a saved character has no remembered password, goThoom asks for it when you connect.</p>
             <p><strong>Remember Password</strong> is a convenience feature stored in the local client data. It is not an operating-system password vault. Anyone who can read those files should be treated as having access to the saved login.</p>
             <p>Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account.</p>
 
             <!-- help-figure:add-character -->
 <figure class="help-figure" data-screen="add-character">
   <div class="help-image" style="max-width:236px">
-    <img src="images/add-character.png" width="236" height="288" loading="lazy" decoding="async" alt="Add a character. Highlighted controls: Password (optional); Keep settings separate.">
-<div class="help-highlights"><span class="help-highlight" style="left:6.7797%;top:30.5556%;width:84.7458%;height:15.2778%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:6.7797%;top:65.9722%;width:84.7458%;height:8.3333%" aria-hidden="true"><b>2</b></span></div>
+    <img src="images/add-character.png" width="236" height="262" loading="lazy" decoding="async" alt="Add a character. Highlighted controls: Password (optional).">
+<div class="help-highlights"><span class="help-highlight" style="left:6.7797%;top:33.5878%;width:84.7458%;height:16.7939%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Login → Add Character</strong>
-<ol class="help-legend"><li><b>1</b><p>You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account.</p></li><li><b>2</b><p>Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices.</p></li></ol>
+<ol class="help-legend"><li><b>1</b><p>You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account.</p></li></ol>
     <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/add-character.png" target="_blank" rel="noopener">Open full-size image</a></div>
   </figcaption>
 </figure>
@@ -147,17 +147,16 @@
               <li>Finish the resource downloads before trying to enter the game. The artwork and sound files are separate from the client executable.</li>
               <li>Choose <strong>Add Character</strong>. Enter the character you already use for Clan Lord. Adding a local entry does not create a new paid account.</li>
               <li>Leave the password empty if you want to enter it at connection time. Otherwise enter it and decide whether to check <strong>Remember Password</strong>.</li>
-              <li>Leave <strong>Keep settings separate</strong> off for a shared setup. Enable it if this character needs its own layout or preferences.</li>
               <li>Press <strong>Add</strong>, select the saved character in Login, then press <strong>Connect</strong>. Enter the password if prompted.</li>
               <li>After connecting, try a short movement and a chat message. Open <strong>Settings</strong> from the toolbar to make the client comfortable.</li>
             </ol>
-            <p>Select the character you intend to use before opening Edit Character or adjusting its separate settings.</p>
+            <p>Settings apply to every character and session tab. Script and macro managers can still enable automation for specific characters.</p>
 
             <h3 id="first-run-setup-wizard">First-run setup wizard</h3>
             <p>The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check briefly shows <strong>One moment, checking performance.</strong> while it selects Default or iGPU Graphics for the current machine. You can run the wizard again later from <strong>Settings → Tools → Setup Wizard</strong>; reopening it starts from your current settings rather than resetting them first.</p>
             <div class="manual-callout">
               <strong>The default starting point</strong>
-              <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Smooth movement, small-moving-sprite interpolation, network latency and server phase timing, sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech, automatic recording, and per-character settings profiles are off.</p>
+              <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Smooth movement, small-moving-sprite interpolation, network latency and server phase timing, sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech and automatic recording are off.</p>
             </div>
           </section>
 
@@ -482,7 +481,7 @@
 <figure class="help-figure" data-screen="settings-world">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-world.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: World. Highlighted controls: Show recently on-screen group; Show sharing icons in Players list.">
-<div class="help-highlights"><span class="help-highlight" style="left:51.3405%;top:62.8492%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:71.2291%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:51.3405%;top:67.0391%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:75.4190%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
   </div>
   <figcaption><strong>Settings → World</strong>
 <ol class="help-legend"><li><b>1</b><p>This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby.</p></li><li><b>2</b><p>Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style.</p></li></ol>
@@ -491,10 +490,9 @@
 </figure>
 <!-- /help-figure -->
 
-            <h3 id="per-character-profiles">Per-character profiles</h3>
-            <p>Settings are shared globally by default. On the Login screen, select a saved character, open <strong>Edit Character</strong>, and enable <strong>Keep settings separate</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
-            <p>Enabling a profile for the first time copies the current global setup. Turning it off immediately returns that login to the shared global setup without deleting its saved profile; turn it on again to restore the character’s prior choices. Changes are saved automatically.</p>
-            <p>The profiles and their opt-in state live in <code>profiles.json</code> in the user data directory. Script and macro enablement separately retain their explicit per-player/all-player selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
+            <h3 id="shared-settings">Shared settings</h3>
+            <p>Every character and session tab uses the same window layout, audio, notifications, appearance, rendering, speech-bubble, and related preferences. Changes are saved automatically and take effect across the client.</p>
+            <p>Script and macro enablement separately retain their explicit per-player/all-player selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
 
             <div class="manual-callout warning">
               <strong>Reset means reset</strong>
@@ -674,8 +672,7 @@
               <table>
                 <thead><tr><th>Location</th><th>Purpose</th></tr></thead>
                 <tbody>
-                  <tr><td><code>settings.json</code></td><td>Your saved global client settings. The current global setup, not the built-in defaults, is copied when a character profile is first enabled.</td></tr>
-                  <tr><td><code>profiles.json</code></td><td>Opt-in state and saved settings for logins that use a per-character profile.</td></tr>
+                  <tr><td><code>settings.json</code></td><td>Your saved client settings, shared by every character and session tab.</td></tr>
                   <tr><td><code>characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
                   <tr><td><code>Scripts</code></td><td>Your Go scripts, author documentation, <code>enabled.json</code>, and <code>permissions.json</code>.</td></tr>
                   <tr><td><code>Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>

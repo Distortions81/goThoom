@@ -79,7 +79,6 @@ func startSessionScripts(character string) uint64 {
 	previous := scriptSessionCharacter
 	scriptSessionActive = false
 	scriptSessionMu.Unlock()
-	switchCharacterProfile(character)
 	clearCommands()
 	scriptSessionGeneration.Add(1)
 	clearScriptLatestServerMessage()
