@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"math"
+	"net"
 	"testing"
 
 	"gothoom/eui"
@@ -41,7 +42,7 @@ func TestViewportImageBuffersAreIndependent(t *testing.T) {
 	}
 }
 
-func TestViewportLoginOverlayOwnsFullImageAndTracksConnectionState(t *testing.T) {
+func TestViewportLoginPanelAndLogoutTrackConnectionState(t *testing.T) {
 	if err := eui.Init(); err != nil {
 		t.Fatalf("initialize EUI: %v", err)
 	}
@@ -63,6 +64,17 @@ func TestViewportLoginOverlayOwnsFullImageAndTracksConnectionState(t *testing.T)
 	})
 
 	session := mustNewSession(2)
+	oldSessions, oldWorkspaceUpdate := appSessions, queueSessionWorkspaceUIUpdate
+	appSessions = newSessionManager(mustNewSession(primarySessionID))
+	appSessions.mu.Lock()
+	appSessions.multi = true
+	appSessions.slots[1] = session
+	appSessions.mu.Unlock()
+	queueSessionWorkspaceUIUpdate = func() {}
+	t.Cleanup(func() {
+		appSessions = oldSessions
+		queueSessionWorkspaceUIUpdate = oldWorkspaceUpdate
+	})
 	session.login.setRequest(sessionLoginRequest{host: "example.test:5010", character: "Test Hero"})
 	makeViewportLoginOverlay(state, session)
 	updateViewportImageSize(state, false)
@@ -71,14 +83,23 @@ func TestViewportLoginOverlayOwnsFullImageAndTracksConnectionState(t *testing.T)
 	if state.loginOverlay == nil || state.loginForm == nil {
 		t.Fatal("viewport login overlay was not created")
 	}
-	if len(state.window.Contents) != 2 || state.window.Contents[0] != state.imageItem || state.window.Contents[1] != state.loginOverlay {
-		t.Fatal("login overlay does not render above the viewport image")
+	if len(state.window.Contents) != 3 || state.window.Contents[0] != state.imageItem || state.window.Contents[1] != state.loginOverlay || state.window.Contents[2] != state.sessionLogout {
+		t.Fatal("login panel and logout action do not render above the viewport image")
 	}
 	if state.loginOverlay.Invisible {
 		t.Fatal("disconnected session login overlay is hidden")
 	}
-	if state.loginOverlay.Size != state.imageItem.Size || state.loginOverlay.Position != state.imageItem.Position {
-		t.Fatalf("overlay geometry = %+v at %+v, image = %+v at %+v", state.loginOverlay.Size, state.loginOverlay.Position, state.imageItem.Size, state.imageItem.Position)
+	if state.loginOverlay.GetSize().X >= state.imageItem.GetSize().X || state.loginOverlay.GetSize().Y >= state.imageItem.GetSize().Y {
+		t.Fatalf("login background covers the full viewport: panel %+v, image %+v", state.loginOverlay.GetSize(), state.imageItem.GetSize())
+	}
+	if state.loginOverlay.Color.A == 0 || state.loginOverlay.Color.A >= state.window.Theme.Window.BGColor.A {
+		t.Fatalf("login background alpha = %d, theme alpha = %d", state.loginOverlay.Color.A, state.window.Theme.Window.BGColor.A)
+	}
+	if state.loginForm.Position != (eui.Point{X: viewportLoginPanelPadding, Y: viewportLoginPanelPadding}) {
+		t.Fatalf("login form inset = %+v", state.loginForm.Position)
+	}
+	if state.sessionLogout == nil || !state.sessionLogout.Invisible {
+		t.Fatal("disconnected session exposes its logout action")
 	}
 	if state.loginCharacter != "" {
 		t.Fatalf("invalid saved-character selection was retained: %q", state.loginCharacter)
@@ -115,6 +136,33 @@ func TestViewportLoginOverlayOwnsFullImageAndTracksConnectionState(t *testing.T)
 	refreshViewportLoginOverlay(state, session, false)
 	if !state.loginOverlay.Invisible {
 		t.Fatal("single-session mode left the embedded login overlay visible")
+	}
+
+	session.transport.failConnect()
+	tcp, tcpPeer := net.Pipe()
+	udp, udpPeer := net.Pipe()
+	t.Cleanup(func() {
+		session.transport.disconnect()
+		_ = tcpPeer.Close()
+		_ = udpPeer.Close()
+	})
+	if _, ok := session.transport.attach(tcp, udp); !ok {
+		t.Fatal("could not put session into connected state")
+	}
+	refreshViewportLoginOverlay(state, session, true)
+	if !state.loginOverlay.Invisible || state.sessionLogout.Invisible {
+		t.Fatal("connected session did not replace login controls with its logout action")
+	}
+	bounds := state.image.Bounds()
+	buttonSize := state.sessionLogout.GetSize()
+	wantX := state.imageItem.Position.X + float32(bounds.Dx()) - buttonSize.X - viewportControlInset
+	wantY := state.imageItem.Position.Y + float32(bounds.Dy()) - buttonSize.Y - viewportControlInset
+	if state.sessionLogout.Position != (eui.Point{X: wantX, Y: wantY}) {
+		t.Fatalf("logout position = %+v, want bottom-right %+v", state.sessionLogout.Position, eui.Point{X: wantX, Y: wantY})
+	}
+	state.sessionLogout.Handler.Handle(eui.UIEvent{Type: eui.EventClick})
+	if session.transport.connected() {
+		t.Fatal("viewport logout action left its session connected")
 	}
 }
 
@@ -262,11 +310,15 @@ func TestMultiSessionTiledLayoutAndFreeformRestore(t *testing.T) {
 	gameWin.Size = eui.Point{X: 640, Y: 392}
 	gameWin.MarkOpen()
 	bindPrimaryViewportWindow()
+	applyMultiSessionViewportLayoutIfNeeded()
+	if viewportWorkspaceAppliedLayout == viewportLayoutTiled {
+		t.Fatal("tiled layout was marked applied before all session windows existed")
+	}
 	views := appViewports.snapshot()
 	for slot := 1; slot < maxSessions; slot++ {
 		configureSecondaryViewportWindow(views[slot], appSessions.slots[slot])
 	}
-	applyMultiSessionViewportLayout(true)
+	applyMultiSessionViewportLayoutIfNeeded()
 
 	wantRects := tiledViewportRects(image.Rect(100, 80, 900, 720))
 	for slot, view := range appViewports.snapshot() {
@@ -284,6 +336,12 @@ func TestMultiSessionTiledLayoutAndFreeformRestore(t *testing.T) {
 	if !selectedWindow.Outlined || selectedWindow.BorderColor != eui.AccentColor() {
 		t.Fatal("selected tile does not have the accent outline")
 	}
+	if selectedWindow.TitleBGColor != eui.AccentColor() {
+		t.Fatal("selected tile does not have the accent title bar")
+	}
+	if appViewports.renderStateForSession(1).window.TitleBGColor != (eui.Color{}) {
+		t.Fatal("unselected tile retained a title-bar override")
+	}
 
 	gs.TiledWindows = false
 	applyMultiSessionViewportLayoutIfNeeded()
@@ -296,6 +354,25 @@ func TestMultiSessionTiledLayoutAndFreeformRestore(t *testing.T) {
 		}
 		if win.Docked || !win.Movable || !win.Resizable {
 			t.Fatalf("freeform slot %d chrome was not restored", slot)
+		}
+	}
+	if selectedWindow.TitleBGColor != eui.AccentColor() {
+		t.Fatal("selected freeform session does not have the accent title bar")
+	}
+	if !appSessions.selectSession(3) {
+		t.Fatal("select session 3")
+	}
+	drainMainThreadDispatcher()
+	if selectedWindow.TitleBGColor != (eui.Color{}) || appViewports.renderStateForSession(3).window.TitleBGColor != eui.AccentColor() {
+		t.Fatal("accent title bar did not follow the selected session")
+	}
+	appSessions.mu.Lock()
+	appSessions.multi = false
+	appSessions.mu.Unlock()
+	refreshViewportSelectionTreatment()
+	for slot, view := range appViewports.snapshot() {
+		if view.render.window.TitleBGColor != (eui.Color{}) {
+			t.Fatalf("slot %d retained its accent title bar outside multi-session", slot)
 		}
 	}
 }

@@ -126,14 +126,33 @@ func (s *Session) publishConsole(text, messageType string) {
 	if text == "" {
 		return
 	}
-	s.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: text, MessageType: messageType})
-	s.events.consoleLog.AddTyped(text, messageType)
-	queueSessionConsoleUIUpdate()
+	s.recordConsoleEvent(text, messageType)
 	if s == primarySession {
 		serverConsoleMessageTyped(text, messageType)
 	} else {
 		s.dispatchSessionScriptServerMessage(scriptapi.ServerMessage{Message: text, Type: messageType})
 	}
+}
+
+// publishClientConsole records client-generated output without presenting it
+// to script server-message subscriptions as though it came from Clan Lord.
+func (s *Session) publishClientConsole(text, messageType string) {
+	if text == "" {
+		return
+	}
+	s.recordConsoleEvent(text, messageType)
+	if s == primarySession {
+		consoleMessageTyped(text, messageType)
+	}
+}
+
+func (s *Session) recordConsoleEvent(text, messageType string) {
+	if s == nil || s.events == nil || text == "" {
+		return
+	}
+	s.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: text, MessageType: messageType})
+	s.events.consoleLog.AddTyped(text, messageType)
+	queueSessionConsoleUIUpdate()
 }
 
 func (s *Session) publishThink(text string) {

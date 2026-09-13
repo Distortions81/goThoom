@@ -538,18 +538,18 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	sessionsToolbarButton.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	sessionsToolbarButton.FontSize = toolFontSize
 	sessionsToolbarButton.Action = func() {
-		sessionsToolbarButton.Disabled = !sessionsReady()
+		refreshSessionsToolbarButton()
 	}
 	refreshSessionsToolbarButton()
 	sessionsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventClick || !sessionsReady() {
+		if ev.Type != eui.EventClick || sessionsToolbarButton.Disabled {
 			return
 		}
-		if !appSessions.multiEnabled() {
-			appSessions.enableMulti()
+		if appSessions.multiEnabled() {
+			appSessions.disableMulti()
+			return
 		}
-		makeSessionsWindow()
-		sessionsWin.ToggleNear(ev.Item)
+		appSessions.enableMulti()
 	}
 	row2.AddItem(sessionsToolbarButton)
 

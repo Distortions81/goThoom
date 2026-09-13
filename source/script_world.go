@@ -125,7 +125,7 @@ func scriptLocationForSession(session *Session) string {
 
 const scriptMovementLease = 500 * time.Millisecond
 
-var scriptMovement struct {
+type scriptMovementState struct {
 	sync.Mutex
 	owner       string
 	queue       *scriptEventQueue
@@ -135,80 +135,133 @@ var scriptMovement struct {
 	manualAt    time.Time
 }
 
+var scriptMovement scriptMovementState
+
+func scriptMovementStateForSession(session *Session) *scriptMovementState {
+	if session == nil || session == primarySession || session.automation == nil {
+		return &scriptMovement
+	}
+	return &session.automation.movement
+}
+
+func scriptMovementQueueCurrent(session *Session, owner string, queue *scriptEventQueue) bool {
+	if session == nil || session == primarySession {
+		return scriptEventQueueIsCurrent(owner, queue)
+	}
+	return queue != nil && currentSessionScriptEventQueue(session, owner) == queue
+}
+
 func scriptMove(owner string, x, y int16, now time.Time) bool {
-	if scriptIsDisabled(owner) {
+	return scriptMoveForSession(primarySession, owner, x, y, now)
+}
+
+func scriptMoveForSession(session *Session, owner string, x, y int16, now time.Time) bool {
+	if session == nil {
 		return false
 	}
-	queue := currentScriptEventQueue(owner)
+	if session == primarySession && scriptIsDisabled(owner) {
+		return false
+	}
+	var queue *scriptEventQueue
+	if session == primarySession {
+		queue = currentScriptEventQueue(owner)
+		scriptSessionMu.Lock()
+		active := scriptSessionActive
+		scriptSessionMu.Unlock()
+		if !active {
+			return false
+		}
+	} else {
+		queue = currentSessionScriptEventQueue(session, owner)
+		if !session.transport.connected() {
+			return false
+		}
+	}
 	if queue == nil {
 		return false
 	}
-	scriptSessionMu.Lock()
-	defer scriptSessionMu.Unlock()
-	if !scriptSessionActive {
-		return false
-	}
-	primarySession.draw.mu.Lock()
-	fresh := !primarySession.draw.current.receivedAt.IsZero() && now.Sub(primarySession.draw.current.receivedAt) < time.Second
-	primarySession.draw.mu.Unlock()
+	session.draw.mu.Lock()
+	fresh := !session.draw.current.receivedAt.IsZero() && now.Sub(session.draw.current.receivedAt) < time.Second
+	session.draw.mu.Unlock()
 	if !fresh {
 		return false
 	}
-	scriptMovement.Lock()
-	defer scriptMovement.Unlock()
-	if now.Before(scriptMovement.manualUntil) ||
-		(scriptMovement.owner != "" && scriptMovement.owner != owner && now.Before(scriptMovement.expires)) {
+	movement := scriptMovementStateForSession(session)
+	movement.Lock()
+	defer movement.Unlock()
+	if now.Before(movement.manualUntil) ||
+		(movement.owner != "" && movement.owner != owner && now.Before(movement.expires)) {
 		return false
 	}
-	scriptMovement.owner, scriptMovement.queue = owner, queue
-	scriptMovement.input = inputState{mouseX: int16(max(-fieldCenterX, min(fieldCenterX, int(x)))), mouseY: int16(max(-fieldCenterY, min(fieldCenterY, int(y)))), mouseDown: true}
-	scriptMovement.expires = now.Add(scriptMovementLease)
+	movement.owner, movement.queue = owner, queue
+	movement.input = inputState{mouseX: int16(max(-fieldCenterX, min(fieldCenterX, int(x)))), mouseY: int16(max(-fieldCenterY, min(fieldCenterY, int(y)))), mouseDown: true}
+	movement.expires = now.Add(scriptMovementLease)
 	return true
 }
 
 func stopScriptMovement(owner string) {
-	scriptMovement.Lock()
-	if owner == "" || scriptMovement.owner == owner {
-		scriptMovement.owner, scriptMovement.queue = "", nil
-		scriptMovement.expires = time.Time{}
+	stopScriptMovementForSession(primarySession, owner)
+}
+
+func stopScriptMovementForSession(session *Session, owner string) {
+	movement := scriptMovementStateForSession(session)
+	movement.Lock()
+	if owner == "" || movement.owner == owner {
+		movement.owner, movement.queue = "", nil
+		movement.expires = time.Time{}
 	}
-	scriptMovement.Unlock()
+	movement.Unlock()
 }
 
 // Called from ordinary input handling, including legacy macros. Never inject
 // script requests into inputQueue: an expired/reloaded request must not linger.
 func interruptScriptMovement(now time.Time) {
-	scriptMovement.Lock()
-	scriptMovement.owner, scriptMovement.queue = "", nil
-	scriptMovement.expires = time.Time{}
-	scriptMovement.manualUntil = now.Add(time.Second)
-	scriptMovement.manualAt = now
-	scriptMovement.Unlock()
+	interruptScriptMovementForSession(primarySession, now)
+}
+
+func interruptScriptMovementForSession(session *Session, now time.Time) {
+	movement := scriptMovementStateForSession(session)
+	movement.Lock()
+	movement.owner, movement.queue = "", nil
+	movement.expires = time.Time{}
+	movement.manualUntil = now.Add(time.Second)
+	movement.manualAt = now
+	movement.Unlock()
 }
 
 func applyScriptMovement(input inputState, now time.Time) inputState {
+	return applyScriptMovementForSession(primarySession, input, now)
+}
+
+func applyScriptMovementForSession(session *Session, input inputState, now time.Time) inputState {
 	if input.mouseDown {
-		interruptScriptMovement(now)
+		interruptScriptMovementForSession(session, now)
 		return input
 	}
-	scriptMovement.Lock()
-	owner, queue, request, expires := scriptMovement.owner, scriptMovement.queue, scriptMovement.input, scriptMovement.expires
-	scriptMovement.Unlock()
-	if owner != "" && now.Before(expires) && scriptEventQueueIsCurrent(owner, queue) {
+	movement := scriptMovementStateForSession(session)
+	movement.Lock()
+	owner, queue, request, expires := movement.owner, movement.queue, movement.input, movement.expires
+	movement.Unlock()
+	if owner != "" && now.Before(expires) && scriptMovementQueueCurrent(session, owner, queue) {
 		return request
 	}
 	return input
 }
 
 func scriptMovementSnapshot(owner string, now time.Time) scriptapi.MovementState {
-	scriptMovement.Lock()
-	currentOwner, queue := scriptMovement.owner, scriptMovement.queue
+	return scriptMovementSnapshotForSession(primarySession, owner, now)
+}
+
+func scriptMovementSnapshotForSession(session *Session, owner string, now time.Time) scriptapi.MovementState {
+	movement := scriptMovementStateForSession(session)
+	movement.Lock()
+	currentOwner, queue := movement.owner, movement.queue
 	snapshot := scriptapi.MovementState{
-		H: scriptMovement.input.mouseX, V: scriptMovement.input.mouseY,
-		ExpiresAt: scriptMovement.expires, LastManualInput: scriptMovement.manualAt,
+		H: movement.input.mouseX, V: movement.input.mouseY,
+		ExpiresAt: movement.expires, LastManualInput: movement.manualAt,
 	}
-	scriptMovement.Unlock()
-	snapshot.Active = currentOwner != "" && now.Before(snapshot.ExpiresAt) && scriptEventQueueIsCurrent(currentOwner, queue)
+	movement.Unlock()
+	snapshot.Active = currentOwner != "" && now.Before(snapshot.ExpiresAt) && scriptMovementQueueCurrent(session, currentOwner, queue)
 	snapshot.Owned = snapshot.Active && currentOwner == owner
 	return snapshot
 }

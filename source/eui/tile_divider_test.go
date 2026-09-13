@@ -39,6 +39,22 @@ func TestDockedWindowHasNoStandaloneCornerDrag(t *testing.T) {
 	}
 }
 
+func TestDockedWindowRejectsDragAlreadyInProgress(t *testing.T) {
+	win := NewWindow()
+	win.Position = point{X: 20, Y: 20}
+	win.Size = point{X: 200, Y: 100}
+	win.Movable = true
+	win.Resizable = true
+	win.Docked = true
+
+	dragWindowMove(win, point{X: 40, Y: 30})
+	dragWindowResize(win, PART_BOTTOM_RIGHT, point{X: 40, Y: 30})
+
+	if win.Position != (point{X: 20, Y: 20}) || win.Size != (point{X: 200, Y: 100}) {
+		t.Fatalf("stale drag changed docked geometry: position=%v size=%v", win.Position, win.Size)
+	}
+}
+
 func TestDockedWindowDoesNotDrawStandaloneOutline(t *testing.T) {
 	win := NewWindow()
 	win.Outlined = true

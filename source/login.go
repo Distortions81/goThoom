@@ -900,6 +900,13 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 		loginMu.Lock()
 		tcpConn = tcp
 		loginMu.Unlock()
+	} else {
+		character := profileCharacter
+		dispatchMainThread(func() {
+			if session.transport.connectedGeneration(transportGeneration) {
+				reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(character))
+			}
+		})
 	}
 
 	tcpMessages := make(chan incomingServerMessage, 16)

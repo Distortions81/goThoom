@@ -118,3 +118,20 @@ func TestScriptConfigValidationAndCharacterScope(t *testing.T) {
 		t.Fatalf("different character inherited value: %+v", entry)
 	}
 }
+
+func TestScriptConfigCharacterCanBeBoundWithoutPrimaryPlayer(t *testing.T) {
+	originalName := playerName
+	playerName = "Primary"
+	t.Cleanup(func() { playerName = originalName })
+	origDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = origDataDir })
+	originalStores := scriptStores
+	scriptStores = map[string]*scriptStore{}
+	t.Cleanup(func() { scriptStores = originalStores })
+	scriptStorageSet("plug", "__config__:character:secondary:volume", 8)
+	entry, ok := makeTypedScriptConfigEntryForCharacter("plug", "Secondary", "volume", "Volume", "", scriptapi.ScopeCharacter, "int", 5, nil, nil, nil, 1, 10, 1)
+	if !ok || entry.Value != 8 || scriptConfigStorageKey(entry) != "__config__:character:secondary:volume" {
+		t.Fatalf("session-bound config entry = %+v, ok=%v", entry, ok)
+	}
+}

@@ -246,6 +246,13 @@ func Update() error {
 				dragPart = part
 				dragWin = win
 			} else if (clickDrag || midClickDrag) && dragPart != PART_NONE && dragWin == win {
+				geometryDragBlocked := win.Docked || (dragPart == PART_BAR && !win.Movable) ||
+					(dragPart >= PART_TOP && dragPart <= PART_TOP_LEFT && !win.Resizable)
+				if geometryDragBlocked && dragPart != PART_SCROLL_V && dragPart != PART_SCROLL_H {
+					dragPart = PART_NONE
+					dragWin = nil
+					break
+				}
 				switch dragPart {
 				case PART_BAR:
 					dragWindowMove(win, posCh)
@@ -1413,6 +1420,11 @@ func scrollWindow(win *windowData, delta point) bool {
 }
 
 func dragWindowMove(win *windowData, delta point) {
+	// Re-check ownership at execution time. A workspace can dock a window while
+	// a pointer drag is already active, and that stale drag must not move it.
+	if win == nil || win.Docked || !win.Movable {
+		return
+	}
 	if win.zone != nil && win.Movable {
 		win.ClearZone()
 	}
@@ -1432,6 +1444,9 @@ func dragWindowMove(win *windowData, delta point) {
 // the window to fit the screen. The opposite edges stay fixed, including when
 // a corner reaches the minimum size on only one axis. Delta uses window units.
 func dragWindowResize(win *windowData, part dragType, delta point) bool {
+	if win == nil || win.Docked || !win.Resizable {
+		return false
+	}
 	left, top := win.Position.X, win.Position.Y
 	right, bottom := left+win.Size.X, top+win.Size.Y
 	sw, sh := float32(screenWidth)/win.scale(), float32(screenHeight)/win.scale()

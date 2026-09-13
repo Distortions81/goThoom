@@ -21,8 +21,9 @@ var (
 	// shortcuts safely.
 	shortcutMu sync.RWMutex
 	// shortcutMaps keeps shortcuts separate for each script by name.
-	shortcutMaps          = map[string]map[string]string{}
-	shortcutRegistrations = map[string]scriptRegistrationHandle{}
+	shortcutMaps                 = map[string]map[string]string{}
+	shortcutRegistrations        = map[string]scriptRegistrationHandle{}
+	shortcutSessionRegistrations = map[string]map[*scriptEventQueue]scriptRegistrationHandle{}
 )
 
 const (
@@ -35,27 +36,63 @@ const (
 // being sent.  For example, adding ("pp", "/ponder ") means that typing
 // "pp" or "pp hello" becomes "/ponder " or "/ponder hello" respectively.
 func addShortcut(owner, short, full string) {
+	addShortcutOnQueue(owner, short, full, currentScriptEventQueue(owner), false)
+}
+
+func addShortcutOnQueue(owner, short, full string, queue *scriptEventQueue, sessionRuntime bool) {
 	short = strings.ToLower(short)
 	shortcutMu.Lock()
 	m := shortcutMaps[owner]
 	if m == nil {
 		m = map[string]string{}
 		shortcutMaps[owner] = m
-		if owner != "user" && owner != "global" {
-			var registration scriptRegistrationHandle
-			registration = registerScriptResource(owner, func() {
-				shortcutMu.Lock()
-				if shortcutRegistrations[owner] == registration {
-					delete(shortcutMaps, owner)
-					delete(shortcutRegistrations, owner)
-				}
-				shortcutMu.Unlock()
-				refreshShortcutsList()
-			})
-			shortcutRegistrations[owner] = registration
-		}
 	}
 	m[short] = full
+	needsRegistration := owner != "user" && owner != "global"
+	if sessionRuntime {
+		registrations := shortcutSessionRegistrations[owner]
+		needsRegistration = needsRegistration && queue != nil && registrations[queue].id == 0
+	} else {
+		needsRegistration = needsRegistration && shortcutRegistrations[owner].id == 0
+	}
+	if needsRegistration {
+		var registration scriptRegistrationHandle
+		registration = registerScriptResourceOn(queue, func() {
+			shortcutMu.Lock()
+			if sessionRuntime {
+				registrations := shortcutSessionRegistrations[owner]
+				if registrations[queue] == registration {
+					delete(registrations, queue)
+					if len(registrations) == 0 {
+						delete(shortcutSessionRegistrations, owner)
+					}
+				}
+			} else if shortcutRegistrations[owner] == registration {
+				delete(shortcutRegistrations, owner)
+			}
+			if shortcutRegistrations[owner].id == 0 && len(shortcutSessionRegistrations[owner]) == 0 {
+				delete(shortcutMaps, owner)
+			}
+			shortcutMu.Unlock()
+			if sessionRuntime {
+				dispatchMainThread(refreshShortcutsList)
+			} else {
+				refreshShortcutsList()
+			}
+		})
+		if registration.valid() {
+			if sessionRuntime {
+				registrations := shortcutSessionRegistrations[owner]
+				if registrations == nil {
+					registrations = map[*scriptEventQueue]scriptRegistrationHandle{}
+					shortcutSessionRegistrations[owner] = registrations
+				}
+				registrations[queue] = registration
+			} else {
+				shortcutRegistrations[owner] = registration
+			}
+		}
+	}
 	shortcutMu.Unlock()
 	refreshShortcutsList()
 }
@@ -65,6 +102,14 @@ func scriptAddShortcut(owner, short, full string) {
 		return
 	}
 	addShortcut(owner, short, full)
+	scriptLogEvent(owner, "Registered shortcut", fmt.Sprintf("%s -> %s", short, full))
+}
+
+func scriptAddSessionShortcut(owner, short, full string, queue *scriptEventQueue) {
+	if queue == nil || !scriptEventQueueIsCurrent(owner, queue) {
+		return
+	}
+	addShortcutOnQueue(owner, short, full, queue, true)
 	scriptLogEvent(owner, "Registered shortcut", fmt.Sprintf("%s -> %s", short, full))
 }
 

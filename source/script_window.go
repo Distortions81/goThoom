@@ -74,7 +74,8 @@ func (w Window) create(options scriptapi.WindowOptions) {
 	if s.removed {
 		return
 	}
-	s.handle = registerScriptResource(s.owner, func() { w.Remove() })
+	queue := s.candidate.runtimeEventQueue(s.owner)
+	s.handle = registerScriptResourceOn(queue, func() { w.Remove() })
 	if !s.handle.valid() {
 		s.removed = true
 		return
@@ -92,7 +93,7 @@ func (w Window) create(options scriptapi.WindowOptions) {
 	s.ui.Movable, s.ui.Closable, s.ui.AutoSize = true, true, true
 	s.ui.Resizable = false
 	s.ui.SetZone(eui.HZoneCenter, eui.VZoneCenter)
-	queue := s.handle.queue
+	queue = s.handle.queue
 	if options.OnClose != nil {
 		s.ui.OnClose = func() { queueScriptCallbackOn(queue, s.owner, "Window close", options.OnClose) }
 	}

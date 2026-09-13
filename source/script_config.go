@@ -17,6 +17,7 @@ type scriptConfigEntry struct {
 	Key          string
 	Type         string
 	Scope        string
+	Character    string
 	Default      any
 	Value        any
 	Callback     any
@@ -32,7 +33,11 @@ type scriptConfigEntry struct {
 func scriptConfigStorageKey(entry scriptConfigEntry) string {
 	key := scriptConfigStoragePrefix + entry.Scope + ":"
 	if entry.Scope == scriptapi.ScopeCharacter {
-		key += strings.ToLower(strings.TrimSpace(playerName)) + ":"
+		character := entry.Character
+		if character == "" {
+			character = playerName
+		}
+		key += strings.ToLower(strings.TrimSpace(character)) + ":"
 	}
 	return key + entry.Key
 }
@@ -43,6 +48,10 @@ var (
 )
 
 func makeTypedScriptConfigEntry(owner, key, label, help, scope, typ string, defaultValue, callback, validate any, choices []string, min, max, step float64) (scriptConfigEntry, bool) {
+	return makeTypedScriptConfigEntryForCharacter(owner, playerName, key, label, help, scope, typ, defaultValue, callback, validate, choices, min, max, step)
+}
+
+func makeTypedScriptConfigEntryForCharacter(owner, character, key, label, help, scope, typ string, defaultValue, callback, validate any, choices []string, min, max, step float64) (scriptConfigEntry, bool) {
 	key = strings.TrimSpace(key)
 	label = strings.TrimSpace(label)
 	help = strings.TrimSpace(help)
@@ -63,7 +72,7 @@ func makeTypedScriptConfigEntry(owner, key, label, help, scope, typ string, defa
 	callback = nonNilScriptOptionFunc(callback)
 	validate = nonNilScriptOptionFunc(validate)
 	entry := scriptConfigEntry{
-		Key: key, Label: label, Help: help, Type: typ, Scope: scope,
+		Key: key, Label: label, Help: help, Type: typ, Scope: scope, Character: character,
 		Default: defaultValue, Value: defaultValue, Callback: callback, Validate: validate,
 		Choices: append([]string(nil), choices...), Min: min, Max: max, Step: step,
 	}

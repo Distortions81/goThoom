@@ -80,6 +80,16 @@ func (s *sessionTransportState) connected() bool {
 	return status == sessionConnected && tcp != nil
 }
 
+func (s *sessionTransportState) connectedGeneration(generation uint64) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	connected := s.generation == generation && s.status == sessionConnected && s.tcp != nil
+	s.mu.RUnlock()
+	return connected
+}
+
 func (s *sessionTransportState) busy() bool {
 	if s == nil {
 		return false

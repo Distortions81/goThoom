@@ -12,7 +12,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const viewportLoginPanelWidth float32 = 360
+const (
+	viewportLoginPanelWidth   float32 = 360
+	viewportLoginPanelPadding float32 = 12
+	viewportLogoutButtonSize  float32 = 28
+	viewportControlInset      float32 = 6
+)
 
 var (
 	viewportWorkspaceAppliedLayout viewportLayout
@@ -456,35 +461,73 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	overlay.Scrollable = true
 	state.loginOverlay = overlay
 	state.window.AddItem(overlay)
+
+	logout, logoutEvents := eui.NewButton()
+	setMaterialIconOnly(logout, "logout", "X")
+	logout.SetTooltip(fmt.Sprintf("Log out of Session %d.", session.ID()))
+	logout.Size = eui.Point{X: viewportLogoutButtonSize, Y: viewportLogoutButtonSize}
+	logout.Color = eui.ColorDarkRed
+	logout.Invisible = true
+	logoutEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			appSessions.disconnectSession(session.ID())
+		}
+	}
+	state.sessionLogout = logout
+	state.window.AddItem(logout)
+
 	refreshViewportLoginCharacterList(state, session)
 	layoutViewportLoginOverlay(state)
 }
 
 func layoutViewportLoginOverlay(state *viewportRenderState) {
-	if state == nil || state.loginOverlay == nil || state.loginForm == nil || state.imageItem == nil || state.image == nil {
+	if state == nil || state.imageItem == nil || state.image == nil {
 		return
 	}
 	bounds := state.image.Bounds()
-	state.loginOverlay.Position = state.imageItem.Position
-	state.loginOverlay.Size = state.imageItem.Size
 	scale := eui.UIScale()
 	if scale <= 0 {
 		scale = 1
 	}
-	controlWidth := float32(math.Min(360, float64(float32(max(120, bounds.Dx()-24))/scale)))
-	for index, item := range state.loginForm.Contents {
-		if index >= len(state.loginForm.Contents)-1 {
-			break
+	if state.loginOverlay != nil && state.loginForm != nil {
+		controlRoom := max(120, bounds.Dx()-int(4*viewportLoginPanelPadding))
+		controlWidth := float32(math.Min(float64(viewportLoginPanelWidth), float64(float32(controlRoom)/scale)))
+		for index, item := range state.loginForm.Contents {
+			if index >= len(state.loginForm.Contents)-1 {
+				break
+			}
+			item.Size.X = controlWidth
+			item.Dirty = true
 		}
-		item.Size.X = controlWidth
-		item.Dirty = true
+
+		formSize := state.loginForm.GetSize()
+		padding := viewportLoginPanelPadding
+		panelWidth := float32(math.Min(float64(formSize.X+2*padding), float64(float32(bounds.Dx())-2*padding)))
+		panelHeight := float32(math.Min(float64(formSize.Y+2*padding), float64(float32(bounds.Dy())-2*padding)))
+		panelWidth = float32(math.Max(1, float64(panelWidth)))
+		panelHeight = float32(math.Max(1, float64(panelHeight)))
+		state.loginOverlay.Size = eui.Point{X: panelWidth / scale, Y: panelHeight / scale}
+		state.loginOverlay.Position = eui.Point{
+			X: state.imageItem.Position.X + float32(math.Max(float64(padding), float64((float32(bounds.Dx())-panelWidth)/2))),
+			Y: state.imageItem.Position.Y + float32(math.Max(float64(padding), float64((float32(bounds.Dy())-panelHeight)/2))),
+		}
+		state.loginForm.Position = eui.Point{X: padding, Y: padding}
+		background := eui.NewColor(32, 32, 32, 255)
+		if state.window != nil && state.window.Theme != nil {
+			background = state.window.Theme.Window.BGColor
+		}
+		background.A = uint8(uint16(background.A) * 9 / 10)
+		state.loginOverlay.Color = background
+		state.loginOverlay.Dirty = true
 	}
-	formSize := state.loginForm.GetSize()
-	state.loginForm.Position = eui.Point{
-		X: float32(max(12, (bounds.Dx()-int(math.Round(float64(formSize.X))))/2)),
-		Y: float32(max(12, (bounds.Dy()-int(math.Round(float64(formSize.Y))))/2)),
+	if state.sessionLogout != nil {
+		buttonSize := state.sessionLogout.GetSize()
+		state.sessionLogout.Position = eui.Point{
+			X: state.imageItem.Position.X + float32(math.Max(0, float64(float32(bounds.Dx())-buttonSize.X-viewportControlInset))),
+			Y: state.imageItem.Position.Y + float32(math.Max(0, float64(float32(bounds.Dy())-buttonSize.Y-viewportControlInset))),
+		}
+		state.sessionLogout.Dirty = true
 	}
-	state.loginOverlay.Dirty = true
 }
 
 func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, multi bool) {
@@ -497,8 +540,14 @@ func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, m
 	if state.loginOverlay == nil {
 		return
 	}
-	visible := multi && !session.transport.connected()
+	connected := session.transport.connected()
+	visible := multi && !connected
 	state.loginOverlay.Invisible = !visible
+	if state.sessionLogout != nil {
+		state.sessionLogout.Invisible = !multi || !connected
+		state.sessionLogout.Dirty = true
+	}
+	layoutViewportLoginOverlay(state)
 	if !visible {
 		state.window.Refresh()
 		return
@@ -541,7 +590,6 @@ func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, m
 		}
 	}
 	state.loginAction.Dirty = true
-	layoutViewportLoginOverlay(state)
 	state.window.Refresh()
 }
 
@@ -627,8 +675,23 @@ func desiredMultiSessionViewportLayout() viewportLayout {
 	return viewportLayoutFreeform
 }
 
+func multiSessionViewportWindowsReady() bool {
+	if appViewports == nil {
+		return false
+	}
+	for _, view := range appViewports.snapshot() {
+		if !view.Active {
+			continue
+		}
+		if view.render == nil || view.render.window == nil {
+			return false
+		}
+	}
+	return true
+}
+
 func applyMultiSessionViewportLayoutIfNeeded() {
-	if appSessions == nil || !appSessions.multiEnabled() {
+	if appSessions == nil || !appSessions.multiEnabled() || !multiSessionViewportWindowsReady() {
 		return
 	}
 	screenWidth, screenHeight := eui.ScreenSize()
@@ -646,7 +709,7 @@ func applyMultiSessionViewportLayoutIfNeeded() {
 }
 
 func applyMultiSessionViewportLayout(force bool) {
-	if appSessions == nil || !appSessions.multiEnabled() {
+	if appSessions == nil || !appSessions.multiEnabled() || !multiSessionViewportWindowsReady() {
 		return
 	}
 	layout := appViewports.layoutSnapshot()
@@ -773,13 +836,20 @@ func refreshViewportSelectionTreatment() {
 	if appSessions != nil {
 		selected = appSessions.selectedID()
 	}
-	tiled := appSessions != nil && appSessions.multiEnabled() && appViewports.layoutSnapshot() == viewportLayoutTiled
+	multi := appSessions != nil && appSessions.multiEnabled()
+	tiled := multi && appViewports.layoutSnapshot() == viewportLayoutTiled
 	for _, view := range appViewports.snapshot() {
 		state := view.render
 		if state == nil || state.window == nil {
 			continue
 		}
-		if tiled && view.SessionID == selected {
+		focused := multi && view.SessionID == selected
+		if focused {
+			state.window.TitleBGColor = eui.AccentColor()
+		} else {
+			state.window.TitleBGColor = eui.Color{}
+		}
+		if tiled && focused {
 			state.window.Outlined = true
 			state.window.Border = 3
 			state.window.BorderColor = eui.AccentColor()
@@ -860,6 +930,7 @@ func clearViewportLoginUI(state *viewportRenderState) {
 	state.loginEdit = nil
 	state.loginDelete = nil
 	state.loginAction = nil
+	state.sessionLogout = nil
 }
 
 func refreshViewportRectsFromDrawRects() {

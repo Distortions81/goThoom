@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"log"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,12 +17,17 @@ import (
 // connection. The shared Scripts window continues to manage the primary
 // runtime; this type gives background sessions an independent lifecycle.
 type sessionScriptInstance struct {
-	owner    string
-	prepared *preparedScript
-	queue    *scriptEventQueue
+	owner       string
+	prepared    *preparedScript
+	queue       *scriptEventQueue
+	fingerprint [sha256.Size]byte
 }
 
 func (s *Session) startSessionScript(owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) error {
+	return s.startSessionScriptVersion(owner, src, restricted, assets, sha256.Sum256(src))
+}
+
+func (s *Session) startSessionScriptVersion(owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource, fingerprint [sha256.Size]byte) error {
 	if s == nil || s.automation == nil {
 		return fmt.Errorf("script session is unavailable")
 	}
@@ -36,9 +44,9 @@ func (s *Session) startSessionScript(owner string, src []byte, restricted interp
 	queue.diagnostics = prepared.diagnostics
 	prepared.candidate.activate(queue)
 	s.automation.scriptMu.Lock()
-	s.automation.scripts[owner] = &sessionScriptInstance{owner: owner, prepared: prepared, queue: queue}
+	s.automation.scripts[owner] = &sessionScriptInstance{owner: owner, prepared: prepared, queue: queue, fingerprint: fingerprint}
 	s.automation.scriptMu.Unlock()
-	s.dispatchSessionScriptLifecycle(LifecycleEvent{Type: lifecycleLogin, Character: s.characterName()}, true)
+	s.dispatchSessionScriptLifecycleForOwner(LifecycleEvent{Type: lifecycleLogin, Character: s.characterName()}, owner, true)
 	return nil
 }
 
@@ -53,17 +61,116 @@ func (s *Session) stopSessionScript(owner, reason string) {
 	if instance == nil {
 		return
 	}
-	s.dispatchSessionScriptLifecycle(LifecycleEvent{Type: lifecycleStop, Character: s.characterName(), Reason: reason}, true)
+	s.dispatchSessionScriptLifecycleForOwner(LifecycleEvent{Type: lifecycleStop, Character: s.characterName(), Reason: reason}, owner, true)
 	if instance.prepared.terminate != nil {
 		instance.prepared.candidate.callTerminate(instance.prepared.terminate)
 	}
 	s.commands.cancelScriptCommands(owner, nil)
+	stopScriptMovementForSession(s, owner)
 	stopSessionScriptEventQueue(s, owner)
 	releaseScriptRegistrations(instance.queue)
 	s.automation.clearScriptSendHistory(owner)
 	s.automation.visuals.clearOwner(owner)
 	instance.prepared.candidate.discard()
 	interruptScriptInterpreter(instance.prepared.interpreter)
+}
+
+type enabledSessionScript struct {
+	owner string
+	info  scriptInfo
+}
+
+func enabledSessionScripts(character string) []enabledSessionScript {
+	character = strings.TrimSpace(character)
+	scriptMu.RLock()
+	scripts := make([]enabledSessionScript, 0, len(scriptPackages))
+	for owner, info := range scriptPackages {
+		if scriptInvalid[owner] || !scriptEnabledFor[owner].enablesFor(character) {
+			continue
+		}
+		scripts = append(scripts, enabledSessionScript{owner: owner, info: info})
+	}
+	scriptMu.RUnlock()
+	sort.Slice(scripts, func(i, j int) bool { return scripts[i].owner < scripts[j].owner })
+	return scripts
+}
+
+// syncEnabledSessionScripts makes one non-primary session match the saved
+// global and per-character script selections without consulting the primary
+// runtime's enabled/running flags.
+func (s *Session) syncEnabledSessionScripts(character string) []error {
+	if s == nil || s == primarySession || s.automation == nil {
+		return nil
+	}
+	expectedList := enabledSessionScripts(character)
+	expected := make(map[string]scriptInfo, len(expectedList))
+	for _, script := range expectedList {
+		expected[script.owner] = script.info
+	}
+
+	s.automation.scriptMu.RLock()
+	running := make(map[string][sha256.Size]byte, len(s.automation.scripts))
+	for owner, instance := range s.automation.scripts {
+		if instance != nil {
+			running[owner] = instance.fingerprint
+		}
+	}
+	s.automation.scriptMu.RUnlock()
+
+	var stopped []string
+	for owner := range running {
+		if _, ok := expected[owner]; !ok {
+			stopped = append(stopped, owner)
+		}
+	}
+	sort.Strings(stopped)
+	for _, owner := range stopped {
+		s.stopSessionScript(owner, "disabled for this character")
+	}
+
+	var errs []error
+	for _, script := range expectedList {
+		if fingerprint, ok := running[script.owner]; ok && fingerprint == script.info.fingerprint {
+			continue
+		}
+		if err := s.startSessionScriptVersion(script.owner, script.info.src, restrictedStdlib(), script.info.assets, script.info.fingerprint); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", script.owner, err))
+		}
+	}
+	return errs
+}
+
+func reportSessionScriptSyncErrors(session *Session, errs []error) {
+	for _, err := range errs {
+		message := fmt.Sprintf("[script] Session %d: %v", session.ID(), err)
+		log.Print(message)
+		session.publishClientConsole(message, messageTextTypeSystem)
+	}
+}
+
+func syncConnectedSecondarySessionScripts() {
+	if appSessions == nil {
+		return
+	}
+	for _, session := range appSessions.snapshot() {
+		if session == nil || session == primarySession || !session.transport.connected() {
+			continue
+		}
+		reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(session.characterName()))
+	}
+}
+
+func restartConnectedSecondarySessionScript(owner, reason string) {
+	if appSessions == nil {
+		return
+	}
+	for _, session := range appSessions.snapshot() {
+		if session == nil || session == primarySession || !session.transport.connected() {
+			continue
+		}
+		session.stopSessionScript(owner, reason)
+		reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(session.characterName()))
+	}
 }
 
 func (s *sessionAutomationState) stopSessionScripts(reason string) {
@@ -225,7 +332,7 @@ func (s *Session) dispatchSessionScriptChat(msg string) {
 	if s == nil || s.automation == nil {
 		return
 	}
-	event := classifyScriptChat(msg)
+	event := classifyScriptChatForSession(s, msg)
 	s.automation.scriptMu.RLock()
 	handlers := append([]structuredChatHandler(nil), s.automation.scriptChats...)
 	s.automation.scriptMu.RUnlock()
@@ -241,6 +348,10 @@ func (s *Session) dispatchSessionScriptChat(msg string) {
 }
 
 func (s *Session) dispatchSessionScriptLifecycle(event LifecycleEvent, wait bool) {
+	s.dispatchSessionScriptLifecycleForOwner(event, "", wait)
+}
+
+func (s *Session) dispatchSessionScriptLifecycleForOwner(event LifecycleEvent, owner string, wait bool) {
 	if s == nil || s.automation == nil {
 		return
 	}
@@ -248,7 +359,7 @@ func (s *Session) dispatchSessionScriptLifecycle(event LifecycleEvent, wait bool
 	handlers := append([]scriptLifecycleHandler(nil), s.automation.scriptEvents...)
 	s.automation.scriptMu.RUnlock()
 	for _, handler := range handlers {
-		if handler.kind != event.Type || handler.fn == nil {
+		if handler.kind != event.Type || handler.fn == nil || owner != "" && handler.owner != owner {
 			continue
 		}
 		fn := handler.fn

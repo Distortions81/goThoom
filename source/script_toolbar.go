@@ -158,7 +158,7 @@ func scriptRegisterToolbar(owner string, options scriptapi.ToolbarOptions, asset
 }
 
 func (session *Session) registerSessionScriptToolbar(owner string, options scriptapi.ToolbarOptions, assets *scriptAssetSource, queue *scriptEventQueue) scriptRegistrationHandle {
-	if session == nil || session.automation == nil || queue == nil || scriptIsDisabled(owner) {
+	if session == nil || session.automation == nil || queue == nil {
 		return scriptRegistrationHandle{}
 	}
 	registration := &scriptToolbarRegistration{owner: owner, label: strings.TrimSpace(options.Label)}

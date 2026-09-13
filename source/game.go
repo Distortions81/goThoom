@@ -1722,7 +1722,7 @@ func (g *Game) Update() error {
 
 	macroMoved := sessionLegacyMacroMovedThisFrame(inputSession)
 	if walk || (click && inGame && !uiMouseDown) || macroMoved {
-		interruptScriptMovement(now)
+		interruptScriptMovementForSession(inputSession, now)
 	}
 	if !macroMoved {
 		queueSessionInput(inputSession, inputState{mouseX: x, mouseY: y, mouseDown: walk})
@@ -2395,8 +2395,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	}
 }
 
-type sceneArtworkRequestCache struct {
-	sync.Mutex
+type sceneArtworkRequestState struct {
 	keys            []sheetKey
 	scratch         []sheetKey
 	worldGeneration uint64
@@ -2407,6 +2406,23 @@ type sceneArtworkRequestCache struct {
 	frameBlend      bool
 	archive         *climg.CLImages
 	valid           bool
+}
+
+type sceneArtworkRequestCache struct {
+	sync.Mutex
+	bySession map[SessionID]*sceneArtworkRequestState
+}
+
+func (c *sceneArtworkRequestCache) stateForSessionLocked(id SessionID) *sceneArtworkRequestState {
+	if c.bySession == nil {
+		c.bySession = make(map[SessionID]*sceneArtworkRequestState)
+	}
+	state := c.bySession[id]
+	if state == nil {
+		state = &sceneArtworkRequestState{}
+		c.bySession[id] = state
+	}
+	return state
 }
 
 var sceneArtworkRequests sceneArtworkRequestCache
@@ -2470,41 +2486,42 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 
 	sceneArtworkRequests.Lock()
 	defer sceneArtworkRequests.Unlock()
-	if sceneArtworkRequests.valid &&
-		sceneArtworkRequests.worldGeneration == snap.worldGeneration &&
-		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
-		sceneArtworkRequests.upscaleFactor == factor &&
-		sceneArtworkRequests.upscaleMode == mode &&
-		sceneArtworkRequests.upscaleEnabled == upscale &&
-		sceneArtworkRequests.frameBlend == frameBlend &&
-		sceneArtworkRequests.archive == clImages {
+	requests := sceneArtworkRequests.stateForSessionLocked(snap.source)
+	if requests.valid &&
+		requests.worldGeneration == snap.worldGeneration &&
+		requests.cacheGeneration == cacheGeneration &&
+		requests.upscaleFactor == factor &&
+		requests.upscaleMode == mode &&
+		requests.upscaleEnabled == upscale &&
+		requests.frameBlend == frameBlend &&
+		requests.archive == clImages {
 		return 0
 	}
 
-	keys := appendSceneArtworkKeys(sceneArtworkRequests.scratch[:0], snap, frameBlend)
-	if sceneArtworkRequests.valid &&
-		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
-		sceneArtworkRequests.upscaleFactor == factor &&
-		sceneArtworkRequests.upscaleMode == mode &&
-		sceneArtworkRequests.upscaleEnabled == upscale &&
-		sceneArtworkRequests.frameBlend == frameBlend &&
-		sceneArtworkRequests.archive == clImages &&
-		equalSheetKeys(sceneArtworkRequests.keys, keys) {
-		sceneArtworkRequests.worldGeneration = snap.worldGeneration
-		sceneArtworkRequests.scratch = keys
+	keys := appendSceneArtworkKeys(requests.scratch[:0], snap, frameBlend)
+	if requests.valid &&
+		requests.cacheGeneration == cacheGeneration &&
+		requests.upscaleFactor == factor &&
+		requests.upscaleMode == mode &&
+		requests.upscaleEnabled == upscale &&
+		requests.frameBlend == frameBlend &&
+		requests.archive == clImages &&
+		equalSheetKeys(requests.keys, keys) {
+		requests.worldGeneration = snap.worldGeneration
+		requests.scratch = keys
 		return 0
 	}
 	prepared := prepareArtworkSheets(keys)
-	sceneArtworkRequests.scratch = sceneArtworkRequests.keys[:0]
-	sceneArtworkRequests.keys = keys
-	sceneArtworkRequests.worldGeneration = snap.worldGeneration
-	sceneArtworkRequests.cacheGeneration = cacheGeneration
-	sceneArtworkRequests.upscaleFactor = factor
-	sceneArtworkRequests.upscaleMode = mode
-	sceneArtworkRequests.upscaleEnabled = upscale
-	sceneArtworkRequests.frameBlend = frameBlend
-	sceneArtworkRequests.archive = clImages
-	sceneArtworkRequests.valid = true
+	requests.scratch = requests.keys[:0]
+	requests.keys = keys
+	requests.worldGeneration = snap.worldGeneration
+	requests.cacheGeneration = cacheGeneration
+	requests.upscaleFactor = factor
+	requests.upscaleMode = mode
+	requests.upscaleEnabled = upscale
+	requests.frameBlend = frameBlend
+	requests.archive = clImages
+	requests.valid = true
 	return prepared
 }
 
@@ -5461,6 +5478,7 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 		} else {
 			session.advanceLegacyMacros(int64(session.frames.acknowledged()))
 			s = session.input.next()
+			s = applyScriptMovementForSession(session, s, time.Now())
 		}
 
 		reliable := false

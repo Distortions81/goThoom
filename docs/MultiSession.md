@@ -6,10 +6,10 @@ character list, Add/Edit/Delete actions, server list, password prompt, and
 connection controls as the normal Login window, bound to that session slot.
 Each slot can therefore connect or disconnect independently.
 
-Click a view or use **Select** in the Sessions window to make that session
-active. Keyboard input, chat submission, movement, commands, hotkeys, toolbar
-actions, Inventory, and Players target the selected session. Its title includes
-**Selected**; in the tiled layout its border also uses the current theme accent.
+Click a view to make that session active. Keyboard input, chat submission,
+movement, commands, hotkeys, toolbar actions, Inventory, and Players target the
+selected session. Its title includes **Selected** and its title bar uses the
+current theme accent; in the tiled layout its border uses the accent as well.
 
 ## Layout
 
@@ -31,9 +31,13 @@ restored when multi-session closes.
 ## Background sessions and messages
 
 Every connected session continues receiving network updates and running its
-own macros and Go scripts while another session is selected. Sound effects and
-notifications from all sessions can play through the shared mixer. Direct user
-input always has one target: the selected session.
+own macros and Go scripts while another session is selected. A globally enabled
+Go script gets an independent interpreter in every connected session;
+character-enabled scripts run only for matching characters. Script callbacks,
+commands, movement, windows, output, and cleanup stay with the session that
+started them. Sound effects and notifications from all sessions can play
+through the shared mixer. Direct user input always has one target: the selected
+session.
 
 Chat and Console combine session messages in their shared transcripts and
 identify the originating character. Inventory and Players show only the
@@ -48,7 +52,8 @@ than resuming or synchronizing an earlier tune.
 
 ## Leaving multi-session
 
-Use **Quit All Sessions** to disconnect every slot without closing goThoom.
-**Return to Single Session** becomes available after every slot is fully
-disconnected. Closing multi-session restores the ordinary game-window layout;
-opening it later restores the saved multi-session workspace.
+Use the small logout icon in the bottom-right corner of a connected session
+view to disconnect that character. After every session is fully disconnected,
+use **Sessions** on the toolbar to return to single-session mode. This restores
+the ordinary game-window layout; opening multi-session later restores the saved
+workspace.

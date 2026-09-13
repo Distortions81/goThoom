@@ -40,6 +40,7 @@ type sessionAutomationState struct {
 	sendMu         sync.Mutex
 	sendHistory    map[string][]time.Time
 	visuals        *sessionScriptVisualState
+	movement       scriptMovementState
 
 	locationMu sync.RWMutex
 	location   string
@@ -57,7 +58,7 @@ type sessionScriptHotkey struct {
 }
 
 func (s *Session) registerSessionScriptHotkey(owner, combo string, handler func(InputEvent), queue *scriptEventQueue) scriptRegistrationHandle {
-	if s == nil || s.automation == nil || handler == nil || queue == nil || scriptIsDisabled(owner) {
+	if s == nil || s.automation == nil || handler == nil || queue == nil {
 		return scriptRegistrationHandle{}
 	}
 	combo = strings.TrimSpace(combo)
@@ -143,7 +144,7 @@ func (s *Session) sessionScriptHotkey(combo string) (sessionScriptHotkey, bool, 
 }
 
 func (s *Session) registerSessionScriptCommand(owner, name string, handler scriptCommandHandler, queue *scriptEventQueue) scriptRegistrationHandle {
-	if s == nil || s.automation == nil || handler == nil || queue == nil || scriptIsDisabled(owner) {
+	if s == nil || s.automation == nil || handler == nil || queue == nil {
 		return scriptRegistrationHandle{}
 	}
 	original := normalizeScriptCommand(name)

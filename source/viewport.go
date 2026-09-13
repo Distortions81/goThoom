@@ -56,6 +56,7 @@ type viewportRenderState struct {
 	loginEdit          *eui.ItemData
 	loginDelete        *eui.ItemData
 	loginAction        *eui.ItemData
+	sessionLogout      *eui.ItemData
 	loginServer        string
 	loginCharacter     string
 	loginDemoLookup    bool
