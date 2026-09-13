@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"gothoom/eui"
@@ -11,6 +12,7 @@ import (
 type notification struct {
 	item   *eui.ItemData
 	expiry time.Time
+	source SessionID
 }
 
 var notifications []*notification
@@ -19,6 +21,24 @@ var notifications []*notification
 // enabled. Messages disappear after a timeout or when clicked.
 // Optional note keys can be provided to customize the notification sound.
 func showNotification(msg string, keys ...int) {
+	showNotificationForSource(nil, msg, keys...)
+}
+
+func showSessionNotification(session *Session, msg string, keys ...int) {
+	if session == nil {
+		showNotification(msg, keys...)
+		return
+	}
+	label := session.characterName()
+	if label == "" {
+		label = fmt.Sprintf("Session %d", session.ID())
+	}
+	msg = label + ": " + msg
+	session.publishEvent(sessionEvent{Kind: sessionEventNotification, Text: msg})
+	showNotificationForSource(session, msg, keys...)
+}
+
+func showNotificationForSource(session *Session, msg string, keys ...int) {
 	if isWASM || seekingMov {
 		return
 	}
@@ -68,7 +88,11 @@ func showNotification(msg string, keys ...int) {
 	if dur <= 0 {
 		dur = 6 * time.Second
 	}
-	notifications = append(notifications, &notification{item: btn, expiry: time.Now().Add(dur)})
+	source := SessionID(0)
+	if session != nil {
+		source = session.ID()
+	}
+	notifications = append(notifications, &notification{item: btn, expiry: time.Now().Add(dur), source: source})
 	layoutNotifications()
 }
 

@@ -28,6 +28,10 @@ type sessionAutomationState struct {
 	scriptEvents   []scriptLifecycleHandler
 	scriptChanges  []scriptChangeHandler
 	scriptPlayers  []scriptPlayerChangeHandler
+	localCommands  map[string]sessionScriptCommand
+	localHotkeys   map[string]map[string]sessionScriptHotkey
+	localToolbars  map[string][]*scriptToolbarRegistration
+	toolbarNext    map[string]int
 	stateWaiters   map[string][]*scriptStateWaiter
 	changeSnapshot scriptChangeSnapshot
 	latestServer   scriptapi.ServerMessage
@@ -38,6 +42,149 @@ type sessionAutomationState struct {
 
 	locationMu sync.RWMutex
 	location   string
+}
+
+type sessionScriptCommand struct {
+	owner   string
+	handler scriptCommandHandler
+}
+
+type sessionScriptHotkey struct {
+	owner    string
+	original string
+	handler  func(InputEvent) bool
+}
+
+func (s *Session) registerSessionScriptHotkey(owner, combo string, handler func(InputEvent), queue *scriptEventQueue) scriptRegistrationHandle {
+	if s == nil || s.automation == nil || handler == nil || queue == nil || scriptIsDisabled(owner) {
+		return scriptRegistrationHandle{}
+	}
+	combo = strings.TrimSpace(combo)
+	original := combo
+	combo = scriptControlValue(owner, "binding", original)
+	if combo == "" {
+		return scriptRegistrationHandle{}
+	}
+	// User-created hotkeys are app-wide and retain priority. Script bindings
+	// from another session do not conflict because only the selected session's
+	// runtime receives direct input.
+	hotkeysMu.RLock()
+	for _, existing := range hotkeys {
+		if existing.Script == "" && sameCombo(existing.Combo, combo) {
+			hotkeysMu.RUnlock()
+			reportScriptBindingConflict(combo, "global hotkeys")
+			return scriptRegistrationHandle{}
+		}
+	}
+	hotkeysMu.RUnlock()
+
+	s.automation.scriptMu.Lock()
+	for existingOwner, bindings := range s.automation.localHotkeys {
+		for existingCombo := range bindings {
+			if sameCombo(existingCombo, combo) {
+				s.automation.scriptMu.Unlock()
+				reportScriptBindingConflict(combo, existingOwner)
+				return scriptRegistrationHandle{}
+			}
+		}
+	}
+	if s.automation.localHotkeys == nil {
+		s.automation.localHotkeys = make(map[string]map[string]sessionScriptHotkey)
+	}
+	bindings := s.automation.localHotkeys[owner]
+	if bindings == nil {
+		bindings = make(map[string]sessionScriptHotkey)
+		s.automation.localHotkeys[owner] = bindings
+	}
+	bindings[combo] = sessionScriptHotkey{
+		owner: owner, original: original,
+		handler: func(event InputEvent) bool {
+			if !queueScriptCallbackWaitOn(queue, owner, "Input", func() { handler(event) }) {
+				return true
+			}
+			return event.Continues()
+		},
+	}
+	s.automation.scriptMu.Unlock()
+
+	var registration scriptRegistrationHandle
+	registration = registerSessionScriptResource(queue, func() {
+		s.automation.scriptMu.Lock()
+		if bindings := s.automation.localHotkeys[owner]; bindings != nil {
+			delete(bindings, combo)
+			if len(bindings) == 0 {
+				delete(s.automation.localHotkeys, owner)
+			}
+		}
+		s.automation.scriptMu.Unlock()
+	})
+	scriptLogEvent(owner, "Registered binding", combo)
+	return registration
+}
+
+func (s *Session) sessionScriptHotkey(combo string) (sessionScriptHotkey, bool, bool) {
+	if s == nil || s.automation == nil {
+		return sessionScriptHotkey{}, false, false
+	}
+	s.automation.scriptMu.RLock()
+	defer s.automation.scriptMu.RUnlock()
+	for _, bindings := range s.automation.localHotkeys {
+		for registered, hotkey := range bindings {
+			if sameCombo(registered, combo) {
+				scriptHotkeyMu.RLock()
+				enabled, known := scriptHotkeyEnabled[hotkey.owner][hotkey.original]
+				scriptHotkeyMu.RUnlock()
+				return hotkey, true, !known || enabled
+			}
+		}
+	}
+	return sessionScriptHotkey{}, false, false
+}
+
+func (s *Session) registerSessionScriptCommand(owner, name string, handler scriptCommandHandler, queue *scriptEventQueue) scriptRegistrationHandle {
+	if s == nil || s.automation == nil || handler == nil || queue == nil || scriptIsDisabled(owner) {
+		return scriptRegistrationHandle{}
+	}
+	original := normalizeScriptCommand(name)
+	key := scriptControlValue(owner, "command", original)
+	if key == "" {
+		return scriptRegistrationHandle{}
+	}
+	s.automation.scriptMu.Lock()
+	if s.automation.localCommands == nil {
+		s.automation.localCommands = make(map[string]sessionScriptCommand)
+	}
+	if _, exists := s.automation.localCommands[key]; exists {
+		s.automation.scriptMu.Unlock()
+		s.publishConsole(fmt.Sprintf("[script] command conflict: /%s already registered", key), messageTextTypeSystem)
+		return scriptRegistrationHandle{}
+	}
+	entry := sessionScriptCommand{owner: owner, handler: func(args string) {
+		queueScriptCallbackOn(queue, owner, "Command", func() { handler(args) })
+	}}
+	s.automation.localCommands[key] = entry
+	s.automation.scriptMu.Unlock()
+
+	var registration scriptRegistrationHandle
+	registration = registerSessionScriptResource(queue, func() {
+		s.automation.scriptMu.Lock()
+		if current, ok := s.automation.localCommands[key]; ok && current.owner == owner {
+			delete(s.automation.localCommands, key)
+		}
+		s.automation.scriptMu.Unlock()
+	})
+	scriptLogEvent(owner, "Registered command", "/"+key)
+	return registration
+}
+
+func (s *Session) sessionScriptCommand(name string) (sessionScriptCommand, bool) {
+	if s == nil || s.automation == nil {
+		return sessionScriptCommand{}, false
+	}
+	s.automation.scriptMu.RLock()
+	command, ok := s.automation.localCommands[name]
+	s.automation.scriptMu.RUnlock()
+	return command, ok
 }
 
 func (s *Session) setScriptLocation(location string) {
@@ -61,10 +208,14 @@ func (s *Session) scriptLocationSnapshot() string {
 
 func newSessionAutomationState() *sessionAutomationState {
 	return &sessionAutomationState{
-		scriptQueues: newScriptQueueRegistry(),
-		scriptTimers: newScriptTimerRegistry(),
-		scripts:      make(map[string]*sessionScriptInstance),
-		sendHistory:  make(map[string][]time.Time),
+		scriptQueues:  newScriptQueueRegistry(),
+		scriptTimers:  newScriptTimerRegistry(),
+		scripts:       make(map[string]*sessionScriptInstance),
+		localCommands: make(map[string]sessionScriptCommand),
+		localHotkeys:  make(map[string]map[string]sessionScriptHotkey),
+		localToolbars: make(map[string][]*scriptToolbarRegistration),
+		toolbarNext:   make(map[string]int),
+		sendHistory:   make(map[string][]time.Time),
 	}
 }
 
@@ -150,6 +301,7 @@ func (s *Session) queueLegacyMacroMove(move legacyMacroMove) {
 	if s == nil || s.input == nil {
 		return
 	}
+	s.input.markMacroMoved()
 	if move.Direction == legacyMacroMoveStop {
 		s.input.enqueue(inputState{})
 		return
@@ -307,6 +459,10 @@ func (s *sessionAutomationState) reset() {
 	clear(s.sendHistory)
 	s.sendMu.Unlock()
 	s.scriptMu.Lock()
+	clear(s.localCommands)
+	clear(s.localHotkeys)
+	clear(s.localToolbars)
+	clear(s.toolbarNext)
 	clear(s.stateWaiters)
 	s.changeSnapshot = scriptChangeSnapshot{}
 	s.latestServer = scriptapi.ServerMessage{}

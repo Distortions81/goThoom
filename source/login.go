@@ -118,6 +118,10 @@ func connectStatusMessage(target serverTarget) string {
 }
 
 func updateSessionConnectStatus(session *Session, status string) {
+	if session != nil {
+		session.login.setStatus(status, nil)
+		queueSessionWorkspaceUIUpdate()
+	}
 	if session == primarySession {
 		dispatchMainThread(func() { updateConnectDialog(status) })
 	}
@@ -158,6 +162,10 @@ func handleSessionDisconnect(session *Session) {
 }
 
 func completeSessionDisconnect(session *Session) {
+	if session != nil {
+		session.login.setStatus("Disconnected", nil)
+		queueSessionWorkspaceUIUpdate()
+	}
 	if session != primarySession {
 		session.resetConnectionModels()
 		session.login.clearCredentials()
@@ -887,6 +895,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	if !attached {
 		return errors.New("session transport already active")
 	}
+	updateSessionConnectStatus(session, "Connected")
 	if session == primarySession {
 		loginMu.Lock()
 		tcpConn = tcp

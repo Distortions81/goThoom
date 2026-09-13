@@ -857,13 +857,17 @@ func isModifier(k ebiten.Key) bool {
 var hotkeyClickVariableRE = regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
 
 func applyHotkeyVars(cmd string) (string, bool) {
+	return applyHotkeyVarsForSession(primarySession, cmd)
+}
+
+func applyHotkeyVarsForSession(session *Session, cmd string) (string, bool) {
+	if session == nil {
+		session = primarySession
+	}
 	// Resolve @hovered first (simple, unchanged)
 	needHovered := strings.Contains(cmd, "@hovered")
 	if needHovered {
-		var hoveredName string
-		lastHoverMu.Lock()
-		hoveredName = lastHover.Mobile.Name
-		lastHoverMu.Unlock()
+		hoveredName := sessionHoverSnapshot(session).Mobile.Name
 		if hoveredName == "" {
 			return "", false
 		}
@@ -883,17 +887,11 @@ func applyHotkeyVars(cmd string) (string, bool) {
 		ok := false
 		switch button {
 		case "right", "rightclick":
-			lastClickByButtonMu.Lock()
-			info, ok = lastClickByButton[ebiten.MouseButtonRight]
-			lastClickByButtonMu.Unlock()
+			info, ok = sessionButtonClickSnapshot(session, ebiten.MouseButtonRight)
 		case "middle", "middleclick":
-			lastClickByButtonMu.Lock()
-			info, ok = lastClickByButton[ebiten.MouseButtonMiddle]
-			lastClickByButtonMu.Unlock()
+			info, ok = sessionButtonClickSnapshot(session, ebiten.MouseButtonMiddle)
 		case "left", "leftclick":
-			lastClickByButtonMu.Lock()
-			info, ok = lastClickByButton[ebiten.MouseButtonLeft]
-			lastClickByButtonMu.Unlock()
+			info, ok = sessionButtonClickSnapshot(session, ebiten.MouseButtonLeft)
 		default:
 			ok = false
 		}
@@ -932,6 +930,16 @@ func applyHotkeyVars(cmd string) (string, bool) {
 	cmd = out
 
 	return cmd, true
+}
+
+func sessionButtonClickSnapshot(session *Session, button ebiten.MouseButton) (ClickInfo, bool) {
+	if session == nil || session == primarySession {
+		lastClickByButtonMu.Lock()
+		info, ok := lastClickByButton[button]
+		lastClickByButtonMu.Unlock()
+		return info, ok
+	}
+	return session.input.buttonClickSnapshot(button)
 }
 
 func updateHotkeyRecording() {
@@ -976,7 +984,7 @@ func hotkeyEquipAlreadyEquipped(cmd string) bool {
 	return false
 }
 
-func checkHotkeys() InputEvent {
+func checkHotkeys(session *Session) InputEvent {
 	if recording || bindingInputCaptured() {
 		return InputEvent{}
 	}
@@ -995,6 +1003,18 @@ func checkHotkeys() InputEvent {
 				return InputEvent{}
 			}
 		}
+		if session != nil && session != primarySession {
+			if hotkey, matched, enabled := session.sessionScriptHotkey(combo); matched {
+				if enabled && hotkey.handler != nil {
+					scriptLogEvent(hotkey.owner, "Hotkey", combo)
+					event := makeScriptInputEventForSession(session, combo)
+					if !hotkey.handler(event) {
+						return event
+					}
+				}
+				return InputEvent{}
+			}
+		}
 		hotkeysMu.RLock()
 		list := append([]Hotkey(nil), hotkeys...)
 		hotkeysMu.RUnlock()
@@ -1004,7 +1024,7 @@ func checkHotkeys() InputEvent {
 				if hk.Script != "" {
 					if fn, ok := scriptGetHotkeyFn(hk.Script, hk.Combo); ok && fn != nil {
 						scriptLogEvent(hk.Script, "Hotkey", combo)
-						ev := makeScriptInputEvent(combo)
+						ev := makeScriptInputEventForSession(session, combo)
 						if !fn(ev) {
 							return ev
 						}
@@ -1024,7 +1044,7 @@ func checkHotkeys() InputEvent {
 					}
 					// Show hotkey-triggered command as if it were typed
 					var ok bool
-					cmd, ok = applyHotkeyVars(cmd)
+					cmd, ok = applyHotkeyVarsForSession(session, cmd)
 					if !ok {
 						return InputEvent{}
 					}
@@ -1033,9 +1053,8 @@ func checkHotkeys() InputEvent {
 							continue
 						}
 					}
-					enqueueCommand(cmd)
+					dispatchSubmittedCommand(session, cmd)
 				}
-				nextCommand()
 				break
 			}
 		}
@@ -1044,6 +1063,10 @@ func checkHotkeys() InputEvent {
 }
 
 func makeScriptInputEvent(combo string) InputEvent {
+	return makeScriptInputEventForSession(primarySession, combo)
+}
+
+func makeScriptInputEventForSession(session *Session, combo string) InputEvent {
 	parts := strings.Split(combo, "-")
 	trigger := ""
 	if len(parts) > 0 {
@@ -1089,7 +1112,7 @@ func makeScriptInputEvent(combo string) InputEvent {
 	}
 	event.WorldX = int16(float64(event.ScreenX-worldOriginX)/scale - float64(fieldCenterX))
 	event.WorldY = int16(float64(event.ScreenY-worldOriginY)/scale - float64(fieldCenterY))
-	info := worldInfoAt(event.WorldX, event.WorldY)
+	info := worldInfoAtSession(session, event.WorldX, event.WorldY)
 	event.OnMobile = info.OnMobile
 	event.Mobile = info.Mobile
 	if info.OnPlayer {

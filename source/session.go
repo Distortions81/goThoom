@@ -45,6 +45,7 @@ type Session struct {
 	draw       *sessionDrawState
 	events     *sessionEventState
 	players    *sessionPlayerState
+	music      *sessionMusicState
 	automation *sessionAutomationState
 	transport  *sessionTransportState
 	input      *sessionInputState
@@ -72,6 +73,7 @@ func newSession(id SessionID) (*Session, error) {
 		draw:           newSessionDrawState(),
 		events:         newSessionEventState(),
 		players:        newSessionPlayerState(),
+		music:          newSessionMusicState(),
 		automation:     newSessionAutomationState(),
 		transport:      newSessionTransportState(),
 		input:          newSessionInputState(),
@@ -152,6 +154,7 @@ func (s *Session) setCharacterName(name string) {
 	s.identityMu.Lock()
 	s.character = name
 	s.identityMu.Unlock()
+	queueMusicSourceUIUpdate()
 }
 
 func (s *Session) characterName() string {
@@ -179,6 +182,7 @@ func (s *Session) resetConnectionModels() {
 	s.timing.resetFallback()
 	s.inventory.reset()
 	s.players.reset()
+	s.music.reset()
 	s.setSelectedPlayer("")
 	s.setSelectedInventory(0, -1)
 	// Secondary script instances are independent of the primary Scripts UI,

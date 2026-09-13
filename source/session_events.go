@@ -12,11 +12,12 @@ const maxSessionEvents = 1000
 type sessionEventKind string
 
 const (
-	sessionEventChat        sessionEventKind = "chat"
-	sessionEventConsole     sessionEventKind = "console"
-	sessionEventThink       sessionEventKind = "think"
-	sessionEventSound       sessionEventKind = "sound"
-	sessionEventInfoCommand sessionEventKind = "info-command"
+	sessionEventChat         sessionEventKind = "chat"
+	sessionEventConsole      sessionEventKind = "console"
+	sessionEventThink        sessionEventKind = "think"
+	sessionEventSound        sessionEventKind = "sound"
+	sessionEventNotification sessionEventKind = "notification"
+	sessionEventInfoCommand  sessionEventKind = "info-command"
 )
 
 // sessionEvent is detached data produced while decoding one session. The UI,

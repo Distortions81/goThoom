@@ -39,6 +39,31 @@ type sessionLoginState struct {
 	mu      sync.Mutex
 	request sessionLoginRequest
 	staged  *stagedPasswordUpdate
+	status  string
+	lastErr string
+}
+
+func (s *sessionLoginState) setStatus(status string, err error) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.status = strings.TrimSpace(status)
+	s.lastErr = ""
+	if err != nil {
+		s.lastErr = err.Error()
+	}
+	s.mu.Unlock()
+}
+
+func (s *sessionLoginState) statusSnapshot() (string, string) {
+	if s == nil {
+		return "", ""
+	}
+	s.mu.Lock()
+	status, lastErr := s.status, s.lastErr
+	s.mu.Unlock()
+	return status, lastErr
 }
 
 func newSessionLoginState() *sessionLoginState {

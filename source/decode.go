@@ -178,50 +178,26 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 			return "info: " + text
 		}
 	case "sh", "su":
-		if session == primarySession {
-			parseShareText(raw, text)
-		} else if session != nil {
-			session.players.parseShareText(raw, text, session.characterName())
-		}
+		session.parseShareText(raw, text)
 		if text != "" {
 			return text
 		}
 	case "hf", "nf":
 		// Fallen or not-fallen notices
-		if session == primarySession {
-			parseFallenText(raw, text)
-		} else if session != nil {
-			session.players.parseFallenText(raw, text, session.characterName())
-		}
+		session.parseFallenText(raw, text)
 		if text != "" {
 			return text
 		}
 	case "ba", "mu":
 		// Bard guild messages or tunes
-		if session != primarySession {
-			if session != nil {
-				if prefix == "ba" {
-					session.players.parseBardText(text)
-				}
-				session.publishInfoCommand(text)
-			}
-			if prefix == "ba" && text != "" {
-				return text
-			}
-			return ""
-		}
-		handled := parseBardText(raw, text)
+		handled := parseSessionBardText(session, raw, text)
 		if !handled && text != "" {
 			return text
 		}
 	case "lg", "lf", "er":
 		// Login/logout presence notices and error messages like
 		// "<name> is not in the lands." which imply logoff
-		if session == primarySession {
-			parsePresenceText(raw, text)
-		} else if session != nil {
-			session.players.parsePresenceText(raw, text)
-		}
+		session.parsePresenceText(raw, text)
 		if text != "" {
 			return text
 		}
@@ -517,13 +493,20 @@ func handleSessionInfoText(session *Session, data []byte) {
 			// - Accept explicit "/music/..." payloads anywhere in the line
 			// - Accept leading "play ..." or "play/..." forms
 			if strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
-				if parseMusicCommand(s, line) {
+				if parseSessionMusicCommand(session, s, line) {
 					continue
 				}
 			}
-		} else if strings.HasPrefix(s, "/") || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
-			session.publishInfoCommand(s)
-			continue
+		} else {
+			if strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+				if parseSessionMusicCommand(session, s, line) {
+					continue
+				}
+			}
+			if strings.HasPrefix(s, "/") {
+				session.publishInfoCommand(s)
+				continue
+			}
 		}
 		// Ignore other command-like lines.
 		if strings.HasPrefix(s, "/") {

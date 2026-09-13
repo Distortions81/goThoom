@@ -20,6 +20,17 @@ func scriptHover() scriptapi.Click {
 	return scriptClickSnapshot(hover, false)
 }
 
+func scriptLastClickForSession(session *Session) scriptapi.Click {
+	if session == nil || session == primarySession {
+		return scriptLastClick()
+	}
+	return scriptClickSnapshot(session.input.clickSnapshot(), true)
+}
+
+func scriptHoverForSession(session *Session) scriptapi.Click {
+	return scriptClickSnapshot(sessionHoverSnapshot(session), false)
+}
+
 func scriptClickSnapshot(info ClickInfo, includeButton bool) scriptapi.Click {
 	button := ""
 	if includeButton {

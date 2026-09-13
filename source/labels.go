@@ -70,16 +70,41 @@ func setPlayerLabelForSession(session *Session, name string, label int, global b
 	if session == nil {
 		session = primarySession
 	}
-	p := getPlayer(name)
-	playersMu.Lock()
-	if global {
-		p.GlobalLabel = label
-	} else if session == primarySession {
-		p.LocalLabel = label
+	var playerCopy Player
+	if session == primarySession {
+		p := getPlayer(name)
+		playersMu.Lock()
+		if global {
+			p.GlobalLabel = label
+		} else {
+			p.LocalLabel = label
+		}
+		applyPlayerLabel(p)
+		playerCopy = *p
+		playersMu.Unlock()
+	} else {
+		session.players.mu.Lock()
+		p := session.players.players[name]
+		if p == nil {
+			p = &Player{Name: name}
+			session.players.players[name] = p
+		}
+		if global {
+			p.GlobalLabel = label
+		} else {
+			p.LocalLabel = label
+		}
+		applyPlayerLabel(p)
+		playerCopy = *p
+		session.players.mu.Unlock()
+		if global {
+			persisted := getPlayer(name)
+			playersMu.Lock()
+			persisted.GlobalLabel = label
+			applyPlayerLabel(persisted)
+			playersMu.Unlock()
+		}
 	}
-	applyPlayerLabel(p)
-	playerCopy := *p
-	playersMu.Unlock()
 	if !global {
 		character := session.characterName()
 		for i := range characters {

@@ -109,6 +109,10 @@ func disableMusic() {
 // music package. The tune may optionally begin with an instrument index.
 // For example: "3 cde" plays on instrument #3. It returns any playback error.
 func playClanLordTune(tune string) error {
+	return playSessionClanLordTune(primarySession, tune)
+}
+
+func playSessionClanLordTune(session *Session, tune string) error {
 	if audioContext == nil {
 		return fmt.Errorf("audio disabled")
 	}
@@ -139,7 +143,7 @@ func playClanLordTune(tune string) error {
 	}
 	prog := instruments[inst].program
 
-	enqueueTune(tuneJob{program: prog, notes: ns})
+	enqueueSessionTune(session, tuneJob{program: prog, notes: ns})
 	return nil
 }
 
@@ -170,9 +174,25 @@ type pendingSong struct {
 
 const musicPartTimeout = 20 * time.Second
 
+type sessionMusicState struct {
+	mu          sync.Mutex
+	pendingByID map[int]*pendingSong
+}
+
+func newSessionMusicState() *sessionMusicState {
+	return &sessionMusicState{pendingByID: make(map[int]*pendingSong)}
+}
+
+func (s *sessionMusicState) reset() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.pendingByID = make(map[int]*pendingSong)
+	s.mu.Unlock()
+}
+
 var (
-	pendingMu   sync.Mutex
-	pendingByID = make(map[int]*pendingSong)
 	// musicCommandNow uses wall time during live play. Movie indexing replaces
 	// it temporarily with the recording's fixed-UPS timeline so the classic
 	// client's multipart timeout remains meaningful during a fast scan.
@@ -188,38 +208,48 @@ var (
 // handleMusicParams translates parsed music params into queued playback. It
 // supports /stop, /part accumulation and tempo/volume/instrument parameters.
 func handleMusicParams(mp MusicParams) {
+	handleSessionMusicParams(primarySession, mp)
+}
+
+func handleSessionMusicParams(session *Session, mp MusicParams) {
+	if session == nil || session.music == nil {
+		return
+	}
+	state := session.music
 	now := musicCommandNow()
 	// The classic client runs its idle purge before every music command.
-	pendingMu.Lock()
-	for who, song := range pendingByID {
+	state.mu.Lock()
+	for who, song := range state.pendingByID {
 		if !song.touched.IsZero() && now.Sub(song.touched) > musicPartTimeout {
-			delete(pendingByID, who)
+			delete(state.pendingByID, who)
 		}
 	}
-	pendingMu.Unlock()
+	state.mu.Unlock()
 
 	if mp.Stop {
 		// Scoped stop: if who provided, clear that pending and stop if playing.
 		if mp.Who != 0 {
-			pendingMu.Lock()
-			delete(pendingByID, mp.Who)
-			pendingMu.Unlock()
+			state.mu.Lock()
+			delete(state.pendingByID, mp.Who)
+			state.mu.Unlock()
 			if movieMusicIndexStop != nil {
 				movieMusicIndexStop(mp.Who)
 				return
 			}
-			stopMusicFor(mp.Who)
+			routeSessionMusic(session, func() {
+				stopMusicFor(mp.Who)
+			})
 		} else {
 			// Global stop
-			pendingMu.Lock()
-			pendingByID = make(map[int]*pendingSong)
-			pendingMu.Unlock()
+			state.reset()
 			if movieMusicIndexStop != nil {
 				movieMusicIndexStop(0)
 				return
 			}
-			stopAllMusic()
-			clearTuneQueue()
+			routeSessionMusic(session, func() {
+				stopAllMusic()
+				clearTuneQueue()
+			})
 		}
 		return
 	}
@@ -245,11 +275,11 @@ func handleMusicParams(mp MusicParams) {
 
 	// Accumulate multipart songs when /part is present.
 	if mp.Part {
-		pendingMu.Lock()
-		ps := pendingByID[id]
+		state.mu.Lock()
+		ps := state.pendingByID[id]
 		if ps == nil {
 			ps = &pendingSong{inst: mp.Inst, tempo: mp.Tempo, volPct: mp.VolPct, touched: now}
-			pendingByID[id] = ps
+			state.pendingByID[id] = ps
 		} else {
 			if mp.Inst != 0 {
 				ps.inst = mp.Inst
@@ -268,7 +298,7 @@ func handleMusicParams(mp MusicParams) {
 			ps.withIDs = append([]int(nil), mp.With...)
 		}
 		ps.touched = now
-		pendingMu.Unlock()
+		state.mu.Unlock()
 		return
 	}
 
@@ -277,9 +307,9 @@ func handleMusicParams(mp MusicParams) {
 	tempo := mp.Tempo
 	vol := mp.VolPct
 	notes := strings.TrimSpace(mp.Notes)
-	pendingMu.Lock()
+	state.mu.Lock()
 	hadPending := false
-	if ps := pendingByID[id]; ps != nil {
+	if ps := state.pendingByID[id]; ps != nil {
 		if notes != "" {
 			ps.notes = append(ps.notes, notes)
 		}
@@ -296,7 +326,7 @@ func handleMusicParams(mp MusicParams) {
 		if len(mp.With) == 0 && len(ps.withIDs) > 0 {
 			mp.With = append([]int(nil), ps.withIDs...)
 		}
-		delete(pendingByID, id)
+		delete(state.pendingByID, id)
 		hadPending = true
 	}
 	// If sync requested via /with, require that all referenced IDs also have
@@ -304,7 +334,7 @@ func handleMusicParams(mp MusicParams) {
 	if len(mp.With) > 0 {
 		// Save current as pending with its group
 		p := &pendingSong{inst: inst, tempo: tempo, volPct: vol, notes: []string{notes}, withIDs: append([]int(nil), mp.With...), ready: true, touched: now}
-		pendingByID[id] = p
+		state.pendingByID[id] = p
 		// Deduplicate and sort the requested group IDs.
 		idmap := map[int]struct{}{}
 		for _, w := range append([]int{id}, mp.With...) {
@@ -323,28 +353,28 @@ func handleMusicParams(mp MusicParams) {
 			}
 		}
 		for _, w := range ids {
-			song := pendingByID[w]
+			song := state.pendingByID[w]
 			if song == nil || !song.ready {
-				pendingMu.Unlock()
+				state.mu.Unlock()
 				return
 			}
 		}
 		// All parts present: build jobs in sorted order.
 		jobs := make([]tuneJob, 0, len(ids))
 		for _, w := range ids {
-			ps := pendingByID[w]
+			ps := state.pendingByID[w]
 			nstr := strings.Join(ps.notes, " ")
 			jobs = append(jobs, makeTuneJob(w, ps.inst, ps.tempo, ps.volPct, nstr, mp.debug))
-			delete(pendingByID, w)
+			delete(state.pendingByID, w)
 		}
-		pendingMu.Unlock()
+		state.mu.Unlock()
 		// Enqueue jobs sequentially
 		// Clear any queued previous jobs so the synchronized set starts cleanly.
 		clearTuneQueue()
-		enqueueTunes(jobs)
+		enqueueSessionTunes(session, jobs)
 		return
 	}
-	pendingMu.Unlock()
+	state.mu.Unlock()
 	if notes == "" {
 		return
 	}
@@ -357,7 +387,7 @@ func handleMusicParams(mp MusicParams) {
 		clearTuneQueue()
 	}
 	job := makeTuneJob(id, inst, tempo, vol, notes, mp.debug)
-	enqueueTune(job)
+	enqueueSessionTune(session, job)
 	if mp.debug {
 		// Classic-only debug: compute notes via classic path and dump.
 		ns := classicNotesFromTune(notes, instruments[inst], tempo, 100)
@@ -396,55 +426,71 @@ func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 }
 
 func enqueueTune(job tuneJob) {
-	enqueueTunes([]tuneJob{job})
+	enqueueSessionTune(primarySession, job)
+}
+
+func enqueueSessionTune(session *Session, job tuneJob) {
+	enqueueSessionTunes(session, []tuneJob{job})
 }
 
 // enqueueTunes renders a /with group into one buffered player so every bard is
 // mixed and started together, even on audio backends that do not reliably
 // start several new players at once.
 func enqueueTunes(jobs []tuneJob) {
+	enqueueSessionTunes(primarySession, jobs)
+}
+
+func enqueueSessionTunes(session *Session, jobs []tuneJob) {
 	if len(jobs) == 0 {
 		return
 	}
-	for _, job := range jobs {
-		if job.parseErr != nil {
-			reportTuneParseError(job.who, job.parseErr)
-			return
-		}
-	}
 	if movieMusicIndexCapture != nil {
+		for _, job := range jobs {
+			if job.parseErr != nil {
+				reportTuneParseError(job.who, job.parseErr)
+				return
+			}
+		}
 		captured := append([]tuneJob(nil), jobs...)
 		movieMusicIndexCapture(captured)
 		return
 	}
-	soundMu.Lock()
-	context := audioContext
-	soundMu.Unlock()
-	settings := currentMusicPlaybackSettings()
-	go func() {
-		if context == nil {
-			log.Printf("play tune: audio disabled")
-			return
-		}
-		parts := make([]musicPart, 0, len(jobs))
-		whos := make([]int, 0, len(jobs))
-		debug := false
+	routeSessionMusic(session, func() {
 		for _, job := range jobs {
-			parts = append(parts, musicPart{program: job.program, notes: job.notes})
-			whos = append(whos, job.who)
-			debug = debug || job.debug
-		}
-		if movieMode {
-			parts = scaleMusicParts(parts, currentMovieMusicTempoRate())
-		}
-		if err := playMusicGroupWithSettings(context, parts, whos, nil, nil, settings); err != nil {
-			log.Printf("play tune: %v", err)
-			if debug {
-				consoleMessage("play tune: " + err.Error())
-				chatMessage("play tune: " + err.Error())
+			if job.parseErr != nil {
+				reportTuneParseError(job.who, job.parseErr)
+				return
 			}
 		}
-	}()
+		soundMu.Lock()
+		context := audioContext
+		soundMu.Unlock()
+		settings := currentMusicPlaybackSettings()
+		go func() {
+			if context == nil {
+				log.Printf("play tune: audio disabled")
+				return
+			}
+			parts := make([]musicPart, 0, len(jobs))
+			whos := make([]int, 0, len(jobs))
+			debug := false
+			for _, job := range jobs {
+				parts = append(parts, musicPart{program: job.program, notes: job.notes})
+				whos = append(whos, job.who)
+				debug = debug || job.debug
+			}
+			if movieMode {
+				parts = scaleMusicParts(parts, currentMovieMusicTempoRate())
+			}
+			if err := playMusicGroupWithSettings(context, parts, whos, nil, nil, settings); err != nil {
+				log.Printf("play tune: %v", err)
+				if debug {
+					consoleMessage("play tune: " + err.Error())
+					chatMessage("play tune: " + err.Error())
+				}
+			}
+		}()
+	})
 }
 
 func reportTuneParseError(who int, parseErr *tuneParseError) {

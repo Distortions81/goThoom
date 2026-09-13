@@ -456,17 +456,29 @@ func legacyMacroReplacementBreak(char rune) bool {
 }
 
 func legacyMacroTriggerExpression(text string, frame int64) bool {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroTriggerExpressionForSession(primarySession, text, frame)
+}
+
+func legacyMacroTriggerExpressionForSession(session *Session, text string, frame int64) bool {
+	runtime := legacyMacroRuntimeForSession(session)
 	return runtime != nil && runtime.triggerExpressionWithSelection(text, legacyMacroFrameInputSelection(), frame)
 }
 
 func legacyMacroHasExpression(text string) bool {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroHasExpressionForSession(primarySession, text)
+}
+
+func legacyMacroHasExpressionForSession(session *Session, text string) bool {
+	runtime := legacyMacroRuntimeForSession(session)
 	return runtime != nil && runtime.hasExpression(text)
 }
 
 func legacyMacroTriggerReplacement(text string, cursor int) (string, int, bool) {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroTriggerReplacementForSession(primarySession, text, cursor)
+}
+
+func legacyMacroTriggerReplacementForSession(session *Session, text string, cursor int) (string, int, bool) {
+	runtime := legacyMacroRuntimeForSession(session)
 	if runtime == nil {
 		return text, cursor, false
 	}
@@ -474,7 +486,11 @@ func legacyMacroTriggerReplacement(text string, cursor int) (string, int, bool) 
 }
 
 func legacyMacroTriggerClick(event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroTriggerClickForSession(primarySession, event, frame)
+}
+
+func legacyMacroTriggerClickForSession(session *Session, event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
+	runtime := legacyMacroRuntimeForSession(session)
 	if runtime == nil {
 		return false, true
 	}
@@ -482,7 +498,11 @@ func legacyMacroTriggerClick(event legacyMacroClickEvent, frame int64) (started,
 }
 
 func legacyMacroTriggerRightClick(event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroTriggerRightClickForSession(primarySession, event, frame)
+}
+
+func legacyMacroTriggerRightClickForSession(session *Session, event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
+	runtime := legacyMacroRuntimeForSession(session)
 	if runtime == nil {
 		return false, true
 	}
@@ -490,11 +510,22 @@ func legacyMacroTriggerRightClick(event legacyMacroClickEvent, frame int64) (sta
 }
 
 func legacyMacroTriggerWheel(name string, modifiers legacyMacroModifiers, frame int64) (started, allowDefault bool) {
-	runtime := legacyMacroRuntimeSnapshot()
+	return legacyMacroTriggerWheelForSession(primarySession, name, modifiers, frame)
+}
+
+func legacyMacroTriggerWheelForSession(session *Session, name string, modifiers legacyMacroModifiers, frame int64) (started, allowDefault bool) {
+	runtime := legacyMacroRuntimeForSession(session)
 	if runtime == nil {
 		return false, true
 	}
 	return runtime.triggerWheel(name, modifiers, frame)
+}
+
+func legacyMacroRuntimeForSession(session *Session) *legacyMacroRuntime {
+	if session == nil || session == primarySession {
+		return legacyMacroRuntimeSnapshot()
+	}
+	return session.legacyMacroRuntimeSnapshot()
 }
 
 func legacyMacroWorldClickEvent(info ClickInfo, button, chord int) legacyMacroClickEvent {
@@ -540,34 +571,38 @@ func legacyMacroMouseChordFromPressed(pressed ...bool) int {
 // legacyMacroHandlePlayerModifierClick mirrors the classic client's player
 // actions. It returns true when the modifier consumes the normal click.
 func legacyMacroHandlePlayerModifierClick(name string, modifiers legacyMacroModifiers) bool {
+	return legacyMacroHandlePlayerModifierClickForSession(primarySession, name, modifiers)
+}
+
+func legacyMacroHandlePlayerModifierClickForSession(session *Session, name string, modifiers legacyMacroModifiers) bool {
 	if name == "" {
 		return false
 	}
 	switch modifiers & (legacyMacroModCommand | legacyMacroModOption | legacyMacroModControl | legacyMacroModShift) {
 	case legacyMacroModCommand:
-		selectPlayer(name)
+		selectPlayerForSession(session, name)
 		return true
 	case legacyMacroModOption:
 		legacyMacroInsertPlayerName(name)
 		return true
 	case legacyMacroModControl:
-		label := legacyMacroPlayerGlobalLabel(name)
+		label := legacyMacroPlayerGlobalLabelForSession(session, name)
 		if label >= 0 && label < 5 {
 			label++
 		} else {
 			label = 0
 		}
-		setPlayerLabel(name, label, true)
+		setPlayerLabelForSession(session, name, label, true)
 		return true
 	case legacyMacroModControl | legacyMacroModShift:
 		label := 6
-		switch legacyMacroPlayerGlobalLabel(name) {
+		switch legacyMacroPlayerGlobalLabelForSession(session, name) {
 		case 6:
 			label = 7
 		case 7:
 			label = 0
 		}
-		setPlayerLabel(name, label, true)
+		setPlayerLabelForSession(session, name, label, true)
 		return true
 	default:
 		return false
@@ -575,6 +610,17 @@ func legacyMacroHandlePlayerModifierClick(name string, modifiers legacyMacroModi
 }
 
 func legacyMacroPlayerGlobalLabel(name string) int {
+	return legacyMacroPlayerGlobalLabelForSession(primarySession, name)
+}
+
+func legacyMacroPlayerGlobalLabelForSession(session *Session, name string) int {
+	if session != nil && session != primarySession {
+		player, ok := session.players.playerSnapshot(name)
+		if !ok {
+			return 0
+		}
+		return player.GlobalLabel
+	}
 	player := getPlayer(name)
 	playersMu.RLock()
 	label := player.GlobalLabel
@@ -593,10 +639,14 @@ func legacyMacroPlayerClickEvent(name string) legacyMacroClickEvent {
 }
 
 func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
+	legacyMacroPollKeyboardForSession(primarySession, frame, typingElsewhere)
+}
+
+func legacyMacroPollKeyboardForSession(session *Session, frame int64, typingElsewhere bool) {
 	if !windowIsFocused() || bindingInputCaptured() {
 		return
 	}
-	runtime := legacyMacroRuntimeSnapshot()
+	runtime := legacyMacroRuntimeForSession(session)
 	if runtime == nil {
 		return
 	}

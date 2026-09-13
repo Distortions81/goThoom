@@ -22,6 +22,7 @@ type sessionTransportState struct {
 	tcp        net.Conn
 	udp        net.Conn
 	cancel     context.CancelFunc
+	done       chan struct{}
 	status     sessionConnectionStatus
 	generation uint64
 }
@@ -36,10 +37,11 @@ func (s *sessionTransportState) begin(cancel context.CancelFunc) bool {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.status != sessionDisconnected || s.tcp != nil || s.udp != nil {
+	if s.status != sessionDisconnected || s.tcp != nil || s.udp != nil || s.done != nil {
 		return false
 	}
 	s.cancel = cancel
+	s.done = make(chan struct{})
 	s.status = sessionConnecting
 	s.generation++
 	return true
@@ -79,8 +81,13 @@ func (s *sessionTransportState) connected() bool {
 }
 
 func (s *sessionTransportState) busy() bool {
-	_, _, status := s.connections()
-	return status != sessionDisconnected
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	busy := s.status != sessionDisconnected || s.done != nil
+	s.mu.RUnlock()
+	return busy
 }
 
 // finish clears this connection only if the supplied sockets are still the
@@ -97,6 +104,10 @@ func (s *sessionTransportState) finish(generation uint64) bool {
 		s.udp = nil
 		s.cancel = nil
 		s.status = sessionDisconnected
+		if s.done != nil {
+			close(s.done)
+			s.done = nil
+		}
 	}
 	s.mu.Unlock()
 	return currentLifecycle
@@ -108,10 +119,14 @@ func (s *sessionTransportState) failConnect() {
 	}
 	s.mu.Lock()
 	var cancel context.CancelFunc
-	if s.status == sessionConnecting && s.tcp == nil && s.udp == nil {
+	if (s.status == sessionConnecting || s.status == sessionDisconnected) && s.tcp == nil && s.udp == nil && s.done != nil {
 		cancel = s.cancel
 		s.cancel = nil
 		s.status = sessionDisconnected
+		if s.done != nil {
+			close(s.done)
+			s.done = nil
+		}
 	}
 	s.mu.Unlock()
 	if cancel != nil {
@@ -147,4 +162,14 @@ func (s *sessionTransportState) disconnect() bool {
 		_ = udp.Close()
 	}
 	return true
+}
+
+func (s *sessionTransportState) doneSnapshot() <-chan struct{} {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	done := s.done
+	s.mu.RUnlock()
+	return done
 }

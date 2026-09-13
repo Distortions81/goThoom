@@ -70,3 +70,23 @@ func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 		t.Fatal("changed world generation did not refresh snapshot")
 	}
 }
+
+func TestCaptureDrawSnapshotRefreshesWhenSessionChanges(t *testing.T) {
+	secondary := mustNewSession(2)
+	originalGeneration := primarySession.draw.generation.Load()
+	t.Cleanup(func() { primarySession.draw.generation.Store(originalGeneration) })
+	primarySession.draw.generation.Store(7)
+	secondary.draw.generation.Store(7)
+
+	var snap drawSnapshot
+	captureSessionDrawSnapshot(primarySession, &snap)
+	if snap.source != primarySessionID {
+		t.Fatalf("primary snapshot source = %d", snap.source)
+	}
+	if !captureSessionDrawSnapshotIfChanged(secondary, &snap) {
+		t.Fatal("same world generation in another session reused the previous snapshot")
+	}
+	if snap.source != secondary.ID() {
+		t.Fatalf("secondary snapshot source = %d", snap.source)
+	}
+}

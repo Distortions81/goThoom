@@ -368,6 +368,7 @@ func initUI() {
 		loginWin.MarkOpen()
 	}
 	uiReady = true
+	refreshSessionsToolbarButton()
 	if !windowsRestored {
 		restoreWindowSettings()
 	}
@@ -523,6 +524,25 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 		}
 	}
 	row2.AddItem(exitBtn)
+
+	sessionsToolbarButton, sessionsEvents := eui.NewButton()
+	sessionsToolbarButton.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	sessionsToolbarButton.FontSize = toolFontSize
+	sessionsToolbarButton.Action = func() {
+		sessionsToolbarButton.Disabled = !sessionsReady()
+	}
+	refreshSessionsToolbarButton()
+	sessionsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick || !sessionsReady() {
+			return
+		}
+		if !appSessions.multiEnabled() {
+			appSessions.enableMulti()
+		}
+		makeSessionsWindow()
+		sessionsWin.ToggleNear(ev.Item)
+	}
+	row2.AddItem(sessionsToolbarButton)
 
 	/*
 	   stopBtn, stopEvents := eui.NewButton()
@@ -1851,6 +1871,16 @@ func makeMixerWindow() {
 	}
 	enhanceCol.AddItem(musicEnhanceSlider)
 	flow.AddItem(enhanceCol)
+
+	addBigSpacer()
+
+	musicSourceCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 112, Y: 140}}
+	musicSourceTitle, _ := eui.NewText()
+	musicSourceTitle.Text = "Music source"
+	musicSourceTitle.Size = eui.Point{X: 112, Y: 24}
+	musicSourceCol.AddItem(musicSourceTitle)
+	addMusicSourceControls(musicSourceCol, 112, "mixer-music-source")
+	flow.AddItem(musicSourceCol)
 
 	addBigSpacer()
 

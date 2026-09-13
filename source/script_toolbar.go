@@ -38,6 +38,14 @@ var (
 	scriptToolbarNext = map[string]int{}
 )
 
+func init() {
+	previous := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previous()
+		dispatchMainThread(refreshScriptToolbars)
+	}
+}
+
 func (candidate *scriptCandidate) claimToolbar(options scriptapi.ToolbarOptions) bool {
 	if candidate == nil {
 		return true
@@ -149,6 +157,84 @@ func scriptRegisterToolbar(owner string, options scriptapi.ToolbarOptions, asset
 	return handle
 }
 
+func (session *Session) registerSessionScriptToolbar(owner string, options scriptapi.ToolbarOptions, assets *scriptAssetSource, queue *scriptEventQueue) scriptRegistrationHandle {
+	if session == nil || session.automation == nil || queue == nil || scriptIsDisabled(owner) {
+		return scriptRegistrationHandle{}
+	}
+	registration := &scriptToolbarRegistration{owner: owner, label: strings.TrimSpace(options.Label)}
+	if registration.label == "" {
+		registration.label = scriptDisplayName(owner)
+	}
+	var hotkeyHandles []scriptRegistrationHandle
+	var handle scriptRegistrationHandle
+	handle = registerSessionScriptResource(queue, func() {
+		for _, hotkey := range hotkeyHandles {
+			hotkey.release()
+		}
+		session.removeSessionScriptToolbar(owner, registration)
+	})
+	if !handle.valid() {
+		return handle
+	}
+	for _, option := range options.Buttons {
+		handler := option.OnClick
+		button := scriptToolbarButton{
+			label: strings.TrimSpace(option.Label), tooltip: strings.TrimSpace(option.Tooltip),
+			key:     strings.TrimSpace(option.Key),
+			onClick: func() { queueScriptCallbackOn(queue, owner, "Toolbar", handler) },
+		}
+		if button.label == "" {
+			button.label = "Button"
+		}
+		if icon := strings.TrimSpace(option.Icon); icon != "" {
+			image, err := loadScriptToolbarIcon(assets, icon)
+			if err != nil {
+				reportScriptCommandError(owner, "toolbar icon "+icon+": "+err.Error())
+			} else {
+				button.image = image
+			}
+		}
+		if button.key != "" {
+			hotkeyHandles = append(hotkeyHandles, session.registerSessionScriptHotkey(owner, button.key, func(InputEvent) { handler() }, queue))
+		}
+		registration.buttons = append(registration.buttons, button)
+	}
+	session.automation.scriptMu.Lock()
+	registration.order = session.automation.toolbarNext[owner]
+	session.automation.toolbarNext[owner]++
+	session.automation.localToolbars[owner] = append(session.automation.localToolbars[owner], registration)
+	session.automation.scriptMu.Unlock()
+	dispatchMainThread(refreshScriptToolbars)
+	return handle
+}
+
+func (session *Session) removeSessionScriptToolbar(owner string, registration *scriptToolbarRegistration) {
+	if session == nil || session.automation == nil {
+		return
+	}
+	session.automation.scriptMu.Lock()
+	registrations := session.automation.localToolbars[owner]
+	for index, existing := range registrations {
+		if existing == registration {
+			registrations = append(registrations[:index], registrations[index+1:]...)
+			break
+		}
+	}
+	if len(registrations) == 0 {
+		delete(session.automation.localToolbars, owner)
+		delete(session.automation.toolbarNext, owner)
+	} else {
+		session.automation.localToolbars[owner] = registrations
+	}
+	session.automation.scriptMu.Unlock()
+	dispatchMainThread(refreshScriptToolbars)
+	for _, button := range registration.buttons {
+		if button.image != nil {
+			button.image.Deallocate()
+		}
+	}
+}
+
 func loadScriptToolbarIcon(assets *scriptAssetSource, name string) (*ebiten.Image, error) {
 	data, err := assets.read(name)
 	if err != nil {
@@ -199,12 +285,21 @@ func refreshScriptToolbars() {
 }
 
 func buildScriptToolbarRows() []*eui.ItemData {
-	scriptToolbarMu.RLock()
 	var registrations []*scriptToolbarRegistration
-	for _, ownerToolbars := range scriptToolbars {
-		registrations = append(registrations, ownerToolbars...)
+	session := selectedAppSession()
+	if session == primarySession {
+		scriptToolbarMu.RLock()
+		for _, ownerToolbars := range scriptToolbars {
+			registrations = append(registrations, ownerToolbars...)
+		}
+		scriptToolbarMu.RUnlock()
+	} else if session != nil && session.automation != nil {
+		session.automation.scriptMu.RLock()
+		for _, ownerToolbars := range session.automation.localToolbars {
+			registrations = append(registrations, ownerToolbars...)
+		}
+		session.automation.scriptMu.RUnlock()
 	}
-	scriptToolbarMu.RUnlock()
 	sort.Slice(registrations, func(i, j int) bool {
 		if registrations[i].owner == registrations[j].owner {
 			return registrations[i].order < registrations[j].order

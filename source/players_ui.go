@@ -892,12 +892,10 @@ func handlePlayersContextClick(mx, my int) bool {
 				if !exists {
 					return false
 				}
-				if session == primarySession {
-					event := legacyMacroPlayerClickEvent(ref.name)
-					if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
-						legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
-						return true
-					}
+				event := legacyMacroPlayerClickEvent(ref.name)
+				if started, allowDefault := legacyMacroTriggerRightClickForSession(session, event, int64(session.frames.acknowledged())); started && !allowDefault {
+					legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
+					return true
 				}
 				// Select the player before opening the context menu
 				selectPlayerForSession(session, ref.name)
@@ -916,15 +914,13 @@ func handlePlayersClick(ref playerRef) {
 	if !ok {
 		return
 	}
-	if session == primarySession {
-		event := legacyMacroPlayerClickEvent(ref.name)
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
-			legacyMacroMarkInputConsumed("click")
-			return
-		}
-		if legacyMacroHandlePlayerModifierClick(ref.name, event.Modifiers) {
-			return
-		}
+	event := legacyMacroPlayerClickEvent(ref.name)
+	if started, allowDefault := legacyMacroTriggerClickForSession(session, event, int64(session.frames.acknowledged())); started && !allowDefault {
+		legacyMacroMarkInputConsumed("click")
+		return
+	}
+	if legacyMacroHandlePlayerModifierClickForSession(session, ref.name, event.Modifiers) {
+		return
 	}
 	now := time.Now()
 	if ref.session == lastPlayerClickSession && ref.name == lastPlayerClickName && now.Sub(lastPlayerClickTime) < 500*time.Millisecond {

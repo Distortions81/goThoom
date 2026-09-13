@@ -1431,6 +1431,15 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 	}
 	audioSection.AddItem(mixerBtn)
 
+	musicSourceLabel, _ := eui.NewText()
+	musicSourceLabel.Text = "Bard music source"
+	musicSourceLabel.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	musicSourceLabel.SetTooltip("Only the selected session plays bard music. Changing it stops the current tune; playback resumes with the next tune from that session.")
+	audioSection.AddItem(musicSourceLabel)
+	musicSourceRow := eui.NewRow()
+	addMusicSourceControls(musicSourceRow, 150, "settings-music-source")
+	audioSection.AddItem(musicSourceRow)
+
 	soundEnhanceSlider, soundEnhanceSliderEvents := eui.NewSlider()
 	soundEnhanceSlider.Label = "Sound effect ambience"
 	soundEnhanceSlider.MinValue = 0.1

@@ -102,17 +102,17 @@ dependency hooks are not session state.
 | --- | --- | --- | --- |
 | Settings and persistence | `gs`, settings/profile files, theme and keybinding definitions | App | Character profiles remain login metadata; they must not replace app settings when session selection changes. |
 | Assets and rendering resources | CL archives, decoded images/sounds, shaders, fonts, sprite/name-tag caches, render pools | App | Shared by every viewport; cache keys must not contain implicit current-character state. |
-| Audio output | audio context, mixer levels, sound/TTS players | App | Decoded sound requests now carry a source session ID and use per-session deduplication before entering the shared mixer. Notifications and music-source routing remain to move. |
-| Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | One copy per session slot; pointer coordinates resolve the viewport before dispatch. |
-| Draw model | decoded state, initial snapshot, bubbles, vitals, lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render-cache preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Interpolation settings and viewport caches remain to move. |
-| Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, and pending password updates are session-owned. The existing login-window fields remain a primary-session UI adapter; per-slot login surfaces, protocol encryption state, and reconnect policy remain to move. |
+| Audio output | audio context, mixer levels, sound/TTS players | App | Effect requests carry a source session ID and use per-session deduplication before entering the shared mixer. Notifications are source-labeled, music parsing is session-owned, and exactly one app-selected session feeds the shared music player. |
+| Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | Stable view IDs, session assignment, independent snapshots/render caches, tiled geometry, hit testing, and coordinate conversion are implemented. The existing playfield renders the selected session; four simultaneous EUI render targets and full-area login overlays remain. |
+| Draw model | decoded state, initial snapshot, bubbles, vitals, lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Snapshot identity includes its source session and render caches are viewport-owned. |
+| Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, and pending password updates are session-owned. The session manager can start, disconnect, and join all slots, and its management window exposes per-slot login. Moving those controls into each full-area viewport and completing reconnect policy remain. |
 | Network timing | ack/resend values, frame statistics/timing, PNA controller/fallback, command reply samples | Session | Extracted behind session-owned locks and wake channels so one connection cannot tune or wake another. Existing live call sites still target the primary session. |
-| Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, background-session input queues, who/info scheduling, and shared message-bar submission are isolated. The visible game movement/hotkey path and message drafts/history still use primary or app-level adapters; viewport routing remains to move. |
+| Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, input queues, walking, message drafts/history, clicks/hover, hotkeys, script input APIs, and legacy-macro direct triggers route to the selected session. Viewport hit testing and coordinate conversion exist; the live pointer path still needs to resolve among four simultaneous view windows. |
 | Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory, player directories, selections, BEP info/share/presence/fallen/bard state, paginated `/be-who`, and maintenance queues are session-owned. The package-level primary identity and player map remain compatibility adapters while login and older call sites move behind `Session`. |
 | Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained in typed per-session logs and a source-tagged app aggregate. Shared Chat/Console windows bind to the selected log and submit to its command stream. Persistence, drafts/history, unread state, and primary client-only messages still use legacy adapters. |
-| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions now load, advance, and tear down independent legacy macro runtimes. Their macro variables, text log, commands, and movement resolve through the owning session. Script candidates bind their Self, Players, Inventory, selected rows, CurrentWorld, and LatestServerMessage APIs to one session before evaluation. Each secondary runtime owns its interpreter, serialized callback queue, chat/server/change/login/logout/stop/player-change subscriptions, change/message snapshots, inventory waiters, outgoing command stream, equipment helpers, and send throttle history. Every runtime queue uses its session-owned `Repeat`/`After` timers, tick waiters, and tasks, so disconnecting one session cancels only that runtime. Local command registrations and input bindings, UI registrations, and the primary macro UI remain to move. |
-| Music data | parsed tune queue/timeline and current tune metadata | Session | The synthesizer/player stays app-owned and follows the explicit music-source selection. |
-| UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, and Players bind to the selected session. Row and context-menu callbacks capture their originating session ID, and shared-panel titles identify the bound character. Toolbar state and remaining dialogs still need the same binding. |
+| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions own legacy macro and script runtimes, queues, timers, tasks, subscriptions, commands, hotkeys, toolbar registrations, input APIs, and outgoing work. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. Session ownership for script world overlays/mobile effects and the primary macro-management UI remains. |
+| Music data | parsed tune queue/timeline and current tune metadata | Session | Implemented. The synthesizer/player stays app-owned and follows the explicit music-source selection; changing source stops playback and waits for that session's next tune event. |
+| UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, Players, script toolbars, native title, notifications, and command targets follow the selected session. A Sessions toolbar control and four-slot manager provide connect/disconnect/select/quit-all operations. Four freeform/tiled playfields and their embedded login states remain. |
 | Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
 
 The first implemented boundaries are `SessionID`, the app-owned session
@@ -130,9 +130,9 @@ bubbles, sound deduplication, visible-player observations, and tagged
 chat/console/audio events through the originating session. The app retains a
 bounded combined event model, and sound events from every session enter the
 shared mixer with their source ID. Existing entry points retain primary-session
-wrappers so the visible one-client application remains unchanged during
-extraction. Secondary BEPP/backend commands are retained as tagged events until
-the player, automation, music, and notification backends become session-aware.
+wrappers while the current playfield follows the selected session. Secondary
+BEPP/backend player, music, notification, and automation data is processed by
+the originating session.
 Each session now also owns its TCP/UDP socket pair, connection status,
 cancellation boundary, transport generation, network dispatch loops, command
 packet construction, a background-safe input queue, selected server and
@@ -154,11 +154,12 @@ when another session disconnects. Script `Send`, `Equip`, `Unequip`, and
 `WithEquipment` calls now use the runtime's command stream and inventory, with
 rate-limit accounting isolated per session. Inventory waits and player-change
 subscriptions also observe and wake from only their runtime's session state.
-Selected player/item APIs and change sources now read the owning session's row
-selection. Local command registrations and input bindings, UI registrations,
-and the primary Scripts UI remain to move.
-The existing login-window fields now copy into the primary session at
-connect time and remain only a UI adapter pending per-slot login surfaces.
+Selected player/item/input APIs and change sources now read the owning session.
+Local commands, hotkeys, and toolbar registrations are session-owned. Script
+world overlays/mobile effects, general script-window presentation, and the
+primary Scripts UI remain to move. The existing login-window fields now copy
+into the primary session at connect time; a four-slot manager provides login
+controls until the same flow is embedded in each viewport.
 
 ## UI behavior
 

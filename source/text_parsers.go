@@ -235,7 +235,7 @@ func parseShareText(raw []byte, s string) bool {
 				notifyPlayerHandlers(playerCopy)
 			}
 			playersDirty = true
-			showNotification(name + " is sharing with you")
+			showSessionNotification(primarySession, name+" is sharing with you")
 		}
 		return true
 	case strings.Contains(s, " is no longer sharing experiences with you"):
@@ -324,7 +324,7 @@ func parseFallenText(raw []byte, s string) bool {
 				playersDirty = true
 			}
 			if gs.NotifyFallen {
-				showNotification(playerName+" has fallen", 72, 69, 65)
+				showSessionNotification(primarySession, playerName+" has fallen", 72, 69, 65)
 			}
 			return true
 		}
@@ -344,7 +344,7 @@ func parseFallenText(raw []byte, s string) bool {
 				playersDirty = true
 			}
 			if gs.NotifyNotFallen {
-				showNotification(playerName+" is no longer fallen", 60, 64, 67)
+				showSessionNotification(primarySession, playerName+" is no longer fallen", 60, 64, 67)
 			}
 			return true
 		}
@@ -374,7 +374,7 @@ func parseFallenText(raw []byte, s string) bool {
 		playersDirty = true
 		notifyPlayerHandlers(playerCopy)
 		if gs.NotifyFallen {
-			showNotification(name+" has fallen", 72, 69, 65)
+			showSessionNotification(primarySession, name+" has fallen", 72, 69, 65)
 		}
 		return true
 	}
@@ -404,7 +404,7 @@ func parseFallenText(raw []byte, s string) bool {
 			playersDirty = true
 		}
 		if gs.NotifyNotFallen {
-			showNotification(name+" is no longer fallen", 60, 64, 67)
+			showSessionNotification(primarySession, name+" is no longer fallen", 60, 64, 67)
 		}
 		return true
 	}
@@ -463,7 +463,7 @@ func parsePresenceText(raw []byte, s string) bool {
 			notifyPlayerHandlers(playerCopy)
 		}
 		if friend && gs.NotifyFriendOnline {
-			showNotification(name+" is online", 84, 84)
+			showSessionNotification(primarySession, name+" is online", 84, 84)
 		}
 		return true
 	}
@@ -495,6 +495,13 @@ func parsePresenceText(raw []byte, s string) bool {
 // It also handles bard tune messages. Returns true if the message was fully
 // handled and should not be displayed.
 func parseBardText(raw []byte, s string) bool {
+	return parseSessionBardText(primarySession, raw, s)
+}
+
+func parseSessionBardText(session *Session, raw []byte, s string) bool {
+	if session == nil {
+		return false
+	}
 	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "* ") {
 		s = strings.TrimSpace(s[2:])
@@ -508,9 +515,13 @@ func parseBardText(raw []byte, s string) bool {
 	// payload or a leading "play" form.
 	hasMu := bytes.Contains(raw, []byte{0xC2, 'm', 'u'}) || bytes.Contains(raw, []byte{0xC2, 'b', 'a'})
 	if hasMu || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
-		if parseMusicCommand(s, raw) {
+		if parseSessionMusicCommand(session, s, raw) {
 			return true
 		}
+	}
+	if session != primarySession {
+		session.players.parseBardText(s)
+		return false
 	}
 
 	phrases := []struct {
@@ -589,6 +600,13 @@ func musicCommandWho(s string) int {
 }
 
 func parseMusicCommand(s string, raw []byte) bool {
+	return parseSessionMusicCommand(primarySession, s, raw)
+}
+
+func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
+	if session == nil {
+		return false
+	}
 	orig := s
 	debugMusic := musicDebug
 	debug := func(msg string) {
@@ -630,7 +648,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 	} else {
 		if stop {
 			if !blockMusic {
-				handleMusicParams(MusicParams{Stop: true, Who: prefixWho})
+				handleSessionMusicParams(session, MusicParams{Stop: true, Who: prefixWho})
 			}
 			return true
 		}
@@ -762,7 +780,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 	notes = strings.Trim(notes, "/")
 
 	if stop {
-		handleMusicParams(MusicParams{Stop: true, Who: who})
+		handleSessionMusicParams(session, MusicParams{Stop: true, Who: who})
 		// Continue to parse play if present; otherwise return.
 		if strings.TrimSpace(notes) == "" && !part {
 			return true
@@ -783,7 +801,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 	// actual PCM rendering is started asynchronously by enqueueTunes; handing
 	// every small command to a separate goroutine can reorder /part chunks and
 	// leave a /with group permanently incomplete.
-	handleMusicParams(MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
+	handleSessionMusicParams(session, MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
 	return true
 }
 

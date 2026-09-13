@@ -1214,6 +1214,9 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			m["IsEquipped"] = reflect.ValueOf(func(name string) bool { return scriptIsEquippedIn(session.inventory.snapshot(), name) })
 			m["SelectedPlayer"] = reflect.ValueOf(func() (scriptapi.Player, bool) { return scriptSelectedPlayerForSession(session) })
 			m["SelectedItem"] = reflect.ValueOf(func() (scriptapi.Item, bool) { return scriptSelectedItemForSession(session) })
+			m["InputText"] = reflect.ValueOf(func() string { return scriptInputTextForSession(session) })
+			m["LastClick"] = reflect.ValueOf(func() scriptapi.Click { return scriptLastClickForSession(session) })
+			m["Hover"] = reflect.ValueOf(func() scriptapi.Click { return scriptHoverForSession(session) })
 			m["CurrentWorld"] = reflect.ValueOf(func() scriptapi.World { return scriptCurrentWorldForSession(session) })
 			m["LatestServerMessage"] = reflect.ValueOf(session.latestSessionScriptServerMessage)
 		}
@@ -1289,7 +1292,13 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["Bind"] = reflect.ValueOf(func(combo string, handler func(InputEvent)) Subscription {
 			if candidate.claimBinding(combo, handler) {
-				return subscribe(func() scriptRegistrationHandle { return scriptAddHotkeyFn(owner, combo, handler) })
+				return subscribe(func() scriptRegistrationHandle {
+					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+						queue := candidate.runtimeEventQueue(owner)
+						return candidate.session.registerSessionScriptHotkey(owner, combo, handler, queue)
+					}
+					return scriptAddHotkeyFn(owner, combo, handler)
+				})
 			}
 			return Subscription{}
 		})
@@ -1317,6 +1326,10 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			if candidate.claimToolbar(options) {
 				return subscribe(func() scriptRegistrationHandle {
+					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+						queue := candidate.runtimeEventQueue(owner)
+						return candidate.session.registerSessionScriptToolbar(owner, options, candidate.assets, queue)
+					}
 					return scriptRegisterToolbar(owner, options, candidate.assets)
 				})
 			}
@@ -1324,7 +1337,13 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["Command"] = reflect.ValueOf(func(name string, handler func(string)) Subscription {
 			if candidate.claimCommand(name, handler) {
-				return subscribe(func() scriptRegistrationHandle { return scriptRegisterCommand(owner, name, handler) })
+				return subscribe(func() scriptRegistrationHandle {
+					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+						queue := candidate.runtimeEventQueue(owner)
+						return candidate.session.registerSessionScriptCommand(owner, name, handler, queue)
+					}
+					return scriptRegisterCommand(owner, name, handler)
+				})
 			}
 			return Subscription{}
 		})
@@ -1332,7 +1351,13 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			stage(func() { scriptAddShortcut(owner, short, full) })
 		})
 		m["Print"] = reflect.ValueOf(func(msg string) { stage(func() { scriptConsole(msg) }) })
-		m["ShowNotification"] = reflect.ValueOf(func(msg string) { stage(func() { scriptShowNotification(msg) }) })
+		notificationSession := primarySession
+		if candidate != nil && candidate.session != nil {
+			notificationSession = candidate.session
+		}
+		m["ShowNotification"] = reflect.ValueOf(func(msg string) {
+			stage(func() { showSessionNotification(notificationSession, msg) })
+		})
 		m["PlaySound"] = reflect.ValueOf(func(ids []uint16) {
 			copyOfIDs := append([]uint16(nil), ids...)
 			stage(func() { scriptPlaySound(copyOfIDs) })
@@ -1384,7 +1409,11 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			migrate(storedVersion)
 			candidate.setStorage(owner, scriptStorageVersionKey, version)
 		})
-		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
+		inputSession := primarySession
+		if candidate != nil && candidate.session != nil {
+			inputSession = candidate.session
+		}
+		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputTextForSession(inputSession, text) }) })
 		m["OnChat"] = reflect.ValueOf(func(filter ChatFilter, handler func(ChatEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle {
 				if candidate != nil && candidate.session != nil {
@@ -3242,6 +3271,32 @@ func scriptSetInputText(text string) {
 	inputActive = true
 	inputPos = len(inputText)
 	inputMu.Unlock()
+}
+
+func scriptInputTextForSession(session *Session) string {
+	if session == nil || session == primarySession {
+		return scriptInputText()
+	}
+	return string(session.input.messageSnapshot().draft)
+}
+
+func scriptSetInputTextForSession(session *Session, text string) {
+	if session == nil || session == primarySession {
+		scriptSetInputText(text)
+		return
+	}
+	session.input.setInputText(text)
+	dispatchMainThread(func() {
+		if appSessions.selectedID() != session.ID() || boundMessageInputSession != session.ID() {
+			return
+		}
+		inputMu.Lock()
+		inputText = []rune(text)
+		inputActive = true
+		inputPos = len(inputText)
+		inputMu.Unlock()
+		updateMessageInputWindows()
+	})
 }
 
 // scriptEquipByName equips the first inventory item whose name matches the

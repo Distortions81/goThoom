@@ -249,6 +249,41 @@ func (s *sessionPlayerState) parsePresenceText(raw []byte, text string) bool {
 	return true
 }
 
+func (s *sessionPlayerState) playerSnapshot(name string) (Player, bool) {
+	if s == nil || name == "" {
+		return Player{}, false
+	}
+	s.mu.RLock()
+	player := s.players[name]
+	if player == nil {
+		s.mu.RUnlock()
+		return Player{}, false
+	}
+	copyOfPlayer := *player
+	copyOfPlayer.Colors = append([]byte(nil), player.Colors...)
+	s.mu.RUnlock()
+	return copyOfPlayer, true
+}
+
+func (session *Session) parsePresenceText(raw []byte, text string) bool {
+	if session == nil {
+		return false
+	}
+	if session == primarySession {
+		return parsePresenceText(raw, text)
+	}
+	if !session.players.parsePresenceText(raw, text) {
+		return false
+	}
+	lower := strings.ToLower(text)
+	online := strings.Contains(lower, "has logged on") || strings.Contains(lower, "has entered the lands") || strings.Contains(lower, "has joined the world") || strings.Contains(lower, "has arrived")
+	name := utfFold(firstTagContent(raw, 'p', 'n'))
+	if player, ok := session.players.playerSnapshot(name); online && ok && player.Friend && gs.NotifyFriendOnline {
+		showSessionNotification(session, name+" is online", 84, 84)
+	}
+	return true
+}
+
 func (s *sessionPlayerState) parseFallenText(raw []byte, text, self string) bool {
 	if s == nil {
 		return false
@@ -286,6 +321,38 @@ func (s *sessionPlayerState) parseFallenText(raw []byte, text, self string) bool
 	}
 	s.mu.Unlock()
 	playersDirty = true
+	return true
+}
+
+func (session *Session) parseFallenText(raw []byte, text string) bool {
+	if session == nil {
+		return false
+	}
+	if session == primarySession {
+		return parseFallenText(raw, text)
+	}
+	if !session.players.parseFallenText(raw, text, session.characterName()) {
+		return false
+	}
+	name := utfFold(firstTagContent(raw, 'p', 'n'))
+	if name == "" && strings.HasPrefix(text, "You ") {
+		name = session.characterName()
+	}
+	if name == "" {
+		for _, marker := range []string{" has fallen", " is no longer fallen"} {
+			if index := strings.Index(text, marker); index >= 0 {
+				name = utfFold(strings.TrimSpace(text[:index]))
+				break
+			}
+		}
+	}
+	if strings.Contains(text, " has fallen") || strings.HasPrefix(text, "You have fallen") {
+		if gs.NotifyFallen {
+			showSessionNotification(session, name+" has fallen", 72, 69, 65)
+		}
+	} else if gs.NotifyNotFallen {
+		showSessionNotification(session, name+" is no longer fallen", 60, 64, 67)
+	}
 	return true
 }
 
@@ -403,6 +470,24 @@ func (s *sessionPlayerState) parseShareText(raw []byte, text, self string) bool 
 		return true
 	}
 	return false
+}
+
+func (session *Session) parseShareText(raw []byte, text string) bool {
+	if session == nil {
+		return false
+	}
+	if session == primarySession {
+		return parseShareText(raw, text)
+	}
+	if !session.players.parseShareText(raw, text, session.characterName()) {
+		return false
+	}
+	if gs.NotifyShares && strings.HasSuffix(strings.ToLower(text), " is sharing experiences with you.") {
+		if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
+			showSessionNotification(session, name+" is sharing with you")
+		}
+	}
+	return true
 }
 
 func (s *sessionPlayerState) parseBardText(text string) bool {

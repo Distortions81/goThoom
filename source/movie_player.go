@@ -180,17 +180,17 @@ func indexMovieMusic(frames []movieFrame) []movieMusicEvent {
 	previousCapture, previousStop := movieMusicIndexCapture, movieMusicIndexStop
 	previousBlockMusic := blockMusic
 	previousMusicCommandNow := musicCommandNow
-	pendingMu.Lock()
-	previousPending := pendingByID
-	pendingByID = make(map[int]*pendingSong)
-	pendingMu.Unlock()
+	primarySession.music.mu.Lock()
+	previousPending := primarySession.music.pendingByID
+	primarySession.music.pendingByID = make(map[int]*pendingSong)
+	primarySession.music.mu.Unlock()
 	defer func() {
 		movieMusicIndexCapture, movieMusicIndexStop = previousCapture, previousStop
 		blockMusic = previousBlockMusic
 		musicCommandNow = previousMusicCommandNow
-		pendingMu.Lock()
-		pendingByID = previousPending
-		pendingMu.Unlock()
+		primarySession.music.mu.Lock()
+		primarySession.music.pendingByID = previousPending
+		primarySession.music.mu.Unlock()
 	}()
 
 	blockMusic = false

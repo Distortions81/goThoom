@@ -334,18 +334,14 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 	gs.SoundFontFile = filepath.Base(fontPath)
 	gs.Music = true
 	blockMusic = false
-	pendingMu.Lock()
-	pendingByID = make(map[int]*pendingSong)
-	pendingMu.Unlock()
+	primarySession.music.reset()
 	t.Cleanup(func() {
 		stopAllMusic()
 		gs, blockMusic = oldSettings, oldBlock
 		storagePathsActivated = originalStorageActive
 		setupSynthOnce = sync.Once{}
 		sfntCached, sfntFallback, synthSettings = oldFont, oldFallback, oldSynthSettings
-		pendingMu.Lock()
-		pendingByID = make(map[int]*pendingSong)
-		pendingMu.Unlock()
+		primarySession.music.reset()
 	})
 
 	for _, frame := range frames {
@@ -371,12 +367,12 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 		musicPlayersMu.Unlock()
 		time.Sleep(10 * time.Millisecond)
 	}
-	pendingMu.Lock()
-	pending := make(map[int]int, len(pendingByID))
-	for who, song := range pendingByID {
+	primarySession.music.mu.Lock()
+	pending := make(map[int]int, len(primarySession.music.pendingByID))
+	for who, song := range primarySession.music.pendingByID {
 		pending[who] = len(song.notes)
 	}
-	pendingMu.Unlock()
+	primarySession.music.mu.Unlock()
 	t.Fatalf("ordered concert trio never started a mixed music player; pending=%v", pending)
 }
 
@@ -401,10 +397,10 @@ func TestParseMusicCommandWithMalformedWith(t *testing.T) {
 }
 
 func TestWithGroupWaitsForEveryBardToFinalize(t *testing.T) {
-	pendingMu.Lock()
-	originalPending := pendingByID
-	pendingByID = make(map[int]*pendingSong)
-	pendingMu.Unlock()
+	primarySession.music.mu.Lock()
+	originalPending := primarySession.music.pendingByID
+	primarySession.music.pendingByID = make(map[int]*pendingSong)
+	primarySession.music.mu.Unlock()
 	originalCapture := movieMusicIndexCapture
 	var captured [][]tuneJob
 	movieMusicIndexCapture = func(jobs []tuneJob) {
@@ -412,9 +408,9 @@ func TestWithGroupWaitsForEveryBardToFinalize(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		movieMusicIndexCapture = originalCapture
-		pendingMu.Lock()
-		pendingByID = originalPending
-		pendingMu.Unlock()
+		primarySession.music.mu.Lock()
+		primarySession.music.pendingByID = originalPending
+		primarySession.music.mu.Unlock()
 	})
 
 	handleMusicParams(MusicParams{Who: 1, Inst: 5, Notes: "c", Part: true, With: []int{2}})
@@ -430,10 +426,10 @@ func TestWithGroupWaitsForEveryBardToFinalize(t *testing.T) {
 }
 
 func TestMultipartSongExpiresAfterClassicTimeout(t *testing.T) {
-	pendingMu.Lock()
-	originalPending := pendingByID
-	pendingByID = make(map[int]*pendingSong)
-	pendingMu.Unlock()
+	primarySession.music.mu.Lock()
+	originalPending := primarySession.music.pendingByID
+	primarySession.music.pendingByID = make(map[int]*pendingSong)
+	primarySession.music.mu.Unlock()
 	originalNow := musicCommandNow
 	originalCapture := movieMusicIndexCapture
 	movieMusicIndexCapture = func([]tuneJob) {}
@@ -442,27 +438,27 @@ func TestMultipartSongExpiresAfterClassicTimeout(t *testing.T) {
 	t.Cleanup(func() {
 		musicCommandNow = originalNow
 		movieMusicIndexCapture = originalCapture
-		pendingMu.Lock()
-		pendingByID = originalPending
-		pendingMu.Unlock()
+		primarySession.music.mu.Lock()
+		primarySession.music.pendingByID = originalPending
+		primarySession.music.mu.Unlock()
 	})
 
 	handleMusicParams(MusicParams{Who: 1, Inst: 5, Notes: "c", Part: true})
 	now = now.Add(musicPartTimeout)
 	handleMusicParams(MusicParams{Who: 2, Inst: 1, Notes: "e", Part: true})
-	pendingMu.Lock()
-	_, boundaryExists := pendingByID[1]
-	pendingMu.Unlock()
+	primarySession.music.mu.Lock()
+	_, boundaryExists := primarySession.music.pendingByID[1]
+	primarySession.music.mu.Unlock()
 	if !boundaryExists {
 		t.Fatal("multipart song expired at the 20-second boundary")
 	}
 
 	now = now.Add(time.Millisecond)
 	handleMusicParams(MusicParams{Who: 3, Inst: 1, Notes: "g", Part: true})
-	pendingMu.Lock()
-	_, staleExists := pendingByID[1]
-	_, currentExists := pendingByID[3]
-	pendingMu.Unlock()
+	primarySession.music.mu.Lock()
+	_, staleExists := primarySession.music.pendingByID[1]
+	_, currentExists := primarySession.music.pendingByID[3]
+	primarySession.music.mu.Unlock()
 	if staleExists || !currentExists {
 		t.Fatalf("pending after timeout: stale=%v current=%v, want false/true", staleExists, currentExists)
 	}

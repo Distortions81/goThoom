@@ -558,6 +558,7 @@ func relinkBubbleMobileByName(b *bubble, descriptors map[uint8]frameDescriptor, 
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
 	valid                       bool
+	source                      SessionID
 	motionSmoothing             bool
 	objectPinning               bool
 	mobileFrameBlending         bool
@@ -622,6 +623,7 @@ func captureSessionDrawSnapshot(session *Session, snap *drawSnapshot) {
 		clear(snap.descriptors)
 	}
 	generation := draw.generation.Load()
+	snap.source = session.ID()
 	snap.worldGeneration = generation
 	snap.motionSmoothing = gs.MotionSmoothing
 	snap.objectPinning = gs.ObjectPinning
@@ -744,7 +746,7 @@ func captureSessionDrawSnapshotIfChanged(session *Session, snap *drawSnapshot) b
 	if session == nil || session.draw == nil || snap == nil {
 		return false
 	}
-	if snap.valid && snap.worldGeneration == session.draw.generation.Load() &&
+	if snap.valid && snap.source == session.ID() && snap.worldGeneration == session.draw.generation.Load() &&
 		snap.motionSmoothing == gs.MotionSmoothing &&
 		snap.objectPinning == gs.ObjectPinning &&
 		snap.mobileFrameBlending == mobileFrameBlendingEnabled() {
@@ -866,11 +868,23 @@ type Game struct {
 	worldRenderValid   bool
 }
 
+func init() {
+	previous := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previous()
+		dispatchMainThread(func() {
+			updateGameWindowTitle()
+			markWorldRenderChanged()
+		})
+	}
+}
+
 // worldRenderKey contains the state outside drawState that can change the
 // pixels in gameImage. When motion smoothing is disabled, an identical key
 // means the completed world image can be reused while EUI continues to render
 // normally around it.
 type worldRenderKey struct {
+	source            SessionID
 	worldGeneration   uint64
 	renderGeneration  uint64
 	artworkGeneration uint64
@@ -924,8 +938,16 @@ type worldRenderKey struct {
 }
 
 func currentWorldRenderKey(width, height int) worldRenderKey {
+	return currentSessionWorldRenderKey(primarySession, width, height)
+}
+
+func currentSessionWorldRenderKey(session *Session, width, height int) worldRenderKey {
+	if session == nil {
+		session = primarySession
+	}
 	return worldRenderKey{
-		worldGeneration:           primarySession.draw.generation.Load(),
+		source:                    session.ID(),
+		worldGeneration:           session.draw.generation.Load(),
 		renderGeneration:          worldRenderGeneration.Load(),
 		artworkGeneration:         artworkCacheGeneration.Load(),
 		width:                     width,
@@ -1005,6 +1027,12 @@ func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
 	return g != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
 		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActive() &&
 		g.worldRenderValid && g.lastWorldRenderKey == key
+}
+
+func viewportWorldRenderCanBeReused(state *viewportRenderState, key worldRenderKey) bool {
+	return state != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
+		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActive() &&
+		state.worldRenderValid && state.lastWorldRenderKey == key
 }
 
 var errApplicationShutdown = errors.New("application shutdown requested")
@@ -1090,6 +1118,8 @@ func (g *Game) Update() error {
 	}
 	drainScriptDispatcher()
 	processMusicRequests()
+	bindMessageInputSession(selectedAppSession())
+	defer func() { storeMessageInputSession(selectedAppSession()) }()
 	if updateSystemTheme(now) {
 		refreshThemePreview()
 	}
@@ -1104,7 +1134,11 @@ func (g *Game) Update() error {
 			item.Focused = false
 		}
 	}
+	inputSession := selectedAppSession()
 	legacyMacroBeginInputFrame()
+	if inputSession != primarySession {
+		inputSession.input.beginMacroInputFrame()
+	}
 	keyboardTestBeginInputFrame()
 	legacyTriggerBeginInputFrame()
 	eui.SetKeyboardInputCaptured(bindingCaptureFrameActive())
@@ -1112,6 +1146,8 @@ func (g *Game) Update() error {
 	if !legacyTriggerRecordFrame {
 		eui.Update()
 	} // Captured clicks must not activate controls behind the recorder.
+	inputSession = selectedAppSession()
+	bindMessageInputSession(inputSession)
 	inputSourceChanged := captureMessageInputFocus()
 	paletteShortcut := !bindingCaptureFrameActive() && commandPaletteShortcutPressed()
 	paletteKeyboardActive := paletteOpenAtFrameStart || commandPaletteWin != nil && commandPaletteWin.IsOpen()
@@ -1142,7 +1178,7 @@ func (g *Game) Update() error {
 	nativeOwnsKeys := nativeEdit.composing || nativeEdit.wasComposing
 	updateKeyboardTest()
 	if !nativeOwnsKeys {
-		legacyMacroPollKeyboard(int64(acknowledgedFrameSnapshot()), typingElsewhere)
+		legacyMacroPollKeyboardForSession(inputSession, int64(inputSession.frames.acknowledged()), typingElsewhere)
 	}
 	updateNotifications()
 	updateThinkMessages()
@@ -1155,11 +1191,11 @@ func (g *Game) Update() error {
 	mx, my := eui.PointerPosition()
 	hx := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
 	hy := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
-	updateWorldHover(hx, hy)
+	updateSessionWorldHover(inputSession, hx, hy)
 	updateHotkeyRecording()
 	consumedScriptInput := InputEvent{}
 	if !paletteKeyboardActive && !nativeOwnsKeys {
-		consumedScriptInput = checkHotkeys()
+		consumedScriptInput = checkHotkeys(inputSession)
 	}
 
 	joyClick1, joyClick2, joyClick3 := false, false, false
@@ -1414,11 +1450,10 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		inputSession := selectedAppSession()
 		primaryInput := inputSession == primarySession
 		if !nativeOwnsKeys && !nativeEdit.handled && (!primaryInput || !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter)) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			if primaryInput && !ctrl {
-				if updated, pos, handled := legacyMacroTriggerReplacement(string(inputText), inputPos); handled {
+			if !ctrl {
+				if updated, pos, handled := legacyMacroTriggerReplacementForSession(inputSession, string(inputText), inputPos); handled {
 					inputText = []rune(updated)
 					inputPos = pos
 					changedInput = true
@@ -1426,7 +1461,7 @@ func (g *Game) Update() error {
 				}
 			}
 			orig := string(inputText)
-			if primaryInput && legacyMacroHasExpression(orig) {
+			if legacyMacroHasExpressionForSession(inputSession, orig) {
 				if entry := strings.TrimSpace(orig); entry != "" {
 					inputHistory = append(inputHistory, entry)
 				}
@@ -1438,7 +1473,7 @@ func (g *Game) Update() error {
 				inputText = inputText[:0]
 				inputPos = 0
 				historyPos = len(inputHistory)
-				legacyMacroTriggerExpression(orig, int64(acknowledgedFrameSnapshot()))
+				legacyMacroTriggerExpressionForSession(inputSession, orig, int64(inputSession.frames.acknowledged()))
 			} else {
 				txt := expandShortcut(orig)
 				txt = strings.TrimSpace(txt)
@@ -1540,7 +1575,11 @@ func (g *Game) Update() error {
 		}
 	}
 	if !keyWalk && keyWalkPrev {
-		keyStopFrames = 3
+		if inputSession == primarySession {
+			keyStopFrames = 3
+		} else {
+			inputSession.input.setStopFrames(3)
+		}
 	}
 	keyWalkPrev = keyWalk
 
@@ -1576,7 +1615,7 @@ func (g *Game) Update() error {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
 		if wheelName != "" && !scriptInputConsumesButton(consumedScriptInput, scriptWheelButtonName(wheelX, wheelY)) {
-			if started, allowDefault := legacyMacroTriggerWheel(wheelName, wheelModifiers, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+			if started, allowDefault := legacyMacroTriggerWheelForSession(inputSession, wheelName, wheelModifiers, int64(inputSession.frames.acknowledged())); started && !allowDefault {
 				legacyMacroMarkInputConsumed(wheelName)
 			}
 		}
@@ -1610,9 +1649,7 @@ func (g *Game) Update() error {
 	}
 
 	stopWalkIfOutside(click, inGame)
-	inputMu.Lock()
-	prev := latestInput
-	inputMu.Unlock()
+	prev := currentSessionInput(inputSession)
 	overMessageOverlay := mouseClick && dismissGameMessageOverlayAt(mx, my)
 	uiOwnsClick := overMessageOverlay || pointInUI(mx, my)
 	if mouseClick {
@@ -1630,34 +1667,34 @@ func (g *Game) Update() error {
 		}
 	}
 	if click && !uiMouseDown && inGame {
-		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
+		info := handleSessionWorldClick(inputSession, baseX, baseY, ebiten.MouseButtonLeft)
 		event := legacyMacroWorldClickEvent(info, 1, legacyMacroMouseChord(1))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClickForSession(inputSession, event, int64(inputSession.frames.acknowledged())); started && !allowDefault {
 			click = false
 			heldTime = 0
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonLeft, "click")
-		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClickForSession(inputSession, info.Mobile.Name, event.Modifiers) {
 			click = false
 			heldTime = 0
 		}
 	}
 	if rightClick && inGame && !pointInUI(mx, my) {
-		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
+		info := handleSessionWorldClick(inputSession, baseX, baseY, ebiten.MouseButtonRight)
 		event := legacyMacroWorldClickEvent(info, 2, legacyMacroMouseChord(2))
-		if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerRightClickForSession(inputSession, event, int64(inputSession.frames.acknowledged())); started && !allowDefault {
 			rightClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
-		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClickForSession(inputSession, info.Mobile.Name, event.Modifiers) {
 			rightClick = false
 		}
 	}
 	if middleClick && inGame && !pointInUI(mx, my) {
-		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
+		info := handleSessionWorldClick(inputSession, baseX, baseY, ebiten.MouseButtonMiddle)
 		event := legacyMacroWorldClickEvent(info, 3, legacyMacroMouseChord(3))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClickForSession(inputSession, event, int64(inputSession.frames.acknowledged())); started && !allowDefault {
 			middleClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonMiddle, "click3")
-		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClickForSession(inputSession, info.Mobile.Name, event.Modifiers) {
 			middleClick = false
 		}
 	}
@@ -1673,11 +1710,11 @@ func (g *Game) Update() error {
 			scriptInputConsumesButton(consumedScriptInput, mouseButtonName(extra.button)) || !inpututil.IsMouseButtonJustPressed(extra.button) {
 			continue
 		}
-		info := handleWorldClick(baseX, baseY, extra.button)
+		info := handleSessionWorldClick(inputSession, baseX, baseY, extra.button)
 		event := legacyMacroWorldClickEvent(info, extra.number, legacyMacroMouseChord(extra.number))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClickForSession(inputSession, event, int64(inputSession.frames.acknowledged())); started && !allowDefault {
 			legacyMacroMarkMouseConsumed(extra.button, extra.name)
-		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClickForSession(inputSession, info.Mobile.Name, event.Modifiers) {
 			legacyMacroMarkMouseConsumed(extra.button, extra.name)
 		}
 	}
@@ -1723,11 +1760,12 @@ func (g *Game) Update() error {
 		x, y = prev.mouseX, prev.mouseY
 	}
 
-	if walk || (click && inGame && !uiMouseDown) || legacyMacroMovedThisFrame() {
+	macroMoved := sessionLegacyMacroMovedThisFrame(inputSession)
+	if walk || (click && inGame && !uiMouseDown) || macroMoved {
 		interruptScriptMovement(now)
 	}
-	if !legacyMacroMovedThisFrame() {
-		queueInput(inputState{mouseX: x, mouseY: y, mouseDown: walk})
+	if !macroMoved {
+		queueSessionInput(inputSession, inputState{mouseX: x, mouseY: y, mouseDown: walk})
 	}
 
 	// Warn about poor performance and suggest disabling shaders.
@@ -1756,7 +1794,7 @@ func dispatchSubmittedCommand(session *Session, text string) {
 	if session == nil || text == "" {
 		return
 	}
-	if session == primarySession && dispatchLocalCommand(text) {
+	if dispatchSessionLocalCommand(session, text) {
 		return
 	}
 	session.commands.enqueue(text)
@@ -1766,6 +1804,10 @@ func dispatchSubmittedCommand(session *Session, text string) {
 // typed input and legacy macro output so both paths have identical behavior.
 // The return value reports whether the command was consumed locally.
 func dispatchLocalCommand(txt string) bool {
+	return dispatchSessionLocalCommand(primarySession, txt)
+}
+
+func dispatchSessionLocalCommand(session *Session, txt string) bool {
 	if strings.HasPrefix(txt, "/play ") {
 		tune := strings.TrimSpace(txt[len("/play "):])
 		if musicDebug {
@@ -1775,7 +1817,7 @@ func dispatchLocalCommand(txt string) bool {
 			log.Print(msg)
 		}
 		go func() {
-			if err := playClanLordTune(tune); err != nil {
+			if err := playSessionClanLordTune(session, tune); err != nil {
 				log.Printf("play tune: %v", err)
 				if musicDebug {
 					consoleMessage("play tune: " + err.Error())
@@ -1813,15 +1855,25 @@ func dispatchLocalCommand(txt string) bool {
 	if len(parts) > 1 {
 		args = parts[1]
 	}
-	handler, ok := scriptCommands[name]
-	if !ok || handler == nil {
+	var handler scriptCommandHandler
+	var owner string
+	if session == primarySession {
+		handler = scriptCommands[name]
+		owner = scriptCommandOwners[name]
+	} else if command, ok := session.sessionScriptCommand(name); ok {
+		handler, owner = command.handler, command.owner
+	}
+	if handler == nil {
 		return false
 	}
-	owner := scriptCommandOwners[name]
-	if scriptDisabled[owner] {
+	if scriptIsDisabled(owner) {
 		return false
 	}
-	consoleMessage("> " + txt)
+	if session == primarySession {
+		consoleMessage("> " + txt)
+	} else {
+		session.publishConsole("> "+txt, messageTextTypeSystem)
+	}
 	scriptLogEvent(owner, "Command", args)
 	handler(args)
 	return true
@@ -1940,6 +1992,14 @@ func showingGameSplash() bool {
 	return !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake
 }
 
+func showingSessionGameSplash(session *Session) bool {
+	if session == nil || session == primarySession {
+		return showingGameSplash()
+	}
+	return !setupWizardPreviewActive && clmov == "" && !playingMovie &&
+		!session.transport.connected() && pcapPath == "" && !fake
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	drawStarted := time.Now()
 	traceFramePacingDrawStarted()
@@ -2040,8 +2100,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	worldViewRect = viewRect
 	worldView := gameImage.RecyclableSubImage(viewRect)
 	defer worldView.Recycle()
-	worldKey := currentWorldRenderKey(bufW, bufH)
-	if worldRenderCanBeReused(g, worldKey) {
+	renderSession := selectedAppSession()
+	renderState := appViewports.renderStateForSession(renderSession.ID())
+	worldKey := currentSessionWorldRenderKey(renderSession, bufW, bufH)
+	if viewportWorldRenderCanBeReused(renderState, worldKey) {
 		// Floating EUI overlays still need current positions when the cached world
 		// image can be reused and the rest of this draw returns early.
 		layoutActiveGameOverlays(viewRect, clientActivityNone)
@@ -2069,7 +2131,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var alpha float64
 	var haveSnap bool
 	worldRendered := false
-	if showingGameSplash() {
+	if showingSessionGameSplash(renderSession) {
 		gameImage.Fill(playfieldBackgroundColor())
 		prev := gs.GameScale
 		gs.GameScale = renderScale
@@ -2077,13 +2139,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 		worldRendered = true
 	} else {
-		captureDrawSnapshotIfChanged(&g.drawSnapshot)
+		captureSessionDrawSnapshotIfChanged(renderSession, &renderState.drawSnapshot)
 		if bubbleTorture {
-			prepareBubbleTortureSnapshot(&g.drawSnapshot, now)
+			prepareBubbleTortureSnapshot(&renderState.drawSnapshot, now)
 		} else if setupWizardPreviewActive {
-			prepareSetupWizardSceneSnapshot(&g.drawSnapshot, now)
+			prepareSetupWizardSceneSnapshot(&renderState.drawSnapshot, now)
 		}
-		snap = g.drawSnapshot
+		snap = renderState.drawSnapshot
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		// Preload at the same fitted scale used to draw this window. Using the
@@ -2171,8 +2233,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		assetTrace.addWorldDuration(time.Since(worldStarted))
 	}
 	if worldRendered {
-		g.lastWorldRenderKey = worldKey
-		g.worldRenderValid = true
+		renderState.lastWorldRenderKey = worldKey
+		renderState.worldRenderValid = true
 	}
 	// Artwork uploads can defer the world draw; keep the request queued rather
 	// than capturing the previous frame with different name-tag visibility.
@@ -3505,9 +3567,8 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		showName := d.Name != ""
 		nameRevealAlpha := float32(1)
 		if showName && gs.NameTagsOnHoverOnly {
-			lastHoverMu.Lock()
-			hovered := lastHover.OnMobile && lastHover.Mobile.Index == m.Index
-			lastHoverMu.Unlock()
+			hover := sessionHoverSnapshotForID(snap.source)
+			hovered := hover.OnMobile && hover.Mobile.Index == m.Index
 			nameRevealAlpha = nameTagHoverAlpha(m.Index, d.Name, hovered, drawFrameNow)
 			showName = nameRevealAlpha > 0
 		}
@@ -4887,10 +4948,18 @@ func updateGameWindowTitle() {
 }
 
 func gameWindowTitle() string {
-	if playerName == "" {
+	session := selectedAppSession()
+	name := playerName
+	if session != primarySession {
+		name = session.characterName()
+	}
+	if name == "" {
+		if session != primarySession && appSessions.multiEnabled() {
+			return fmt.Sprintf("goThoom -- Session %d", session.ID())
+		}
 		return "goThoom"
 	}
-	return "goThoom -- " + playerName
+	return "goThoom -- " + name
 }
 
 // onGameWindowResize enforces the game's aspect ratio on the window's

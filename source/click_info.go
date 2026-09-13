@@ -67,11 +67,27 @@ func worldInfoAt(x, y int16) ClickInfo {
 }
 
 func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
+	return worldInfoAtSessionGeneration(primarySession, x, y)
+}
+
+func worldInfoAtSession(session *Session, x, y int16) ClickInfo {
+	info, _ := worldInfoAtSessionGeneration(session, x, y)
+	return info
+}
+
+func worldInfoAtSessionGeneration(session *Session, x, y int16) (ClickInfo, uint64) {
 	info := ClickInfo{X: x, Y: y}
-	primarySession.draw.mu.Lock()
-	generation := primarySession.draw.generation.Load()
-	for _, m := range primarySession.draw.current.liveMobs {
-		if d, ok := primarySession.draw.current.descriptors[m.Index]; ok {
+	if session == nil || session.draw == nil {
+		return info, 0
+	}
+	selfIndex := session.playerIndexSnapshot()
+	if session == primarySession {
+		selfIndex = playerIndex
+	}
+	session.draw.mu.Lock()
+	generation := session.draw.generation.Load()
+	for _, m := range session.draw.current.liveMobs {
+		if d, ok := session.draw.current.descriptors[m.Index]; ok {
 			size := mobileSizeFunc(d.PictID)
 			half := int16(size / 2)
 			if x >= m.H-half && x < m.H+half && y >= m.V-half && y < m.V+half {
@@ -85,21 +101,28 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 					PictID: d.PictID,
 					Colors: m.Colors,
 					Player: d.Type == kDescPlayer,
-					State:  m.State, Plane: d.Plane, Size: size, Self: m.Index == playerIndex,
+					State:  m.State, Plane: d.Plane, Size: size, Self: m.Index == selfIndex,
 					Dead: m.State == poseDead, Stale: m.Persist,
 				}
 				break
 			}
 		}
 	}
-	primarySession.draw.mu.Unlock()
+	session.draw.mu.Unlock()
 	return info, generation
 }
 
 // handleWorldClick records a click in the game world and captures
 // information about any mobile under the cursor.
 func handleWorldClick(x, y int16, b ebiten.MouseButton) ClickInfo {
-	info := worldInfoAt(x, y)
+	return handleSessionWorldClick(primarySession, x, y, b)
+}
+
+func handleSessionWorldClick(session *Session, x, y int16, b ebiten.MouseButton) ClickInfo {
+	if session == nil {
+		session = primarySession
+	}
+	info := worldInfoAtSession(session, x, y)
 	// Snapshot modifier keys at the moment of click.
 	mods := currentMods()
 	for _, m := range mods {
@@ -116,19 +139,40 @@ func handleWorldClick(x, y int16, b ebiten.MouseButton) ClickInfo {
 	}
 	info.Button = b
 
-	lastClickMu.Lock()
-	lastClick = info
-	lastClickMu.Unlock()
+	if session == primarySession {
+		lastClickMu.Lock()
+		lastClick = info
+		lastClickMu.Unlock()
 
-	lastClickByButtonMu.Lock()
-	lastClickByButton[b] = info
-	lastClickByButtonMu.Unlock()
+		lastClickByButtonMu.Lock()
+		lastClickByButton[b] = info
+		lastClickByButtonMu.Unlock()
+	}
+	session.input.storeClick(info)
 
 	return info
 }
 
 // updateWorldHover updates the last hovered world location and mobile.
 func updateWorldHover(x, y int16) {
+	updateSessionWorldHover(primarySession, x, y)
+}
+
+func updateSessionWorldHover(session *Session, x, y int16) {
+	if session == nil {
+		session = primarySession
+	}
+	if session != primarySession {
+		generation := session.draw.generation.Load()
+		if _, ok := session.input.cachedHover(generation, x, y); ok {
+			return
+		}
+		info, generation := worldInfoAtSessionGeneration(session, x, y)
+		if gs.NameTagsOnHoverOnly && session.input.storeHover(info, generation) {
+			markWorldRenderChanged()
+		}
+		return
+	}
 	generation := primarySession.draw.generation.Load()
 	lastHoverMu.Lock()
 	if lastHoverQueryValid && lastHoverGeneration == generation && lastHover.X == x && lastHover.Y == y {
@@ -148,4 +192,22 @@ func updateWorldHover(x, y int16) {
 	if gs.NameTagsOnHoverOnly && hoveredMobileChanged {
 		markWorldRenderChanged()
 	}
+}
+
+func sessionHoverSnapshot(session *Session) ClickInfo {
+	if session == nil || session == primarySession {
+		lastHoverMu.Lock()
+		info := lastHover
+		lastHoverMu.Unlock()
+		return info
+	}
+	return session.input.hoverSnapshot()
+}
+
+func sessionHoverSnapshotForID(id SessionID) ClickInfo {
+	session, ok := appSessions.session(id)
+	if !ok {
+		session = primarySession
+	}
+	return sessionHoverSnapshot(session)
 }
