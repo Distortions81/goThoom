@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	scriptapi "gt2"
 )
@@ -30,6 +31,8 @@ type sessionAutomationState struct {
 	latestServer   scriptapi.ServerMessage
 	serverSequence uint64
 	hasServer      bool
+	sendMu         sync.Mutex
+	sendHistory    map[string][]time.Time
 
 	locationMu sync.RWMutex
 	location   string
@@ -59,7 +62,38 @@ func newSessionAutomationState() *sessionAutomationState {
 		scriptQueues: newScriptQueueRegistry(),
 		scriptTimers: newScriptTimerRegistry(),
 		scripts:      make(map[string]*sessionScriptInstance),
+		sendHistory:  make(map[string][]time.Time),
 	}
+}
+
+func (s *sessionAutomationState) recordScriptSend(owner string, now time.Time) int {
+	if s == nil {
+		return 0
+	}
+	cutoff := now.Add(-5 * time.Second)
+	s.sendMu.Lock()
+	times := s.sendHistory[owner]
+	n := 0
+	for _, sent := range times {
+		if sent.After(cutoff) {
+			times[n] = sent
+			n++
+		}
+	}
+	times = append(times[:n], now)
+	s.sendHistory[owner] = times
+	count := len(times)
+	s.sendMu.Unlock()
+	return count
+}
+
+func (s *sessionAutomationState) clearScriptSendHistory(owner string) {
+	if s == nil {
+		return
+	}
+	s.sendMu.Lock()
+	delete(s.sendHistory, owner)
+	s.sendMu.Unlock()
 }
 
 func (s *Session) loadLegacyMacrosForCharacter(character string) error {
@@ -264,6 +298,9 @@ func (s *sessionAutomationState) reset() {
 		runtime.cancelAll()
 	}
 	s.stopSessionScripts("session reset")
+	s.sendMu.Lock()
+	clear(s.sendHistory)
+	s.sendMu.Unlock()
 	s.scriptMu.Lock()
 	s.changeSnapshot = scriptChangeSnapshot{}
 	s.latestServer = scriptapi.ServerMessage{}

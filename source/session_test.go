@@ -752,6 +752,103 @@ func Init(){job=gt2.StartTask(func(){ticket=gt2.QueueCommand("/pose sit");gt2.Wa
 	}
 }
 
+func TestSessionScriptCommandsUseOwningInventoryAndThrottle(t *testing.T) {
+	const owner = "shared-session-commands"
+	grantScriptPermissionsForTest(t, owner)
+	originalSpamKill := gs.ScriptSpamKill
+	gs.ScriptSpamKill = true
+	t.Cleanup(func() { gs.ScriptSpamKill = originalSpamKill })
+	resetCommandStateForTest(t, 1)
+	resetInventory()
+	t.Cleanup(resetInventory)
+	addInventoryItem(900, -1, "Token", false)
+	addInventoryItem(901, -1, "Cloak", true)
+	addInventoryItem(902, -1, "Charm", false)
+
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.inventory.add(100, -1, "Token", false)
+	first.inventory.add(101, -1, "Cloak", true)
+	first.inventory.add(102, -1, "Charm", false)
+	second.inventory.add(200, -1, "Token", false)
+	second.inventory.add(201, -1, "Cloak", true)
+	second.inventory.add(202, -1, "Charm", false)
+	source := []byte(`package main
+import "gt2"
+func Init() {
+	gt2.Send("/pose ready")
+	gt2.Equip("Token")
+	gt2.Unequip("Cloak")
+	gt2.WithEquipment("Charm", func() { gt2.Send("/think testing") })
+}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session command script: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session command script: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+
+	commandSnapshot := func(session *Session) []string {
+		session.commands.mu.Lock()
+		defer session.commands.mu.Unlock()
+		commands := make([]string, 0, len(session.commands.queue)+1)
+		if session.commands.pending != "" {
+			commands = append(commands, session.commands.pending)
+		}
+		for _, command := range session.commands.queue {
+			commands = append(commands, command.text)
+		}
+		return commands
+	}
+	wants := map[*Session][]string{
+		first:  {"/pose ready", "/equip 100", "/unequip 101", "/equip 102", "/think testing", "/unequip 102"},
+		second: {"/pose ready", "/equip 200", "/unequip 201", "/equip 202", "/think testing", "/unequip 202"},
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if len(commandSnapshot(first)) == len(wants[first]) && len(commandSnapshot(second)) == len(wants[second]) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	for session, want := range wants {
+		if got := commandSnapshot(session); !reflect.DeepEqual(got, want) {
+			t.Fatalf("session %d commands = %v, want %v", session.ID(), got, want)
+		}
+		session.automation.sendMu.Lock()
+		sendCount := len(session.automation.sendHistory[owner])
+		session.automation.sendMu.Unlock()
+		if sendCount != len(want) {
+			t.Fatalf("session %d throttle count = %d, want %d", session.ID(), sendCount, len(want))
+		}
+	}
+	if got := getQueuedCommands(); len(got) != 0 {
+		t.Fatalf("session script commands crossed into primary stream: %v", got)
+	}
+	scriptMu.RLock()
+	globalSendCount := len(scriptSendHistory[owner])
+	scriptMu.RUnlock()
+	if globalSendCount != 0 {
+		t.Fatalf("session scripts consumed primary throttle history: %d", globalSendCount)
+	}
+
+	first.stopSessionScript(owner, "test stop")
+	first.automation.sendMu.Lock()
+	firstSendCount := len(first.automation.sendHistory[owner])
+	first.automation.sendMu.Unlock()
+	second.automation.sendMu.Lock()
+	secondSendCount := len(second.automation.sendHistory[owner])
+	second.automation.sendMu.Unlock()
+	if firstSendCount != 0 || secondSendCount != len(wants[second]) {
+		t.Fatalf("stopping first script changed throttle histories: first %d, second %d", firstSendCount, secondSendCount)
+	}
+}
+
 func TestSessionsOwnIndependentCommandQueues(t *testing.T) {
 	first, err := newSession(1)
 	if err != nil {

@@ -121,7 +121,7 @@ func (s *commandState) queueTrackedScriptCommand(ticket CommandTicket, cmd strin
 		reason = "script stopped"
 	} else if cmd == "" {
 		reason = "empty command"
-	} else if recordscriptSend(ticket.state.owner) {
+	} else if recordscriptSendOn(ticket.state.owner, ticket.state.queue) {
 		reason = "rate limit exceeded"
 	}
 	s.mu.Lock()

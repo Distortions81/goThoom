@@ -1240,30 +1240,39 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			})
 		})
 		m["Equip"] = reflect.ValueOf(func(name string) {
-			if candidate.runtimeEventQueue(owner) != nil {
-				scriptEquipByName(owner, name)
+			if queue := candidate.runtimeEventQueue(owner); queue != nil {
+				scriptEquipByNameOn(owner, queue, name)
 				return
 			}
-			stage(func() { scriptEquipByName(owner, name) })
+			stage(func() {
+				if queue := candidate.runtimeEventQueue(owner); queue != nil {
+					scriptEquipByNameOn(owner, queue, name)
+				}
+			})
 		})
 		m["Unequip"] = reflect.ValueOf(func(name string) {
-			if candidate.runtimeEventQueue(owner) != nil {
-				scriptUnequipByName(owner, name)
+			if queue := candidate.runtimeEventQueue(owner); queue != nil {
+				scriptUnequipByNameOn(owner, queue, name)
 				return
 			}
-			stage(func() { scriptUnequipByName(owner, name) })
+			stage(func() {
+				if queue := candidate.runtimeEventQueue(owner); queue != nil {
+					scriptUnequipByNameOn(owner, queue, name)
+				}
+			})
 		})
 		m["WithEquipment"] = reflect.ValueOf(func(name string, task func()) {
 			if task == nil {
 				return
 			}
-			if candidate.runtimeEventQueue(owner) != nil {
-				scriptWithEquipment(owner, name, task)
+			if queue := candidate.runtimeEventQueue(owner); queue != nil {
+				scriptWithEquipmentOn(owner, queue, name, task)
 				return
 			}
 			stage(func() {
-				queueScriptCallbackOn(currentScriptEventQueue(owner), owner, "WithEquipment", func() {
-					scriptWithEquipment(owner, name, task)
+				queue := candidate.runtimeEventQueue(owner)
+				queueScriptCallbackOn(queue, owner, "WithEquipment", func() {
+					scriptWithEquipmentOn(owner, queue, name, task)
 				})
 			})
 		})
@@ -1319,11 +1328,15 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["Send"] = reflect.ValueOf(func(text string) {
 			text = strings.TrimSpace(text)
-			if candidate.runtimeEventQueue(owner) != nil {
-				scriptCommand(owner, text)
+			if queue := candidate.runtimeEventQueue(owner); queue != nil {
+				scriptCommandOn(owner, queue, text)
 				return
 			}
-			stage(func() { scriptCommand(owner, text) })
+			stage(func() {
+				if queue := candidate.runtimeEventQueue(owner); queue != nil {
+					scriptCommandOn(owner, queue, text)
+				}
+			})
 		})
 		m["Store"] = reflect.ValueOf(func(key string, value any) { candidate.setStorage(owner, key, value) })
 		m["LoadString"] = reflect.ValueOf(func(key, fallback string) string {
@@ -2388,10 +2401,14 @@ func scriptRegisterCommand(owner, name string, handler scriptCommandHandler) scr
 
 // scriptCommand is the single path for script-generated server commands.
 func scriptCommand(owner, cmd string) bool {
-	if scriptIsDisabled(owner) {
+	return scriptCommandOn(owner, currentScriptEventQueue(owner), cmd)
+}
+
+func scriptCommandOn(owner string, queue *scriptEventQueue, cmd string) bool {
+	if scriptRuntimeDisabled(owner, queue) || (queue != nil && !scriptEventQueueIsCurrent(owner, queue)) {
 		return false
 	}
-	ticket := newScriptCommandTicket(owner, currentScriptEventQueue(owner))
+	ticket := newScriptCommandTicket(owner, queue)
 	if queueTrackedScriptCommand(ticket, cmd) {
 		return true
 	}
@@ -2931,6 +2948,16 @@ func recordscriptSend(owner string) bool {
 	return false
 }
 
+func recordscriptSendOn(owner string, queue *scriptEventQueue) bool {
+	if queue == nil || queue.session == nil {
+		return recordscriptSend(owner)
+	}
+	if !gs.ScriptSpamKill {
+		return false
+	}
+	return queue.session.automation.recordScriptSend(owner, time.Now()) > 30
+}
+
 type deactivatedScript struct {
 	terminate  func()
 	eventQueue *scriptEventQueue
@@ -3179,12 +3206,23 @@ func scriptSetInputText(text string) {
 // scriptEquipByName equips the first inventory item whose name matches the
 // provided name (case-insensitive). If the item is already equipped, it skips.
 func scriptEquipByName(owner, name string) {
+	scriptEquipByNameOn(owner, currentScriptEventQueue(owner), name)
+}
+
+func scriptInventoryForQueue(queue *scriptEventQueue) []InventoryItem {
+	if queue != nil && queue.session != nil {
+		return queue.session.inventory.snapshot()
+	}
+	return getInventory()
+}
+
+func scriptEquipByNameOn(owner string, queue *scriptEventQueue, name string) {
 	targetName := strings.ToLower(strings.TrimSpace(name))
 	if targetName == "" {
 		reportScriptCommandError(owner, "equip target not found: empty name")
 		return
 	}
-	items := getInventory()
+	items := scriptInventoryForQueue(queue)
 	var id uint16
 	idx := -1
 	found := false
@@ -3214,18 +3252,22 @@ func scriptEquipByName(owner, name string) {
 		reportScriptCommandError(owner, "equip target not found: "+name)
 		return
 	}
-	scriptCommand(owner, formatEquipCommand(id, idx))
+	scriptCommandOn(owner, queue, formatEquipCommand(id, idx))
 }
 
 // scriptUnequipByName unequips an item by name (case-insensitive). If multiple
 // items share the name, it unequips any equipped instance.
 func scriptUnequipByName(owner, name string) {
+	scriptUnequipByNameOn(owner, currentScriptEventQueue(owner), name)
+}
+
+func scriptUnequipByNameOn(owner string, queue *scriptEventQueue, name string) {
 	targetName := strings.ToLower(strings.TrimSpace(name))
 	if targetName == "" {
 		reportScriptCommandError(owner, "unequip target not found: empty name")
 		return
 	}
-	items := getInventory()
+	items := scriptInventoryForQueue(queue)
 	var id uint16
 	equipped := false
 	for _, it := range items {
@@ -3247,7 +3289,7 @@ func scriptUnequipByName(owner, name string) {
 		reportScriptCommandError(owner, "unequip target not equipped: "+name)
 		return
 	}
-	scriptCommand(owner, fmt.Sprintf("/unequip %d", id))
+	scriptCommandOn(owner, queue, fmt.Sprintf("/unequip %d", id))
 }
 
 type scriptInventoryKey struct {
@@ -3258,11 +3300,15 @@ type scriptInventoryKey struct {
 // scriptWithEquipment equips one item for task and restores the equipment that
 // previously occupied the same slot even when task panics.
 func scriptWithEquipment(owner, name string, task func()) {
-	if task == nil || scriptIsDisabled(owner) {
+	scriptWithEquipmentOn(owner, currentScriptEventQueue(owner), name, task)
+}
+
+func scriptWithEquipmentOn(owner string, queue *scriptEventQueue, name string, task func()) {
+	if task == nil || scriptRuntimeDisabled(owner, queue) || (queue != nil && !scriptEventQueueIsCurrent(owner, queue)) {
 		return
 	}
 	targetName := strings.ToLower(strings.TrimSpace(name))
-	items := getInventory()
+	items := scriptInventoryForQueue(queue)
 	var target InventoryItem
 	found := false
 	for _, item := range items {
@@ -3293,7 +3339,7 @@ func scriptWithEquipment(owner, name string, task func()) {
 	}
 	changed := !target.Equipped
 	if changed {
-		if !scriptCommand(owner, formatEquipCommand(target.ID, target.IDIndex)) {
+		if !scriptCommandOn(owner, queue, formatEquipCommand(target.ID, target.IDIndex)) {
 			return
 		}
 	}
@@ -3302,11 +3348,11 @@ func scriptWithEquipment(owner, name string, task func()) {
 			return
 		}
 		if len(prior) == 0 {
-			scriptCommand(owner, fmt.Sprintf("/unequip %d", target.ID))
+			scriptCommandOn(owner, queue, fmt.Sprintf("/unequip %d", target.ID))
 			return
 		}
 		for _, item := range prior {
-			scriptCommand(owner, formatEquipCommand(item.ID, item.IDIndex))
+			scriptCommandOn(owner, queue, formatEquipCommand(item.ID, item.IDIndex))
 		}
 	}()
 	task()
