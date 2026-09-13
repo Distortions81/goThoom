@@ -1,9 +1,10 @@
 # Multi-session guide
 
 Use **Multi-session** on the toolbar after startup and asset checks finish.
-goThoom opens four session views. A disconnected view contains its own server,
-saved-character selector, manual character and password fields, and connection
-controls, so each slot can connect or disconnect independently.
+goThoom opens four session views. A disconnected view uses the same saved
+character list, Add/Edit/Delete actions, server list, password prompt, and
+connection controls as the normal Login window, bound to that session slot.
+Each slot can therefore connect or disconnect independently.
 
 Click a view or use **Select** in the Sessions window to make that session
 active. Keyboard input, chat submission, movement, commands, hotkeys, toolbar
@@ -12,7 +13,8 @@ actions, Inventory, and Players target the selected session. Its title includes
 
 ## Layout
 
-The Sessions window offers two layouts:
+The existing **Settings → Display → Window Layout** choice also controls the
+session views:
 
 - **Freeform** keeps four titled views that can be moved and resized
   independently.
@@ -20,9 +22,9 @@ The Sessions window offers two layouts:
   game window. Shared Inventory, Players, Chat, and Console panes keep their
   existing placement.
 
-Switching back to Freeform restores the four saved view rectangles. After
-multi-session has been used, `multi_session.json` in the user data folder saves
-the preferred layout, Freeform rectangles, selected session, and music source.
+Turning off **Use tiled window layout** restores the four saved Freeform view
+rectangles. After multi-session has been used, `multi_session.json` in the user
+data folder saves those rectangles, the selected session, and the music source.
 The normal single-session window layout remains in `settings.json` and is
 restored when multi-session closes.
 

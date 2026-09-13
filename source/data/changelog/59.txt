@@ -1,12 +1,12 @@
 goThoom 59 changes since test58.
 
 Multi-session:
-- Open four independent, movable and resizable session views from the toolbar.
+- Open four independent session views from the toolbar.
 - Click a session view to select it and direct movement, commands, hotkeys, scripts, Inventory, Players, Chat, and Console to that character.
 - Keep every session's network activity, automation, notifications, sound effects, and visual script effects isolated while background sessions continue running.
 - Choose one session as the shared music source and switch it without mixing or resuming another character's tune.
-- Connect directly inside each session view using saved characters or manual credentials, follow connection progress and errors there, or disconnect individual slots. Quit all sessions together and return to single-session mode after every session disconnects.
-- Switch between movable Freeform views and a fixed 2×2 grid inside the existing game area. The selected tile has the theme accent outline, and the client restores the layout, freeform positions, selected session, and music source the next time multi-session opens.
+- Connect directly inside each session view with the normal saved-character list, character editor, server list, and password prompt, follow connection progress and errors there, or disconnect individual slots. Quit all sessions together and return to single-session mode after every session disconnects.
+- Use movable session views with the normal freeform Window Layout setting, or a fixed 2×2 grid inside the existing game area with tiled Window Layout. The selected tile has the theme accent outline, and the client restores freeform positions, selected session, and music source the next time multi-session opens.
 
 Bard music:
 - Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.

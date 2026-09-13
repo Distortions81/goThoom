@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +35,6 @@ func TestMultiSessionWorkspaceIsLazyAndRoundTrips(t *testing.T) {
 
 	multiSessionWorkspace = multiSessionWorkspaceDocument{
 		Version:     multiSessionWorkspaceVersion,
-		Layout:      "tiled",
 		Selected:    3,
 		MusicSource: 4,
 	}
@@ -45,13 +45,20 @@ func TestMultiSessionWorkspaceIsLazyAndRoundTrips(t *testing.T) {
 	multiSessionWorkspaceUsed = true
 	multiSessionWorkspaceDirty = true
 	saveMultiSessionWorkspace()
+	saved, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read workspace: %v", err)
+	}
+	if bytes.Contains(saved, []byte(`"layout"`)) {
+		t.Fatalf("workspace retained an independent layout preference: %s", saved)
+	}
 
 	multiSessionWorkspace = defaultMultiSessionWorkspaceDocument()
 	multiSessionWorkspaceUsed = false
 	if !loadMultiSessionWorkspace() {
 		t.Fatal("saved workspace did not load")
 	}
-	if preferredMultiSessionLayout() != viewportLayoutTiled || multiSessionWorkspace.Selected != 3 || multiSessionWorkspace.MusicSource != 4 {
+	if multiSessionWorkspace.Selected != 3 || multiSessionWorkspace.MusicSource != 4 {
 		t.Fatalf("loaded workspace = %+v", multiSessionWorkspace)
 	}
 	want := multiSessionViewportPlacement{Position: WindowPoint{X: 0.1, Y: 0.2}, Size: WindowPoint{X: 0.4, Y: 0.5}}

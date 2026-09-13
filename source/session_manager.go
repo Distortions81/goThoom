@@ -170,7 +170,7 @@ func (m *sessionManager) enableMulti() [maxSessions]*Session {
 	m.mu.Unlock()
 	if m == appSessions {
 		markMultiSessionWorkspaceUsed()
-		appViewports.enableMulti(preferredMultiSessionLayout())
+		appViewports.enableMulti(desiredMultiSessionViewportLayout())
 		m.selectSession(multiSessionWorkspace.Selected)
 		selectMusicSource(multiSessionWorkspace.MusicSource)
 		queueMusicSourceUIUpdate()

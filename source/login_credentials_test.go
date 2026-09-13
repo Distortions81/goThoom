@@ -27,6 +27,33 @@ func TestClearPasswordInputClearsHiddenState(t *testing.T) {
 	}
 }
 
+func TestCharacterCredentialEditStagesForTargetSession(t *testing.T) {
+	originalCharacters := characters
+	characters = []Character{{Name: "Hero", DontRemember: true}}
+	secondary := mustNewSession(2)
+	primarySession.login.discardStagedPasswordFor("Hero")
+	t.Cleanup(func() {
+		secondary.login.discardStagedPasswordFor("Hero")
+		primarySession.login.discardStagedPasswordFor("Hero")
+		characters = originalCharacters
+	})
+
+	want := hashPassword("secondary-password")
+	got, err := applyCharacterCredentialEditForSession(secondary, "Hero", "secondary-password", true)
+	if err != nil {
+		t.Fatalf("edit secondary credentials: %v", err)
+	}
+	if got != want {
+		t.Fatalf("staged hash = %q, want %q", got, want)
+	}
+	if hash, _, ok := secondary.login.stagedPasswordSettings("Hero"); !ok || hash != want {
+		t.Fatalf("secondary staged credentials = %q, %v", hash, ok)
+	}
+	if _, _, ok := primarySession.login.stagedPasswordSettings("Hero"); ok {
+		t.Fatal("secondary credential edit leaked into the primary session")
+	}
+}
+
 func TestStagedPasswordCommitsOnlyAfterSuccess(t *testing.T) {
 	dir := t.TempDir()
 	origDir := dataDirPath

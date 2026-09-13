@@ -22,7 +22,6 @@ type multiSessionViewportPlacement struct {
 
 type multiSessionWorkspaceDocument struct {
 	Version       int                                        `json:"version"`
-	Layout        string                                     `json:"layout"`
 	Selected      SessionID                                  `json:"selected_session"`
 	MusicSource   SessionID                                  `json:"music_source_session"`
 	ViewportSlots [maxSessions]multiSessionViewportPlacement `json:"viewports"`
@@ -37,17 +36,9 @@ var (
 func defaultMultiSessionWorkspaceDocument() multiSessionWorkspaceDocument {
 	return multiSessionWorkspaceDocument{
 		Version:     multiSessionWorkspaceVersion,
-		Layout:      "freeform",
 		Selected:    primarySessionID,
 		MusicSource: primarySessionID,
 	}
-}
-
-func preferredMultiSessionLayout() viewportLayout {
-	if multiSessionWorkspace.Layout == "tiled" {
-		return viewportLayoutTiled
-	}
-	return viewportLayoutFreeform
 }
 
 func loadMultiSessionWorkspace() bool {
@@ -70,9 +61,6 @@ func loadMultiSessionWorkspace() bool {
 	if loaded.Version != multiSessionWorkspaceVersion {
 		log.Printf("load multi-session workspace: unsupported version %d", loaded.Version)
 		return false
-	}
-	if loaded.Layout != "freeform" && loaded.Layout != "tiled" {
-		loaded.Layout = "freeform"
 	}
 	if !loaded.Selected.Valid() {
 		loaded.Selected = primarySessionID
@@ -97,15 +85,6 @@ func syncMultiSessionWorkspace() bool {
 		return false
 	}
 	changed := false
-	layout := appViewports.layoutSnapshot()
-	layoutName := "freeform"
-	if layout == viewportLayoutTiled {
-		layoutName = "tiled"
-	}
-	if multiSessionWorkspace.Layout != layoutName {
-		multiSessionWorkspace.Layout = layoutName
-		changed = true
-	}
 	if selected := appSessions.selectedID(); selected.Valid() && multiSessionWorkspace.Selected != selected {
 		multiSessionWorkspace.Selected = selected
 		changed = true
@@ -114,7 +93,7 @@ func syncMultiSessionWorkspace() bool {
 		multiSessionWorkspace.MusicSource = source
 		changed = true
 	}
-	if layout == viewportLayoutFreeform {
+	if appViewports.layoutSnapshot() == viewportLayoutFreeform {
 		screenWidth, screenHeight := eui.ScreenSize()
 		if screenWidth > 0 && screenHeight > 0 {
 			for slot, view := range appViewports.snapshot() {

@@ -311,16 +311,18 @@ quitting the application.
 3. Implement four freeform session views first.  Verify that they render,
    accept only their own input, disconnect independently, and keep shared
    panels correctly bound.
-4. Add the tiled 2x2 grid by subdividing the existing game-window area, then
-   add layout persistence.  The four slots already provide the explicit
-   initial maximum.
+4. Add the tiled 2x2 grid by subdividing the existing game-window area. The
+   existing application Window Layout preference selects tiled or freeform;
+   persist only the freeform viewport geometry. The four slots already provide
+   the explicit initial maximum.
 
 Phase 4 is implemented. Each viewport owns its EUI window, visible image,
-grow-only backing image, draw snapshot, reuse key, and login controls. The
-Sessions window switches between restored freeform geometry and a fixed 2x2
-grid in the existing game area. The selected tile uses the theme accent, and
-`multi_session.json` preserves the preferred layout, freeform positions,
-selected session, and music source after multi-session has been used.
+grow-only backing image, draw snapshot, reuse key, and a session-bound instance
+of the shared login controls. The application Window Layout setting switches
+between restored freeform geometry
+and a fixed 2x2 grid in the existing game area. The selected tile uses the
+theme accent, and `multi_session.json` preserves freeform positions, selected
+session, and music source after multi-session has been used.
 
 ### Phase 5: harden and document
 

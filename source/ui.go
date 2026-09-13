@@ -77,7 +77,15 @@ var editCharProfile bool
 var editCharProfileCB *eui.ItemData
 var editCharBtn *eui.ItemData
 var deleteCharBtn *eui.ItemData
+
+type loginSurfaceTarget struct {
+	sessionID SessionID
+	viewport  bool
+}
+
+var characterEditorTarget = loginSurfaceTarget{sessionID: primarySessionID}
 var passWin *eui.WindowData
+var passwordPromptTarget = loginSurfaceTarget{sessionID: primarySessionID}
 var passMessage *eui.ItemData
 var passInput *eui.ItemData
 var passWarn *eui.ItemData
@@ -2969,6 +2977,131 @@ type loginCharacterChoice struct {
 	demo      bool
 }
 
+type loginCharacterListConfig struct {
+	list       *eui.ItemData
+	width      float32
+	radioGroup string
+	selection  string
+	onCurrent  func(loginCharacterChoice)
+	onSelect   func(loginCharacterChoice)
+}
+
+type sessionLoginControlsConfig struct {
+	sessionID    SessionID
+	viewport     bool
+	width        float32
+	listHeight   float32
+	connectWidth float32
+	selection    func() string
+	server       func() string
+	onServer     func(string)
+	onConnect    func(*eui.ItemData)
+}
+
+type sessionLoginControls struct {
+	characters       *eui.ItemData
+	characterActions *eui.ItemData
+	connectRow       *eui.ItemData
+	server           *eui.ItemData
+	connect          *eui.ItemData
+	add              *eui.ItemData
+	edit             *eui.ItemData
+	delete           *eui.ItemData
+}
+
+func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginControls {
+	controls := sessionLoginControls{}
+	controls.characters = eui.NewColumn()
+	controls.characters.Scrollable = true
+	controls.characters.Fixed = true
+	controls.characters.Size = eui.Point{X: config.width, Y: config.listHeight}
+
+	add, addEvents := eui.NewButton()
+	controls.add = add
+	controls.add.Text = "Add"
+	setMaterialButtonIcon(controls.add, "add")
+	controls.add.SetTooltip("Add a saved character")
+	controls.add.Size = eui.Point{X: (config.width - 16) / 3, Y: 32}
+	addEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			openAddCharacterForLogin(loginSurfaceTarget{sessionID: config.sessionID, viewport: config.viewport}, event.Item)
+		}
+	}
+
+	edit, editEvents := eui.NewButton()
+	controls.edit = edit
+	controls.edit.Text = "Edit"
+	setMaterialButtonIcon(controls.edit, "edit")
+	controls.edit.SetTooltip("Change the selected character's password, password saving, or settings profile.")
+	controls.edit.Size = controls.add.Size
+	editEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			openEditCharacterForLogin(loginSurfaceTarget{sessionID: config.sessionID, viewport: config.viewport}, config.selection(), event.Item)
+		}
+	}
+
+	remove, removeEvents := eui.NewButton()
+	controls.delete = remove
+	controls.delete.Text = "Delete"
+	setMaterialButtonIcon(controls.delete, "delete")
+	controls.delete.SetTooltip("Delete the selected saved character")
+	controls.delete.Size = controls.add.Size
+	controls.delete.Color = eui.ColorDarkRed
+	controls.delete.HoverColor = eui.ColorRed
+	removeEvents.Handle = func(event eui.UIEvent) {
+		if event.Type != eui.EventClick {
+			return
+		}
+		character, ok := selectedCharacter(config.selection())
+		if !ok {
+			makeErrorWindow("Select a saved character to delete.")
+			return
+		}
+		confirmRemoveCharacter(character, config.sessionID)
+	}
+	controls.characterActions = eui.NewRow(controls.add, controls.edit, controls.delete)
+	controls.characterActions.Size = eui.Point{X: config.width, Y: 32}
+
+	connect, connectEvents := eui.NewButton()
+	controls.connect = connect
+	controls.connect.Text = "Connect"
+	setMaterialButtonIcon(controls.connect, "login")
+	controls.connect.Size = eui.Point{X: config.connectWidth, Y: 44}
+	controls.connect.FontSize = 18
+	controls.connect.Outlined = true
+	controls.connect.Border = 2
+	controls.connect.OutlineColor = eui.ColorGreen
+	connectEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick && config.onConnect != nil {
+			config.onConnect(event.Item)
+		}
+	}
+
+	server, serverEvents := eui.NewDropdown()
+	controls.server = server
+	controls.server.Label = "Server"
+	controls.server.Size = eui.Point{X: config.width - config.connectWidth - 8, Y: 44}
+	controls.server.SetTooltip("Choose the server to connect to, or edit the server list.")
+	controls.server.Options, controls.server.Selected = loginServerOptions(config.server())
+	serverEvents.Handle = func(event eui.UIEvent) {
+		if event.Type != eui.EventDropdownSelected || event.Index < 0 || event.Index >= len(controls.server.Options) {
+			return
+		}
+		selection := controls.server.Options[event.Index]
+		if selection == editServerListOption {
+			controls.server.Options, controls.server.Selected = loginServerOptions(config.server())
+			controls.server.Dirty = true
+			openServerListWindow()
+			return
+		}
+		if config.onServer != nil {
+			config.onServer(selection)
+		}
+	}
+	controls.connectRow = eui.NewRow(controls.connect, controls.server)
+	return controls
+}
+
 func loginCharacterChoices() []loginCharacterChoice {
 	choices := make([]loginCharacterChoice, 0, len(characters)+1)
 	for _, character := range characters {
@@ -3001,6 +3134,80 @@ func validLoginCharacterSelection(selection string) bool {
 	return false
 }
 
+// refreshLoginCharacterList is the shared saved-character UI used by the
+// primary login window and every disconnected multi-session viewport.
+func refreshLoginCharacterList(config loginCharacterListConfig) {
+	if config.list == nil {
+		return
+	}
+	previousScroll := config.list.Scroll
+	for index := range config.list.Contents {
+		config.list.Contents[index] = nil
+	}
+	config.list.Contents = config.list.Contents[:0]
+	for _, choice := range loginCharacterChoices() {
+		character := choice.character
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Position: eui.Point{Y: 4}}
+
+		profession, _ := eui.NewImageItem(48, 48)
+		profession.Position = eui.Point{X: 4}
+		profession.Border = 0
+		profession.Filled = false
+		if pictID := professionPictID(character.Profession); pictID != 0 {
+			if image := loadImage(pictID); image != nil {
+				profession.Image = image
+				profession.ImageName = "prof:cl:" + fmt.Sprint(pictID)
+			}
+		}
+		row.AddItem(profession)
+
+		avatar, _ := eui.NewImageItem(48, 48)
+		avatar.Position = eui.Point{X: 4}
+		avatar.Border = 0
+		avatar.Filled = false
+		var image *ebiten.Image
+		if character.PictID != 0 {
+			if mobile := loadMobileFrame(character.PictID, 0, character.Colors); mobile != nil {
+				image = mobile
+			} else if loaded := loadImage(character.PictID); loaded != nil {
+				image = loaded
+			}
+		}
+		if image == nil {
+			if pictID := defaultMobilePictID(genderUnknown); pictID != 0 {
+				if mobile := loadMobileFrame(pictID, 0, nil); mobile != nil {
+					image = mobile
+				} else if loaded := loadImage(pictID); loaded != nil {
+					image = loaded
+				}
+			}
+		}
+		avatar.Image = image
+		row.AddItem(avatar)
+
+		radio, events := eui.NewRadio()
+		radio.Text = character.Name
+		radio.RadioGroup = config.radioGroup
+		radio.Size = eui.Point{X: config.width - 124, Y: 32}
+		radio.Position = eui.Point{X: 8, Y: 16}
+		radio.AuxSpace = 8
+		radio.FontSize = 16
+		radio.Checked = config.selection == choice.selection
+		choiceCopy := choice
+		if radio.Checked && config.onCurrent != nil {
+			config.onCurrent(choiceCopy)
+		}
+		events.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventRadioSelected && config.onSelect != nil {
+				config.onSelect(choiceCopy)
+			}
+		}
+		row.AddItem(radio)
+		config.list.AddItem(row)
+	}
+	config.list.Scroll = previousScroll
+}
+
 func refreshLoginAfterAssetsAvailable() {
 	if loginWin == nil {
 		return
@@ -3027,8 +3234,6 @@ func updateCharacterButtons() {
 	if charactersList == nil {
 		return
 	}
-	// Preserve current scroll position while rebuilding the list
-	prevScroll := charactersList.Scroll
 	if name != "" && !validLoginCharacterSelection(name) {
 		name = ""
 		passHash = ""
@@ -3062,99 +3267,34 @@ func updateCharacterButtons() {
 			pass = ""
 		}
 	}
-	for i := range charactersList.Contents {
-		charactersList.Contents[i] = nil
-	}
-	charactersList.Contents = charactersList.Contents[:0]
-
-	for _, choice := range loginCharacterChoices() {
-		c := choice.character
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Position: eui.Point{Y: 4}}
-
-		profItem, _ := eui.NewImageItem(48, 48)
-		profItem.Position = eui.Point{X: 4}
-		profItem.Border = 0
-		profItem.Filled = false
-		if pid := professionPictID(c.Profession); pid != 0 {
-			if img := loadImage(pid); img != nil {
-				profItem.Image = img
-				profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-			}
-		}
-		row.AddItem(profItem)
-
-		avItem, _ := eui.NewImageItem(48, 48)
-		avItem.Position = eui.Point{X: 4}
-		avItem.Border = 0
-		avItem.Filled = false
-		var img *ebiten.Image
-		if c.PictID != 0 {
-			if m := loadMobileFrame(c.PictID, 0, c.Colors); m != nil {
-				img = m
-			} else if im := loadImage(c.PictID); im != nil {
-				img = im
-			}
-		}
-		if img == nil {
-			if gid := defaultMobilePictID(genderUnknown); gid != 0 {
-				if m := loadMobileFrame(gid, 0, nil); m != nil {
-					img = m
-				} else if im := loadImage(gid); im != nil {
-					img = im
+	refreshLoginCharacterList(loginCharacterListConfig{
+		list:       charactersList,
+		width:      charWinWidth,
+		radioGroup: "characters-primary",
+		selection:  name,
+		onCurrent: func(choice loginCharacterChoice) {
+			hash := choice.character.passHash
+			if !choice.demo {
+				if staged, ok := stagedPasswordHash(choice.character.Name); ok {
+					hash = staged
 				}
 			}
-		}
-		if img != nil {
-			avItem.Image = img
-		}
-		row.AddItem(avItem)
-
-		radio, radioEvents := eui.NewRadio()
-		radio.Text = c.Name
-		radio.RadioGroup = "characters"
-		radio.Size = eui.Point{X: charWinWidth - 124, Y: 32}
-		radio.Position = eui.Point{X: 8, Y: 16}
-		radio.AuxSpace = 8
-		radio.FontSize = 16
-		radio.Checked = name == choice.selection
-		selectionCopy := choice.selection
-		demoCopy := choice.demo
-		savedHashCopy := c.passHash
-		hashCopy := savedHashCopy
-		if !choice.demo {
-			if stagedHash, ok := stagedPasswordHash(c.Name); ok {
-				hashCopy = stagedHash
-			}
-		}
-		if name == choice.selection {
-			passHash = hashCopy
+			passHash = hash
 			pass = ""
-		}
-		radioEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventRadioSelected {
-				discardStagedPassword()
-				name = selectionCopy
-				passHash = savedHashCopy
-				pass = ""
-				if demoCopy {
-					switchCharacterProfile("")
-				} else {
-					switchCharacterProfile(selectionCopy)
-				}
-				// Rebuild the list so only the selected radio is checked
-				// across all rows and refresh the login UI immediately.
-				updateCharacterButtons()
-				if loginWin != nil {
-					loginWin.Refresh()
-				}
+		},
+		onSelect: func(choice loginCharacterChoice) {
+			discardStagedPassword()
+			name = choice.selection
+			passHash = choice.character.passHash
+			pass = ""
+			if choice.demo {
+				switchCharacterProfile("")
+			} else {
+				switchCharacterProfile(choice.selection)
 			}
-		}
-		row.AddItem(radio)
-		charactersList.AddItem(row)
-	}
-	// Preserve window position while contents change size
-	// Restore prior scroll position to keep the user's place.
-	charactersList.Scroll = prevScroll
+			updateCharacterButtons()
+		},
+	})
 	for _, action := range []struct {
 		button *eui.ItemData
 		help   string
@@ -3184,6 +3324,99 @@ func updateCharacterButtons() {
 	}
 	// Keep UI fresh after potential content changes.
 	loginWin.Refresh()
+}
+
+func sessionForLoginTarget(id SessionID) *Session {
+	if id == primarySessionID {
+		return primarySession
+	}
+	if appSessions != nil {
+		if session, ok := appSessions.session(id); ok {
+			return session
+		}
+	}
+	return nil
+}
+
+func restoreLoginTarget(target loginSurfaceTarget) {
+	if !target.viewport {
+		if loginWin != nil {
+			loginWin.MarkOpen()
+		}
+		return
+	}
+	focusViewportLogin(target.sessionID)
+}
+
+func refreshLoginCharacterPanels() {
+	updateCharacterButtons()
+	refreshAllViewportLoginCharacterLists()
+}
+
+func selectCharacterForLoginTarget(target loginSurfaceTarget, characterName, passwordHash string) {
+	if !target.viewport {
+		name = characterName
+		passHash = passwordHash
+		pass = ""
+		switchCharacterProfile(characterName)
+		return
+	}
+	if appViewports == nil {
+		return
+	}
+	state := appViewports.renderStateForSession(target.sessionID)
+	session := sessionForLoginTarget(target.sessionID)
+	if state == nil || session == nil {
+		return
+	}
+	state.loginCharacter = characterName
+	appSessions.selectSession(target.sessionID)
+}
+
+func openAddCharacterForLogin(target loginSurfaceTarget, anchor *eui.ItemData) {
+	if addCharWin == nil {
+		makeAddCharacterWindow()
+	} else if addCharWin.IsOpen() {
+		addCharWin.MarkOpen()
+		return
+	}
+	characterEditorTarget = target
+	addCharName = ""
+	clearPasswordInput(addCharPassInput, &addCharPass)
+	addCharPassPrev = ""
+	clearCapsWarnings()
+	addCharRemember = true
+	addCharProfile = false
+	if addCharProfileCB != nil {
+		addCharProfileCB.Checked = false
+		addCharProfileCB.Dirty = true
+	}
+	if !target.viewport && loginWin != nil {
+		loginWin.Close()
+	}
+	addCharWin.MarkOpenNear(anchor)
+}
+
+func openEditCharacterForLogin(target loginSurfaceTarget, characterName string, anchor *eui.ItemData) {
+	if _, ok := selectedCharacter(characterName); !ok {
+		makeErrorWindow("Select a saved character to edit.")
+		return
+	}
+	if editCharWin == nil {
+		makeEditCharacterWindow()
+	} else if editCharWin.IsOpen() {
+		editCharWin.MarkOpen()
+		return
+	}
+	characterEditorTarget = target
+	if err := prepareEditCharacterForSession(sessionForLoginTarget(target.sessionID), characterName); err != nil {
+		makeErrorWindow("Error: Edit Character: " + err.Error())
+		return
+	}
+	if !target.viewport && loginWin != nil {
+		loginWin.Close()
+	}
+	editCharWin.MarkOpenNear(anchor)
 }
 
 func makeAddCharacterWindow() {
@@ -3269,22 +3502,11 @@ func makeAddCharacterWindow() {
 			}
 			characters = append(characters, Character{Name: characterName, DontRemember: true})
 			saveCharacters()
-			hash := stageAddedCharacterPassword(characterName, addCharPass, addCharRemember)
-			// Update selection to the newly added character
-			name = characterName
-			passHash = hash
-			pass = ""
+			target := characterEditorTarget
+			hash := stageAddedCharacterPasswordForSession(sessionForLoginTarget(target.sessionID), characterName, addCharPass, addCharRemember)
 			setCharacterProfileEnabled(characterName, addCharProfile)
-			switchCharacterProfile(characterName)
-			// Ensure the login window is open before updating its contents
-			if loginWin != nil {
-				loginWin.MarkOpen()
-			}
-			// Refresh the login UI to show the new character immediately
-			updateCharacterButtons()
-			if loginWin != nil {
-				loginWin.Refresh()
-			}
+			selectCharacterForLoginTarget(target, characterName, hash)
+			refreshLoginCharacterPanels()
 			// Clear the add-character inputs for good UX on repeat adds
 			addCharName = ""
 			addCharProfile = false
@@ -3295,8 +3517,8 @@ func makeAddCharacterWindow() {
 				addCharNameInput.Text = ""
 				addCharNameInput.Dirty = true
 			}
-			// Return user to login (already open above)
 			addCharWin.Close()
+			restoreLoginTarget(target)
 		}
 	}
 	flow.AddItem(addBtn)
@@ -3308,7 +3530,7 @@ func makeAddCharacterWindow() {
 		if ev.Type == eui.EventClick {
 			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharWin.Close()
-			loginWin.MarkOpen()
+			restoreLoginTarget(characterEditorTarget)
 		}
 	}
 	flow.AddItem(cancelBtn)
@@ -3318,8 +3540,17 @@ func makeAddCharacterWindow() {
 }
 
 func stageAddedCharacterPassword(characterName, password string, remember bool) string {
+	return stageAddedCharacterPasswordForSession(primarySession, characterName, password, remember)
+}
+
+func stageAddedCharacterPasswordForSession(session *Session, characterName, password string, remember bool) string {
 	if password != "" {
-		return stagePasswordUpdate(characterName, password, remember)
+		return stageSessionPasswordUpdate(session, characterName, password, remember)
+	}
+	if session != nil {
+		if hash, staged := session.login.stagedPasswordHash(characterName); staged {
+			return hash
+		}
 	}
 	if hash, staged := stagedPasswordHash(characterName); staged {
 		return hash
@@ -3341,6 +3572,10 @@ func selectedCharacter(characterName string) (Character, bool) {
 }
 
 func prepareEditCharacter(characterName string) error {
+	return prepareEditCharacterForSession(primarySession, characterName)
+}
+
+func prepareEditCharacterForSession(session *Session, characterName string) error {
 	character, ok := selectedCharacter(characterName)
 	if !ok {
 		return errors.New("select a character to edit first")
@@ -3348,7 +3583,11 @@ func prepareEditCharacter(characterName string) error {
 
 	editCharName = character.Name
 	editCharRemember = !character.DontRemember && character.passHash != ""
-	if _, remember, staged := stagedPasswordSettings(character.Name); staged {
+	if session != nil {
+		if _, remember, staged := session.login.stagedPasswordSettings(character.Name); staged {
+			editCharRemember = remember
+		}
+	} else if _, remember, staged := stagedPasswordSettings(character.Name); staged {
 		editCharRemember = remember
 	}
 	editCharProfile = characterProfileEnabled(character.Name)
@@ -3413,7 +3652,7 @@ func makeEditCharacterWindow() {
 	rememberCB.Size = eui.Point{X: 280, Y: 24}
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			setEditCharacterRemember(ev.Checked)
+			setEditCharacterRememberForSession(sessionForLoginTarget(characterEditorTarget.sessionID), ev.Checked)
 		}
 	}
 	flow.AddItem(rememberCB)
@@ -3440,7 +3679,7 @@ func makeEditCharacterWindow() {
 			editCharPassPrev = ""
 			clearCapsWarnings()
 			editCharWin.Close()
-			loginWin.MarkOpen()
+			restoreLoginTarget(characterEditorTarget)
 		}
 	}
 	btnFlow.AddItem(cancelBtn)
@@ -3454,23 +3693,26 @@ func makeEditCharacterWindow() {
 		if ev.Type != eui.EventClick {
 			return
 		}
-		hash, err := applyCharacterCredentialEdit(editCharName, editCharPass, editCharRemember)
+		target := characterEditorTarget
+		hash, err := applyCharacterCredentialEditForSession(sessionForLoginTarget(target.sessionID), editCharName, editCharPass, editCharRemember)
 		if err != nil {
 			makeErrorWindow("Error: Edit Character: " + err.Error())
 			return
 		}
 		setCharacterProfileEnabled(editCharName, editCharProfile)
-		if strings.EqualFold(name, editCharName) {
+		if !target.viewport && strings.EqualFold(name, editCharName) {
 			switchCharacterProfile(editCharName)
 			passHash = hash
 			pass = ""
+		} else if target.viewport {
+			selectCharacterForLoginTarget(target, editCharName, hash)
 		}
 		clearPasswordInput(editCharPassInput, &editCharPass)
 		editCharPassPrev = ""
 		clearCapsWarnings()
 		editCharWin.Close()
-		loginWin.MarkOpen()
-		updateCharacterButtons()
+		restoreLoginTarget(target)
+		refreshLoginCharacterPanels()
 	}
 	btnFlow.AddItem(saveBtn)
 	flow.AddItem(btnFlow)
@@ -3481,9 +3723,26 @@ func makeEditCharacterWindow() {
 
 // showPasswordPrompt reuses the login prompt for missing and rejected passwords.
 func showPasswordPrompt(incorrect, remember bool, anchor *eui.ItemData) {
+	showPasswordPromptForSession(primarySession, nil, incorrect, remember, anchor)
+}
+
+func showPasswordPromptForSession(session *Session, state *viewportRenderState, incorrect, remember bool, anchor *eui.ItemData) {
+	if session == nil {
+		return
+	}
 	makePasswordWindow()
+	target := loginSurfaceTarget{sessionID: session.ID(), viewport: state != nil}
+	if passWin.IsOpen() && passwordPromptTarget != target {
+		passWin.MarkOpen()
+		return
+	}
+	passwordPromptTarget = target
 	passRemember = remember
-	passWin.Title = "Password for " + name
+	characterName := name
+	if state != nil {
+		characterName = state.loginCharacter
+	}
+	passWin.Title = "Password for " + characterName
 	passMessage.Text = "Enter your password to connect."
 	if incorrect {
 		passMessage.Text = "Incorrect password. Please try again."
@@ -3494,7 +3753,9 @@ func showPasswordPrompt(incorrect, remember bool, anchor *eui.ItemData) {
 	clearPasswordInput(passInput, &pass)
 	passPrev = ""
 	clearCapsWarnings()
-	loginWin.Close()
+	if !target.viewport && loginWin != nil {
+		loginWin.Close()
+	}
 	passWin.MarkOpenNear(anchor)
 	eui.Focus(passInput)
 }
@@ -3553,7 +3814,14 @@ func makePasswordWindow() {
 	passRememberCB.Checked = passRemember
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			setPasswordPromptRemember(ev.Checked)
+			target := passwordPromptTarget
+			characterName := name
+			if target.viewport && appViewports != nil {
+				if state := appViewports.renderStateForSession(target.sessionID); state != nil {
+					characterName = state.loginCharacter
+				}
+			}
+			setPasswordPromptRememberForSession(sessionForLoginTarget(target.sessionID), characterName, ev.Checked)
 		}
 	}
 	flow.AddItem(passRememberCB)
@@ -3569,7 +3837,7 @@ func makePasswordWindow() {
 			passPrev = ""
 			clearCapsWarnings()
 			passWin.Close()
-			loginWin.MarkOpen()
+			restoreLoginTarget(passwordPromptTarget)
 		}
 	}
 	btnFlow.AddItem(cancelBtn)
@@ -3585,13 +3853,26 @@ func makePasswordWindow() {
 				makeErrorWindow("Error: Login: password is empty")
 				return
 			}
-			if name != "" {
-				passHash = stagePasswordUpdate(name, pass, passRemember)
+			target := passwordPromptTarget
+			session := sessionForLoginTarget(target.sessionID)
+			characterName := name
+			var state *viewportRenderState
+			if target.viewport && appViewports != nil {
+				state = appViewports.renderStateForSession(target.sessionID)
+				if state != nil {
+					characterName = state.loginCharacter
+				}
 			}
+			hash := stageSessionPasswordUpdate(session, characterName, pass, passRemember)
 			clearPasswordInput(passInput, &pass)
 			passPrev = ""
 			passWin.Close()
-			startLogin()
+			if !target.viewport {
+				passHash = hash
+				startLogin()
+			} else if state != nil && session != nil {
+				startViewportLoginRequest(state, session, hash)
+			}
 		}
 	}
 	btnFlow.AddItem(okBtn)
@@ -3870,18 +4151,11 @@ func startDemoLogin() {
 }
 
 func refreshLoginServerDropdown() {
+	refreshAllViewportLoginServerChoices()
 	if loginServerDropdown == nil {
 		return
 	}
-	addresses := serverAddresses()
-	loginServerDropdown.Options = append(addresses, editServerListOption)
-	loginServerDropdown.Selected = 0
-	for i, address := range addresses {
-		if sameServerAddress(address, gs.ServerAddress) {
-			loginServerDropdown.Selected = i
-			break
-		}
-	}
+	loginServerDropdown.Options, loginServerDropdown.Selected = loginServerOptions(gs.ServerAddress)
 	loginServerDropdown.Dirty = true
 	if loginWin != nil {
 		loginWin.Refresh()
@@ -4026,57 +4300,16 @@ func makeLoginWindow() {
 	loginWin.SetTitleSize(loginWin.GetRawTitleSize() + 2)
 	centerLoginWindow()
 	loginFlow := eui.NewColumn()
-	serverDropdown, serverEvents := eui.NewDropdown()
-	loginServerDropdown = serverDropdown
-	serverDropdown.Size = eui.Point{X: charWinWidth - 208, Y: 44}
-	serverDropdown.SetTooltip("Choose the server to connect to, or edit the server list.")
-	serverEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventDropdownSelected {
-			return
-		}
-		addresses := serverAddresses()
-		if ev.Index == len(addresses) {
-			refreshLoginServerDropdown()
-			openServerListWindow()
-			return
-		}
-		if ev.Index >= 0 && ev.Index < len(addresses) {
-			selectLoginServer(addresses[ev.Index])
-		}
-	}
-	refreshLoginServerDropdown()
-	// Characters list lives in its own flow and is scrollable.
-	// Use a fixed height so the window doesn't grow unbounded.
-	charactersList = eui.NewColumn()
-	charactersList.Scrollable = true
-	charactersList.Fixed = true
-	charactersList.Size = eui.Point{X: charWinWidth, Y: 224}
-
-	/*
-		manBtn, manBtnEvents := eui.NewButton(&eui.ItemData{Text: "Manage account", Size: eui.Point{X: 200, Y: 24}})
-		manBtnEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				//Add manage account window here
-			}
-		}
-		loginFlow.AddItem(manBtn)
-	*/
-
-	connBtn, connEvents := eui.NewButton()
-	connBtn.Text = "Connect"
-	setMaterialButtonIcon(connBtn, "login")
-	connBtn.Size = eui.Point{X: 200, Y: 44}
-	connBtn.FontSize = 18
-	connBtn.Outlined = true
-	connBtn.Border = 2
-	connBtn.OutlineColor = eui.ColorGreen
-	loginConnectButton = connBtn
-	loginWin.DefaultButton = connBtn
-	// Keep a handle so we can enable/disable it dynamically.
-	connEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
+	controls := newSessionLoginControls(sessionLoginControlsConfig{
+		sessionID:    primarySessionID,
+		width:        charWinWidth,
+		listHeight:   224,
+		connectWidth: 200,
+		selection:    func() string { return name },
+		server:       func() string { return gs.ServerAddress },
+		onServer:     selectLoginServer,
+		onConnect: func(anchor *eui.ItemData) {
 			if name == "" {
-				// No character selected: instruct the user to pick one first.
 				makeErrorWindow("Please select a character to connect with first.")
 				return
 			}
@@ -4085,90 +4318,24 @@ func makeLoginWindow() {
 				return
 			}
 			if passHash == "" && pass == "" {
-				showPasswordPrompt(false, passwordRememberPreference(name), ev.Item)
+				showPasswordPrompt(false, passwordRememberPreference(name), anchor)
 				return
 			}
 			switchCharacterProfile(name)
 			startLogin()
 			updateCharacterButtons()
-		}
-	}
-
-	addBtn, addEvents := eui.NewButton()
-	addBtn.Text = "Add"
-	setMaterialButtonIcon(addBtn, "add")
-	addBtn.SetTooltip("Add a saved character")
-	addBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
-	addEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			addCharName = ""
-			clearPasswordInput(addCharPassInput, &addCharPass)
-			addCharPassPrev = ""
-			clearCapsWarnings()
-			addCharRemember = true
-			addCharProfile = false
-			if addCharProfileCB != nil {
-				addCharProfileCB.Checked = false
-				addCharProfileCB.Dirty = true
-			}
-			loginWin.Close()
-			addCharWin.MarkOpenNear(ev.Item)
-		}
-	}
-
-	editBtn, editEvents := eui.NewButton()
-	editCharBtn = editBtn
-	editBtn.Text = "Edit"
-	setMaterialButtonIcon(editBtn, "edit")
-	editBtn.SetTooltip("Change the selected character's password, password saving, or settings profile.")
-	editBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
-	editEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventClick {
-			return
-		}
-		if _, ok := selectedCharacter(name); !ok {
-			makeErrorWindow("Select a saved character to edit.")
-			return
-		}
-		if editCharWin == nil {
-			makeEditCharacterWindow()
-		}
-		if err := prepareEditCharacter(name); err != nil {
-			makeErrorWindow("Error: Edit Character: " + err.Error())
-			return
-		}
-		loginWin.Close()
-		editCharWin.MarkOpenNear(ev.Item)
-	}
-
-	deleteBtn, deleteEvents := eui.NewButton()
-	deleteCharBtn = deleteBtn
-	deleteBtn.Text = "Delete"
-	setMaterialButtonIcon(deleteBtn, "delete")
-	deleteBtn.SetTooltip("Delete the selected saved character")
-	deleteBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
-	deleteBtn.Color = eui.ColorDarkRed
-	deleteBtn.HoverColor = eui.ColorRed
-	deleteEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventClick {
-			return
-		}
-		character, ok := selectedCharacter(name)
-		if !ok {
-			makeErrorWindow("Select a saved character to delete.")
-			return
-		}
-		confirmRemoveCharacter(character)
-	}
-
-	characterActions := eui.NewRow()
-	characterActions.Size = eui.Point{X: charWinWidth, Y: 32}
-	addBtn.Position = eui.Point{}
-	editBtn.Position = eui.Point{X: 8}
-	deleteBtn.Position = eui.Point{X: 8}
-	characterActions.AddItem(addBtn)
-	characterActions.AddItem(editBtn)
-	characterActions.AddItem(deleteBtn)
+		},
+	})
+	charactersList = controls.characters
+	characterActions := controls.characterActions
+	connBtn := controls.connect
+	serverDropdown := controls.server
+	loginServerDropdown = serverDropdown
+	loginConnectButton = connBtn
+	editCharBtn = controls.edit
+	deleteCharBtn = controls.delete
+	loginWin.DefaultButton = connBtn
+	refreshLoginServerDropdown()
 
 	openBtn, openEvents := eui.NewButton()
 	openBtn.Text = "Play movie file [clMov]"
@@ -4687,7 +4854,7 @@ func showShaderDisablePrompt() {
 }
 
 // confirmRemoveCharacter prompts before deleting a saved character.
-func confirmRemoveCharacter(c Character) {
+func confirmRemoveCharacter(c Character, target SessionID) {
 	row := eui.NewRow()
 
 	profItem, _ := eui.NewImageItem(32, 32)
@@ -4721,14 +4888,23 @@ func confirmRemoveCharacter(c Character) {
 		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Delete Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
-				discardStagedPassword()
+				if session := sessionForLoginTarget(target); session != nil {
+					session.login.discardStagedPasswordFor(c.Name)
+				}
 				removeCharacter(c.Name)
-				if name == c.Name {
+				if strings.EqualFold(name, c.Name) {
 					name = ""
 					passHash = ""
 					pass = ""
 				}
-				updateCharacterButtons()
+				if appViewports != nil {
+					for _, view := range appViewports.snapshot() {
+						if view.render != nil && strings.EqualFold(view.render.loginCharacter, c.Name) {
+							view.render.loginCharacter = ""
+						}
+					}
+				}
+				refreshLoginCharacterPanels()
 				if loginWin != nil {
 					loginWin.Refresh()
 				}
@@ -5373,6 +5549,7 @@ func applyTiledWorkspaceLayout() {
 		restoreSeparateMessageWindows()
 	}
 	applyManagedWindowLayout()
+	applyMultiSessionViewportLayoutIfNeeded()
 	if inventoryWin != nil {
 		updateInventoryWindow()
 	}

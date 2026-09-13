@@ -56,6 +56,13 @@ func discardStagedPasswordFor(character string) {
 // Character window. Replacement passwords remain staged until the server
 // accepts them, so a typo cannot overwrite a known-good saved password.
 func applyCharacterCredentialEdit(character, password string, remember bool) (string, error) {
+	return applyCharacterCredentialEditForSession(primarySession, character, password, remember)
+}
+
+func applyCharacterCredentialEditForSession(session *Session, character, password string, remember bool) (string, error) {
+	if session == nil {
+		return "", errors.New("login session is unavailable")
+	}
 	character = strings.TrimSpace(character)
 	characterIndex := -1
 	for i := range characters {
@@ -75,10 +82,10 @@ func applyCharacterCredentialEdit(character, password string, remember bool) (st
 			// password remains available for this session's next login.
 			setCharacterPassHash(character, "", false)
 		}
-		return stagePasswordUpdate(character, password, remember), nil
+		return stageSessionPasswordUpdate(session, character, password, remember), nil
 	}
 
-	if hash, staged := updateStagedPasswordRemember(character, remember); staged {
+	if hash, staged := session.login.updateStagedPasswordRemember(character, remember); staged {
 		if !remember {
 			setCharacterPassHash(character, "", false)
 		}
@@ -92,7 +99,7 @@ func applyCharacterCredentialEdit(character, password string, remember bool) (st
 		return characters[characterIndex].passHash, nil
 	}
 
-	discardStagedPasswordFor(character)
+	session.login.discardStagedPasswordFor(character)
 	setCharacterPassHash(character, "", false)
 	return "", nil
 }
@@ -131,24 +138,38 @@ func commitSessionStagedPassword(session *Session, character string) {
 }
 
 func forgetSavedPassword(character string) {
+	forgetSavedPasswordForSession(primarySession, character)
+}
+
+func forgetSavedPasswordForSession(session *Session, character string) {
 	setCharacterPassHash(character, "", false)
-	updateStagedPasswordRemember(character, false)
-	if strings.EqualFold(name, character) {
+	if session != nil {
+		session.login.updateStagedPasswordRemember(character, false)
+	}
+	if session == primarySession && strings.EqualFold(name, character) {
 		passHash = ""
 	}
 }
 
 func setEditCharacterRemember(remember bool) {
+	setEditCharacterRememberForSession(primarySession, remember)
+}
+
+func setEditCharacterRememberForSession(session *Session, remember bool) {
 	editCharRemember = remember
 	if !remember {
-		forgetSavedPassword(editCharName)
+		forgetSavedPasswordForSession(session, editCharName)
 	}
 }
 
 func setPasswordPromptRemember(remember bool) {
+	setPasswordPromptRememberForSession(primarySession, name, remember)
+}
+
+func setPasswordPromptRememberForSession(session *Session, character string, remember bool) {
 	passRemember = remember
 	if !remember {
-		forgetSavedPassword(name)
+		forgetSavedPasswordForSession(session, character)
 	}
 }
 

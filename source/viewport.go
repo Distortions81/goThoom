@@ -51,15 +51,14 @@ type viewportRenderState struct {
 	loginForm          *eui.ItemData
 	loginStatus        *eui.ItemData
 	loginServerChoice  *eui.ItemData
-	loginSavedChoice   *eui.ItemData
-	loginCharacterItem *eui.ItemData
-	loginPasswordItem  *eui.ItemData
-	loginRememberItem  *eui.ItemData
+	loginCharacters    *eui.ItemData
+	loginAdd           *eui.ItemData
+	loginEdit          *eui.ItemData
+	loginDelete        *eui.ItemData
 	loginAction        *eui.ItemData
 	loginServer        string
 	loginCharacter     string
-	loginPassword      string
-	loginRemember      bool
+	loginDemoLookup    bool
 }
 
 func (v Viewport) worldAt(point image.Point) (int16, int16, bool) {
