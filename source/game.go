@@ -45,9 +45,14 @@ type nameTagHoverReveal struct {
 	lastHovered time.Time
 }
 
+type nameTagHoverKey struct {
+	session SessionID
+	index   uint8
+}
+
 var (
 	nameTagHoverRevealMu sync.Mutex
-	nameTagHoverReveals  = make(map[uint8]nameTagHoverReveal)
+	nameTagHoverReveals  = make(map[nameTagHoverKey]nameTagHoverReveal)
 )
 
 var uiMouseDown bool
@@ -92,13 +97,18 @@ func clearNameTagHoverReveals() {
 }
 
 func nameTagHoverAlpha(index uint8, name string, hovered bool, now time.Time) float32 {
+	return nameTagHoverAlphaForSession(primarySessionID, index, name, hovered, now)
+}
+
+func nameTagHoverAlphaForSession(session SessionID, index uint8, name string, hovered bool, now time.Time) float32 {
 	nameTagHoverRevealMu.Lock()
 	defer nameTagHoverRevealMu.Unlock()
+	key := nameTagHoverKey{session: session, index: index}
 	if hovered {
-		nameTagHoverReveals[index] = nameTagHoverReveal{name: name, lastHovered: now}
+		nameTagHoverReveals[key] = nameTagHoverReveal{name: name, lastHovered: now}
 		return 1
 	}
-	reveal, ok := nameTagHoverReveals[index]
+	reveal, ok := nameTagHoverReveals[key]
 	if !ok || reveal.name != name {
 		return 0
 	}
@@ -107,7 +117,7 @@ func nameTagHoverAlpha(index uint8, name string, hovered bool, now time.Time) fl
 		return 1
 	}
 	if elapsed >= nameTagHoverHold+nameTagHoverFade {
-		delete(nameTagHoverReveals, index)
+		delete(nameTagHoverReveals, key)
 		return 0
 	}
 	progress := float32(elapsed-nameTagHoverHold) / float32(nameTagHoverFade)
@@ -150,66 +160,8 @@ func updateDimmedScreenBG() {
 // updateGameImageSize ensures the game image item exists and matches the
 // current inner content size of the game window.
 func updateGameImageSize() {
-	if gameWin == nil {
-		return
-	}
-	size := gameWin.GetSize()
-	pad := float64(2 * gameWin.Padding)
-	title := float64(gameWin.GetTitleSize())
-	pixelW := int(size.X) &^ 1
-	pixelH := int(size.Y) &^ 1
-	edgeInset := 2
-	if gs.TiledWindows {
-		// A tiled playfield has no standalone window frame, so its image should
-		// occupy every assigned pixel. Rounding also avoids dropping the final
-		// row or column when a normalized tile lands on an odd pixel boundary.
-		pixelW = int(math.Round(float64(size.X)))
-		pixelH = int(math.Round(float64(size.Y)))
-		edgeInset = 0
-	}
-	// Inner content size (exclude titlebar and inside padding)
-	cw := int(float64(pixelW) - pad)
-	ch := int(float64(pixelH) - pad - title)
-	w := cw - 2*edgeInset
-	h := ch - 2*edgeInset
-	if w <= 0 || h <= 0 {
-		return
-	}
-	s := eui.UIScale()
-	if gameImageItem == nil {
-		it, img := eui.NewImageFastItem(w, h)
-		gameImageItem = it
-		gameImageBacking = img
-		gameImage = img
-		gameImageItem.Image = gameImage
-		gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-		gameImageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
-		gameWin.AddItem(gameImageItem)
-		return
-	}
-	// Grow the backing image only when needed, but expose a current-size
-	// subimage so eui draws the game view 1:1 instead of scaling the larger
-	// backing texture during window shrink.
-	iw, ih := 0, 0
-	if gameImageBacking != nil {
-		b := gameImageBacking.Bounds()
-		iw, ih = b.Dx(), b.Dy()
-	}
-	if gameImageBacking == nil || iw < w || ih < h {
-		_, replacement := eui.NewImageFastItem(w, h)
-		if gameImageBacking != nil {
-			gameImageBacking.Deallocate()
-		}
-		gameImageBacking = replacement
-		if gameWin != nil {
-			gameWin.Dirty = true
-		}
-	}
-	gameImage = gameImageBacking.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image)
-	gameImageItem.Image = gameImage
-	// Always update the item size/position even if we reuse a larger backing image.
-	gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-	gameImageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
+	bindPrimaryViewportWindow()
+	updateViewportImageSize(appViewports.renderStateForViewport(1), gs.TiledWindows)
 }
 
 func worldArtworkFilter() ebiten.Filter {
@@ -1135,6 +1087,15 @@ func (g *Game) Update() error {
 		}
 	}
 	inputSession := selectedAppSession()
+	if appSessions.multiEnabled() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
+		inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)) {
+		pressX, pressY := eui.PointerPosition()
+		if !pointInUI(pressX, pressY) {
+			appViewports.selectAt(image.Pt(pressX, pressY), appSessions)
+			inputSession = selectedAppSession()
+			worldOriginX, worldOriginY, worldScale = worldDrawInfoForSession(inputSession)
+		}
+	}
 	legacyMacroBeginInputFrame()
 	if inputSession != primarySession {
 		inputSession.input.beginMacroInputFrame()
@@ -1189,8 +1150,7 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := eui.PointerPosition()
-	hx := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
-	hy := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
+	hx, hy, _ := sessionViewportWorldAt(inputSession, image.Pt(mx, my))
 	updateSessionWorldHover(inputSession, hx, hy)
 	updateHotkeyRecording()
 	consumedScriptInput := InputEvent{}
@@ -1610,7 +1570,7 @@ func (g *Game) Update() error {
 			}
 		}
 	}
-	inGame := pointInGameWindow(mx, my)
+	baseX, baseY, inGame := sessionViewportWorldAt(inputSession, image.Pt(mx, my))
 	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) && !bindingInputCaptured() {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
@@ -1620,9 +1580,6 @@ func (g *Game) Update() error {
 			}
 		}
 	}
-	// Map mouse to world coordinates accounting for current draw scale/offset.
-	baseX := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
-	baseY := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
 	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
 	mouseClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && !scriptInputConsumesButton(consumedScriptInput, "LeftClick")
 	click := mouseClick || joyClick1
@@ -2000,6 +1957,131 @@ func showingSessionGameSplash(session *Session) bool {
 		!session.transport.connected() && pcapPath == "" && !fake
 }
 
+type viewportRenderResult struct {
+	viewRect image.Rectangle
+	ready    bool
+	rendered bool
+}
+
+func renderSessionViewport(target *ebiten.Image, session *Session, state *viewportRenderState, now time.Time, selected bool, assetTrace *assetLoadFrameTrace) viewportRenderResult {
+	if target == nil || session == nil || state == nil {
+		return viewportRenderResult{}
+	}
+	bufW := target.Bounds().Dx()
+	bufH := target.Bounds().Dy()
+	viewRect, renderScale := fittedWorldView(bufW, bufH)
+	if selected && assetTrace != nil {
+		assetTrace.setWorldContext(bufW, bufH, renderScale)
+	}
+	worldView := target.RecyclableSubImage(viewRect)
+	defer worldView.Recycle()
+	worldKey := currentSessionWorldRenderKey(session, bufW, bufH)
+	if viewportWorldRenderCanBeReused(state, worldKey) {
+		if selected {
+			layoutActiveGameOverlays(viewRect, clientActivityNone)
+		}
+		return viewportRenderResult{viewRect: viewRect, ready: true}
+	}
+
+	var worldStarted time.Time
+	if selected && assetTrace != nil {
+		worldStarted = time.Now()
+	}
+	var snap drawSnapshot
+	var alpha float64
+	var haveSnap bool
+	worldRendered := false
+	if showingSessionGameSplash(session) {
+		target.Fill(playfieldBackgroundColor())
+		previousScale := gs.GameScale
+		gs.GameScale = renderScale
+		drawSplash(worldView, 0, 0)
+		gs.GameScale = previousScale
+		worldRendered = true
+	} else {
+		captureSessionDrawSnapshotIfChanged(session, &state.drawSnapshot)
+		if selected && bubbleTorture {
+			prepareBubbleTortureSnapshot(&state.drawSnapshot, now)
+		} else if selected && setupWizardPreviewActive {
+			prepareSetupWizardSceneSnapshot(&state.drawSnapshot, now)
+		}
+		snap = state.drawSnapshot
+		var mobileFade, pictFade float32
+		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
+		previousScale := gs.GameScale
+		gs.GameScale = renderScale
+		pinSceneSpriteSlots(snap)
+		if prepareSceneArtworkFrame(snap) {
+			noteClientActivity(clientActivityGPU)
+		} else {
+			useLighting := shaderLightingEnabled() && lightingShader != nil
+			useComposite := useLighting && sceneMayNeedLighting(snap)
+			sceneTarget := worldView
+			if useComposite {
+				fillOutsideWorldView(target, viewRect, playfieldBackgroundColor())
+				sceneTarget = ensureLightingTmp(worldView.Bounds())
+				sceneTarget.Fill(playfieldBackgroundColor())
+			} else {
+				target.Fill(playfieldBackgroundColor())
+			}
+			drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
+			drawReplacementEffects(sceneTarget, sceneTarget.Bounds().Min.X, sceneTarget.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
+			if useLighting {
+				addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
+			} else {
+				drawNightOverlay(sceneTarget, 0, 0)
+			}
+			if useComposite {
+				applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
+			} else if useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
+				applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
+			} else {
+				applyDetailedCharacterShadow(worldView)
+			}
+			if selected || !gs.ToolbarStatusBars {
+				drawStatusBars(worldView, 0, 0, snap, alpha)
+			}
+			haveSnap = true
+			worldRendered = true
+		}
+		gs.GameScale = previousScale
+	}
+	if selected && replacementEffectsPreview {
+		drawReplacementEffectsPreview(worldView)
+	}
+	if haveSnap {
+		previousScale := gs.GameScale
+		finalScale := renderScale
+		if finalScale <= 0 {
+			finalScale = 1
+		}
+		gs.GameScale = finalScale
+		if !viewRect.Empty() {
+			drawSpeechBubblesForViewport(worldView, snap, alpha, speechBubbleWindowScale(finalScale), state)
+			drawScriptOverlaysForSession(session, worldView, finalScale)
+		}
+		gs.GameScale = previousScale
+	}
+	if selected {
+		activity := takeClientActivity()
+		overlays := layoutActiveGameOverlays(viewRect, activity)
+		if haveSnap {
+			drawRecPlayBadge(target, overlays.recPlay, overlays.recPlayLabel)
+		}
+		drawFPSOverlay(target, overlays.fps, overlays.fpsLabel)
+		drawClientActivityIndicators(target, activity, overlays.activity)
+		drawGameMessageOverlays(target)
+		if assetTrace != nil {
+			assetTrace.addWorldDuration(time.Since(worldStarted))
+		}
+	}
+	if worldRendered {
+		state.lastWorldRenderKey = worldKey
+		state.worldRenderValid = true
+	}
+	return viewportRenderResult{viewRect: viewRect, ready: worldRendered, rendered: worldRendered}
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	drawStarted := time.Now()
 	traceFramePacingDrawStarted()
@@ -2051,7 +2133,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	loadMaterialIcons()
 	loadToolbarHands()
-	worldOriginX, worldOriginY, worldScale = worldDrawInfo()
+	worldOriginX, worldOriginY, worldScale = worldDrawInfoForSession(selectedAppSession())
 
 	// A movie seek publishes only fully prepared scene states. Keep displaying
 	// the last complete frame until the next half-second update is ready.
@@ -2075,10 +2157,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.Fill(dimmedScreenBG)
 	}
 
-	// Ensure the game image item/buffer exists and matches window content.
-	updateGameImageSize()
+	// Ensure every active viewport has a current image buffer.
+	for _, view := range appViewports.snapshot() {
+		if view.Active && view.render != nil {
+			updateViewportImageSize(view.render, view.ID == 1 && gs.TiledWindows)
+		}
+	}
 	updateStreamIndicators(now)
-	if gameImage == nil {
+	selectedSession := selectedAppSession()
+	selectedState := appViewports.renderStateForSession(selectedSession.ID())
+	if selectedState == nil || selectedState.image == nil {
 		// UI not ready yet
 		snapshotReady = true
 		worldViewRect = image.Rectangle{}
@@ -2093,152 +2181,23 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	bufW := gameImage.Bounds().Dx()
-	bufH := gameImage.Bounds().Dy()
-	viewRect, renderScale := fittedWorldView(bufW, bufH)
-	assetTrace.setWorldContext(bufW, bufH, renderScale)
-	worldViewRect = viewRect
-	worldView := gameImage.RecyclableSubImage(viewRect)
-	defer worldView.Recycle()
-	renderSession := selectedAppSession()
-	renderState := appViewports.renderStateForSession(renderSession.ID())
-	worldKey := currentSessionWorldRenderKey(renderSession, bufW, bufH)
-	if viewportWorldRenderCanBeReused(renderState, worldKey) {
-		// Floating EUI overlays still need current positions when the cached world
-		// image can be reused and the rest of this draw returns early.
-		layoutActiveGameOverlays(viewRect, clientActivityNone)
-		snapshotReady = true
-		// gameImage already contains the last completed server update. Continue
-		// drawing EUI so text windows, controls, notifications, and other UI can
-		// update without rebuilding the world at the display refresh rate.
-		if assetTrace != nil {
-			uiStarted := time.Now()
-			eui.Draw(screen)
-			assetTrace.addUIDuration(time.Since(uiStarted))
-		} else {
-			eui.Draw(screen)
+	selectedResult := viewportRenderResult{}
+	views := appViewports.snapshot()
+	sessions := appSessions.snapshot()
+	for slot, view := range views {
+		if !view.Active || view.render == nil || view.render.image == nil || sessions[slot] == nil {
+			continue
 		}
-		captureStreamOutput(screen, false)
-		return
-	}
-
-	// Render the world directly at its final game-window resolution.
-	var worldStarted time.Time
-	if assetTrace != nil {
-		worldStarted = time.Now()
-	}
-	var snap drawSnapshot
-	var alpha float64
-	var haveSnap bool
-	worldRendered := false
-	if showingSessionGameSplash(renderSession) {
-		gameImage.Fill(playfieldBackgroundColor())
-		prev := gs.GameScale
-		gs.GameScale = renderScale
-		drawSplash(worldView, 0, 0)
-		gs.GameScale = prev
-		worldRendered = true
-	} else {
-		captureSessionDrawSnapshotIfChanged(renderSession, &renderState.drawSnapshot)
-		if bubbleTorture {
-			prepareBubbleTortureSnapshot(&renderState.drawSnapshot, now)
-		} else if setupWizardPreviewActive {
-			prepareSetupWizardSceneSnapshot(&renderState.drawSnapshot, now)
+		selected := sessions[slot] == selectedSession
+		result := renderSessionViewport(view.render.image, sessions[slot], view.render, now, selected, assetTrace)
+		if selected {
+			selectedResult = result
+			worldViewRect = result.viewRect
 		}
-		snap = renderState.drawSnapshot
-		var mobileFade, pictFade float32
-		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
-		// Preload at the same fitted scale used to draw this window. Using the
-		// configured maximum here made small windows alternate between two upscale
-		// factors, with the preload and draw paths clearing each other's caches.
-		prevScale := gs.GameScale
-		gs.GameScale = renderScale
-		pinSceneSpriteSlots(snap)
-		if prepareSceneArtworkFrame(snap) {
-			// Keep the last completed world frame visible while Ebitengine submits
-			// the prepared upload batch. A small indicator communicates the pause
-			// without replacing normal play with a flashing loading screen.
-			noteClientActivity(clientActivityGPU)
-		} else {
-			useLighting := shaderLightingEnabled() && lightingShader != nil
-			useComposite := useLighting && sceneMayNeedLighting(snap)
-			sceneTarget := worldView
-			if useComposite {
-				fillOutsideWorldView(gameImage, viewRect, playfieldBackgroundColor())
-				sceneTarget = ensureLightingTmp(worldView.Bounds())
-				sceneTarget.Fill(playfieldBackgroundColor())
-			} else {
-				gameImage.Fill(playfieldBackgroundColor())
-			}
-			drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
-			// Classic applies the completed lightmap to magic artwork as part of
-			// the world. Draw procedural replacements into that same world pass so
-			// they darken at night while their registered emitters still cast light.
-			drawReplacementEffects(sceneTarget, sceneTarget.Bounds().Min.X, sceneTarget.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
-			if useLighting {
-				// Use shader-based night darkening with inverse-square falloff.
-				addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
-			} else {
-				// Classic overlay path when shader is off.
-				//drawNightAmbient(worldView, 0, 0)
-				drawNightOverlay(sceneTarget, 0, 0)
-			}
-			if useComposite {
-				applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
-			} else if useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
-				// Conservative fallback if a newly supported light source was not
-				// recognized by sceneMayNeedLighting.
-				applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
-			} else {
-				applyDetailedCharacterShadow(worldView)
-			}
-			drawStatusBars(worldView, 0, 0, snap, alpha)
-			haveSnap = true
-			worldRendered = true
-		}
-		gs.GameScale = prevScale
 	}
-	if replacementEffectsPreview {
-		drawReplacementEffectsPreview(worldView)
-	}
-
-	var finalScale float64
-	if haveSnap {
-		prev := gs.GameScale
-		finalScale = renderScale
-		if finalScale <= 0 {
-			finalScale = worldScale
-		}
-		if finalScale <= 0 {
-			finalScale = 1
-		}
-		windowScale := speechBubbleWindowScale(finalScale)
-		gs.GameScale = finalScale
-		if !viewRect.Empty() {
-			drawSpeechBubbles(worldView, snap, alpha, windowScale)
-			// Draw script overlays on top of the world view.
-			drawScriptOverlaysForSession(renderSession, worldView, finalScale)
-		}
-		gs.GameScale = prev
-	}
-	activity := takeClientActivity()
-	overlays := layoutActiveGameOverlays(viewRect, activity)
-	if haveSnap {
-		drawRecPlayBadge(gameImage, overlays.recPlay, overlays.recPlayLabel)
-	}
-	drawFPSOverlay(gameImage, overlays.fps, overlays.fpsLabel)
-	drawClientActivityIndicators(gameImage, activity, overlays.activity)
-	drawGameMessageOverlays(gameImage)
-	if assetTrace != nil {
-		assetTrace.addWorldDuration(time.Since(worldStarted))
-	}
-	if worldRendered {
-		renderState.lastWorldRenderKey = worldKey
-		renderState.worldRenderValid = true
-	}
-	// Artwork uploads can defer the world draw; keep the request queued rather
-	// than capturing the previous frame with different name-tag visibility.
-	snapshotReady = worldRendered
+	// Artwork uploads can defer the selected world draw; keep the request queued
+	// rather than capturing the previous frame with different name-tag visibility.
+	snapshotReady = selectedResult.ready
 
 	// Finally, draw UI (which includes the game window image)
 	if assetTrace != nil {
@@ -2248,6 +2207,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	} else {
 		eui.Draw(screen)
 	}
+	refreshViewportRectsFromDrawRects()
 
 	// Old fixed background sleep replaced by deferred power-save throttle above.
 
@@ -2279,7 +2239,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		text.Draw(screen, label, mainFontBold, op)
 		releaseTextDrawOpts(op)
 	}
-	captureStreamOutput(screen, worldRendered)
+	captureStreamOutput(screen, selectedResult.rendered)
 }
 
 var lastSeekRenderGeneration uint64
@@ -3562,7 +3522,11 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 	x += float64(screen.Bounds().Min.X)
 	y += float64(screen.Bounds().Min.Y)
 	if d, ok := snap.descriptors[m.Index]; ok {
-		if gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName) {
+		selfName := playerName
+		if session := scriptSessionForID(snap.source); session != nil && session != primarySession {
+			selfName = session.characterName()
+		}
+		if gs.HideSelfNameTag && strings.EqualFold(d.Name, selfName) {
 			return
 		}
 		showName := d.Name != ""
@@ -3570,7 +3534,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		if showName && gs.NameTagsOnHoverOnly {
 			hover := sessionHoverSnapshotForID(snap.source)
 			hovered := hover.OnMobile && hover.Mobile.Index == m.Index
-			nameRevealAlpha = nameTagHoverAlpha(m.Index, d.Name, hovered, drawFrameNow)
+			nameRevealAlpha = nameTagHoverAlphaForSession(snap.source, m.Index, d.Name, hovered, drawFrameNow)
 			showName = nameRevealAlpha > 0
 		}
 		nameAlpha := uint8(gs.NameBgOpacity*255 + 0.5)
@@ -4148,6 +4112,10 @@ func speechBubbleWindowScale(finalScale float64) float64 {
 
 // drawSpeechBubbles renders speech bubbles at native resolution.
 func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, windowScale float64) {
+	drawSpeechBubblesForViewport(screen, snap, alpha, windowScale, nil)
+}
+
+func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha float64, windowScale float64, state *viewportRenderState) {
 	if !gs.SpeechBubbles {
 		return
 	}
@@ -4179,9 +4147,18 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		viewportSize: bounds.Size(), worldScale: gs.GameScale,
 		bubbleScale: bubbleScale, fontScale: fontScale, fontGen: fontGen,
 	}
-	if layoutContext != lastBubbleLayoutContext {
-		clear(bubblePlacementHistory)
-		lastBubbleLayoutContext = layoutContext
+	history := bubblePlacementHistory
+	lastLayout := &lastBubbleLayoutContext
+	if state != nil {
+		if state.bubbleHistory == nil {
+			state.bubbleHistory = make(map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry)
+		}
+		history = state.bubbleHistory
+		lastLayout = &state.bubbleLayout
+	}
+	if layoutContext != *lastLayout {
+		clear(history)
+		*lastLayout = layoutContext
 	}
 	clear(bubbleFrameScratch.prepared)
 	prepared := bubbleFrameScratch.prepared[:0]
@@ -4196,6 +4173,10 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 	}
 	layoutNow := time.Now()
 	bubbleSizeLimit := bubbleBodySizeLimit(screen.Bounds().Dx(), screen.Bounds().Dy())
+	selfIndex := playerIndex
+	if session := scriptSessionForID(snap.source); session != nil {
+		selfIndex = session.playerIndexSnapshot()
+	}
 	for _, b := range snap.bubbles {
 		bubbleType := b.Type & kBubbleTypeMask
 		bubbleText := b.Text
@@ -4222,7 +4203,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		}
 		originOK := true
 		switch {
-		case b.Index == playerIndex:
+		case b.Index == selfIndex:
 			originOK = gs.BubbleSelf
 		case bubbleType == kBubbleMonster:
 			originOK = gs.BubbleMonsters
@@ -4307,7 +4288,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		}
 		key := bubblePlacementHistoryKey{index: identity, typ: b.Type, text: historyText}
 		activeHistory[key] = struct{}{}
-		previous := bubblePlacementHistory[key]
+		previous := history[key]
 		showSpeakerName := previous.speakerNamed && speakerName != ""
 		if showSpeakerName {
 			bubbleText = bubbleTextWithSpeakerName(speakerName, historyText)
@@ -4347,7 +4328,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 	priorTargets := resizeBubbleScratch(bubbleFrameScratch.priorTargets, len(prepared))
 	lastLayouts := resizeBubbleScratch(bubbleFrameScratch.lastLayouts, len(prepared))
 	for i := range prepared {
-		previous := bubblePlacementHistory[prepared[i].key]
+		previous := history[prepared[i].key]
 		lastLayouts[i] = previous.laidOutAt
 		if previous.placement != prepared[i].request.placement {
 			// Crossing a screen edge can switch a bubble from above its speaker
@@ -4361,7 +4342,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		}
 	}
 	needsSolve := bubbleLayoutNeedsSolve(
-		len(activeHistory), len(bubblePlacementHistory), lastLayouts,
+		len(activeHistory), len(history), lastLayouts,
 		priorTargets, layoutNow, gs.AvoidBubbleOverlap,
 	)
 	if needsSolve {
@@ -4386,32 +4367,32 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		conflicts := bubbleLayoutConflictFlags(targets)
 		for i := range prepared {
 			prepared[i].targetRect = targets[i].rect
-			history := bubblePlacementHistory[prepared[i].key]
-			history.placement = prepared[i].request.placement
-			history.offset = targets[i].rect.Min.Sub(prepared[i].normalRect.Min)
-			history.laidOutAt = layoutNow
-			currentPercent := history.sizePercent
+			entry := history[prepared[i].key]
+			entry.placement = prepared[i].request.placement
+			entry.offset = targets[i].rect.Min.Sub(prepared[i].normalRect.Min)
+			entry.laidOutAt = layoutNow
+			currentPercent := entry.sizePercent
 			if currentPercent <= 0 {
 				currentPercent = 100
 			}
 			if conflicts[i] && currentPercent > 55 {
-				history.sizePercent = bubbleCompactPercent(currentPercent)
-				history.laidOutAt = time.Time{}
+				entry.sizePercent = bubbleCompactPercent(currentPercent)
+				entry.laidOutAt = time.Time{}
 			}
 			wantName := prepared[i].speakerName != "" && !prepared[i].bubble.Far &&
-				bubbleNeedsSpeakerName(history.speakerNamed, targets[i].rect, prepared[i].tailAnchor, bubbleScale)
-			if wantName != history.speakerNamed {
-				history.speakerNamed = wantName
-				history.laidOutAt = time.Time{}
+				bubbleNeedsSpeakerName(entry.speakerNamed, targets[i].rect, prepared[i].tailAnchor, bubbleScale)
+			if wantName != entry.speakerNamed {
+				entry.speakerNamed = wantName
+				entry.laidOutAt = time.Time{}
 			}
-			bubblePlacementHistory[prepared[i].key] = history
+			history[prepared[i].key] = entry
 		}
 		bubbleFrameScratch.targets = targets
 	}
 
 	renderItems := resizeBubbleScratch(bubbleFrameScratch.renderItems, len(prepared))
 	for i := range prepared {
-		previous := bubblePlacementHistory[prepared[i].key]
+		previous := history[prepared[i].key]
 		offset, _, _, renderedRect := bubbleLayoutRenderOffset(
 			previous, prepared[i].targetRect, prepared[i].normalRect, bounds,
 			prepared[i].referenceAnchor, layoutNow,
@@ -4440,25 +4421,25 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		if !drawable {
 			continue
 		}
-		history := bubblePlacementHistory[prepared[i].key]
-		history.renderX = float64(renderedRect.Min.X - prepared[i].referenceAnchor.X)
-		history.renderY = float64(renderedRect.Min.Y - prepared[i].referenceAnchor.Y)
-		history.rendered = true
-		history.renderedAt = layoutNow
+		entry := history[prepared[i].key]
+		entry.renderX = float64(renderedRect.Min.X - prepared[i].referenceAnchor.X)
+		entry.renderY = float64(renderedRect.Min.Y - prepared[i].referenceAnchor.Y)
+		entry.rendered = true
+		entry.renderedAt = layoutNow
 		logBubbleTortureOverlap(prepared[i].bubble, prepared[i].request.txt, renderedRect, occupied, prepared[i].margin, layoutNow)
 		if gs.AvoidBubbleOverlap && bubbleOverlapsOccupied(renderedRect, occupied, prepared[i].margin) {
-			history.rendered = false
-			bubblePlacementHistory[prepared[i].key] = history
+			entry.rendered = false
+			history[prepared[i].key] = entry
 			continue
 		}
-		bubblePlacementHistory[prepared[i].key] = history
+		history[prepared[i].key] = entry
 		occupied = append(occupied, bubbleOverlapRect(renderedRect, prepared[i].margin))
 		drawRequests = append(drawRequests, prepared[i].request)
 	}
 	drawBubbleBatch(screen, drawRequests)
-	for key := range bubblePlacementHistory {
+	for key := range history {
 		if _, active := activeHistory[key]; !active {
-			delete(bubblePlacementHistory, key)
+			delete(history, key)
 		}
 	}
 	bubbleFrameScratch.prepared = prepared
@@ -4891,6 +4872,7 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = newGameRenderWindow()
+	bindPrimaryViewportWindow()
 	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
 	gameWindowFreeformPadding = gameWin.Padding
 	gameWindowFreeformMargin = gameWin.Margin
@@ -4943,9 +4925,10 @@ func makeGameWindow() {
 func updateGameWindowTitle() {
 	title := gameWindowTitle()
 	ebiten.SetWindowTitle(title)
-	if gameWin != nil {
+	if gameWin != nil && !appSessions.multiEnabled() {
 		gameWin.Title = title
 	}
+	refreshViewportTitles()
 }
 
 func gameWindowTitle() string {

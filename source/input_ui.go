@@ -14,7 +14,7 @@ func uiOwnsPointerPress(overUI bool, pressWin *eui.WindowData, handled bool) boo
 	if pressWin != nil {
 		// EUI reports the game image itself as handled. The playable part of
 		// this window must still pass presses through for walking.
-		return pressWin != gameWin
+		return !isViewportWindow(pressWin)
 	}
 	return handled
 }
@@ -36,7 +36,7 @@ func pointInUI(x, y int) bool {
 		x0, y0 := pos.X+1, pos.Y+1
 		x1 := x0 + size.X + frame*2
 		y1 := y0 + size.Y + frame*2 + title
-		if win == gameWin {
+		if isViewportWindow(win) {
 			// Treat only the title bar of the game window as UI so
 			// world clicks still pass through to the game.
 			y1 = y0 + frame + title
@@ -46,10 +46,14 @@ func pointInUI(x, y int) bool {
 		}
 	}
 
-	if gameWin != nil && gameWin.IsOpen() {
-		if pointInItems(gameWin.Contents, fx, fy) {
+	for _, view := range appViewports.snapshot() {
+		state := view.render
+		if state != nil && state.window != nil && state.window.IsOpen() && pointInItems(state.window.Contents, fx, fy) {
 			return true
 		}
+	}
+	if gameWin != nil && gameWin.IsOpen() && viewportStateForWindow(gameWin) == nil && pointInItems(gameWin.Contents, fx, fy) {
+		return true
 	}
 
 	return false
@@ -70,16 +74,31 @@ func windowInputScale(win *eui.WindowData) float32 {
 // pointInGameWindow reports whether the given screen coordinate lies within the
 // playable area of the game window.
 func pointInGameWindow(x, y int) bool {
-	if gameWin == nil || !gameWin.IsOpen() {
+	fx, fy := float32(x), float32(y)
+	if pointInPlayableWindow(gameWin, fx, fy) {
+		return true
+	}
+	for _, view := range appViewports.snapshot() {
+		state := view.render
+		if !view.Active || state == nil || state.window == nil || state.window == gameWin {
+			continue
+		}
+		if pointInPlayableWindow(state.window, fx, fy) {
+			return true
+		}
+	}
+	return false
+}
+
+func pointInPlayableWindow(win *eui.WindowData, fx, fy float32) bool {
+	if win == nil || !win.IsOpen() {
 		return false
 	}
-
-	fx, fy := float32(x), float32(y)
-	pos := gameWin.GetPos()
-	size := gameWin.GetSize()
-	s := windowInputScale(gameWin)
-	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
-	title := gameWin.GetTitleSize()
+	pos := win.GetPos()
+	size := win.GetSize()
+	s := windowInputScale(win)
+	frame := (win.Margin + win.Border + win.BorderPad + win.Padding) * s
+	title := win.GetTitleSize()
 	x0 := pos.X + frame
 	y0 := pos.Y + frame + title
 	x1 := pos.X + size.X - frame
@@ -90,7 +109,7 @@ func pointInGameWindow(x, y int) bool {
 func pointInItems(items []*eui.ItemData, fx, fy float32) bool {
 	for i := len(items) - 1; i >= 0; i-- {
 		it := items[i]
-		if it == nil || it.Invisible || it == gameImageItem {
+		if it == nil || it.Invisible || isViewportImageItem(it) {
 			continue
 		}
 		if fx >= it.DrawRect.X0 && fx <= it.DrawRect.X1 && fy >= it.DrawRect.Y0 && fy <= it.DrawRect.Y1 {

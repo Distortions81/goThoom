@@ -318,6 +318,23 @@ func NewProgressBar() (*itemData, *EventHandler) {
 // Bring a window to the front
 func (target *windowData) BringForward() {
 	if target.AlwaysDrawFirst {
+		// Background windows stay behind ordinary UI, but multiple background
+		// windows still need normal front-to-back behavior among themselves.
+		for index, win := range windows {
+			if win != target {
+				continue
+			}
+			front := index
+			for front+1 < len(windows) && windows[front+1].AlwaysDrawFirst {
+				front++
+			}
+			if front != index {
+				copy(windows[index:front], windows[index+1:front+1])
+				windows[front] = target
+			}
+			activeWindow = target
+			return
+		}
 		return
 	}
 	for w, win := range windows {

@@ -475,3 +475,15 @@ func TestNameTagHoverHoldAndFade(t *testing.T) {
 		t.Fatalf("finished alpha = %v, want 0", got)
 	}
 }
+
+func TestNameTagHoverRevealIsSessionScoped(t *testing.T) {
+	clearNameTagHoverReveals()
+	t.Cleanup(clearNameTagHoverReveals)
+	now := time.Unix(200, 0)
+	if got := nameTagHoverAlphaForSession(1, 7, "Bob", true, now); got != 1 {
+		t.Fatalf("hover alpha = %v, want 1", got)
+	}
+	if got := nameTagHoverAlphaForSession(2, 7, "Bob", false, now); got != 0 {
+		t.Fatalf("second-session alpha = %v, want 0", got)
+	}
+}

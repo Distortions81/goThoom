@@ -1,8 +1,11 @@
 package main
 
 import (
+	"gothoom/eui"
 	"image"
 	"sync"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // ViewportID is the stable identity of one visual session surface. It is kept
@@ -31,6 +34,13 @@ type viewportRenderState struct {
 	drawSnapshot       drawSnapshot
 	lastWorldRenderKey worldRenderKey
 	worldRenderValid   bool
+	window             *eui.WindowData
+	imageItem          *eui.ItemData
+	image              *ebiten.Image
+	imageBacking       *ebiten.Image
+	inAspectResize     bool
+	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
+	bubbleLayout       bubbleLayoutContext
 }
 
 func (v Viewport) worldAt(point image.Point) (int16, int16, bool) {
@@ -68,6 +78,17 @@ func newViewportManager() *viewportManager {
 func (m *viewportManager) renderStateForSession(id SessionID) *viewportRenderState {
 	slot, ok := id.Slot()
 	if m == nil || !ok {
+		return nil
+	}
+	m.mu.RLock()
+	state := m.views[slot].render
+	m.mu.RUnlock()
+	return state
+}
+
+func (m *viewportManager) renderStateForViewport(id ViewportID) *viewportRenderState {
+	slot := int(id) - 1
+	if m == nil || slot < 0 || slot >= len(m.views) {
 		return nil
 	}
 	m.mu.RLock()
@@ -133,7 +154,17 @@ func (m *viewportManager) hitTest(point image.Point) (Viewport, bool) {
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	// Later view IDs are treated as front-most when freeform windows overlap.
+	// Follow EUI's current window order when freeform playfields overlap.
+	windows := eui.Windows()
+	for index := len(windows) - 1; index >= 0; index-- {
+		for slot := range m.views {
+			view := m.views[slot]
+			if view.Active && view.render != nil && view.render.window == windows[index] && point.In(view.Rect) {
+				return view, true
+			}
+		}
+	}
+	// Unit tests and pre-draw setup can have rectangles before windows exist.
 	for slot := len(m.views) - 1; slot >= 0; slot-- {
 		view := m.views[slot]
 		if view.Active && point.In(view.Rect) {

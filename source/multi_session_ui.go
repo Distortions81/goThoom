@@ -22,6 +22,7 @@ func init() {
 		}
 		dispatchMainThread(func() {
 			sessionWorkspaceUpdateQueued.Store(false)
+			refreshViewportWorkspace()
 			refreshSessionsWindow()
 			refreshSessionsToolbarButton()
 			refreshMusicSourceControls()

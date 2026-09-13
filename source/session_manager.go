@@ -167,6 +167,7 @@ func (m *sessionManager) enableMulti() [maxSessions]*Session {
 	if m == appSessions {
 		appViewports.enableMulti(viewportLayoutFreeform)
 		queueMusicSourceUIUpdate()
+		queueSessionWorkspaceUIUpdate()
 	}
 	return slots
 }

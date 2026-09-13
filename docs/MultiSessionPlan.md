@@ -103,16 +103,16 @@ dependency hooks are not session state.
 | Settings and persistence | `gs`, settings/profile files, theme and keybinding definitions | App | Character profiles remain login metadata; they must not replace app settings when session selection changes. |
 | Assets and rendering resources | CL archives, decoded images/sounds, shaders, fonts, sprite/name-tag caches, render pools | App | Shared by every viewport; cache keys must not contain implicit current-character state. |
 | Audio output | audio context, mixer levels, sound/TTS players | App | Effect requests carry a source session ID and use per-session deduplication before entering the shared mixer. Notifications are source-labeled, music parsing is session-owned, and exactly one app-selected session feeds the shared music player. |
-| Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | Stable view IDs, session assignment, independent snapshots/render caches, tiled geometry, hit testing, and coordinate conversion are implemented. The existing playfield renders the selected session; four simultaneous EUI render targets and full-area login overlays remain. |
+| Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | Stable view IDs, session assignment, independent windows, image/backing targets, snapshots/render caches, hit testing, and coordinate conversion are implemented. Four freeform views render simultaneously; tiled composition and full-area login overlays remain. |
 | Draw model | decoded state, initial snapshot, bubbles, vitals, lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Snapshot identity includes its source session and render caches are viewport-owned. |
 | Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, and pending password updates are session-owned. The session manager can start, disconnect, and join all slots, and its management window exposes per-slot login. Moving those controls into each full-area viewport and completing reconnect policy remain. |
 | Network timing | ack/resend values, frame statistics/timing, PNA controller/fallback, command reply samples | Session | Extracted behind session-owned locks and wake channels so one connection cannot tune or wake another. Existing live call sites still target the primary session. |
-| Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, input queues, walking, message drafts/history, clicks/hover, hotkeys, script input APIs, and legacy-macro direct triggers route to the selected session. Viewport hit testing and coordinate conversion exist; the live pointer path still needs to resolve among four simultaneous view windows. |
+| Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, input queues, walking, message drafts/history, clicks/hover, hotkeys, script input APIs, and legacy-macro direct triggers route to the selected session. A playfield press selects its viewport before live pointer and macro dispatch, using that view's fitted world coordinates. |
 | Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory, player directories, selections, BEP info/share/presence/fallen/bard state, paginated `/be-who`, and maintenance queues are session-owned. The package-level primary identity and player map remain compatibility adapters while login and older call sites move behind `Session`. |
 | Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained in typed per-session logs and a source-tagged app aggregate. Shared Chat/Console windows bind to the selected log and submit to its command stream. Persistence, drafts/history, unread state, and primary client-only messages still use legacy adapters. |
 | Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions own legacy macro and script runtimes, queues, timers, tasks, subscriptions, commands, hotkeys, toolbar registrations, input APIs, outgoing work, world overlays, and mobile tint/outline/flash effects. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. General script-window presentation and the primary macro-management UI remain shared. |
 | Music data | parsed tune queue/timeline and current tune metadata | Session | Implemented. The synthesizer/player stays app-owned and follows the explicit music-source selection; changing source stops playback and waits for that session's next tune event. |
-| UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, Players, script toolbars, native title, notifications, and command targets follow the selected session. A Sessions toolbar control and four-slot manager provide connect/disconnect/select/quit-all operations. Four freeform/tiled playfields and their embedded login states remain. |
+| UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, Players, script toolbars, native title, notifications, and command targets follow the selected session. A Sessions toolbar control and four-slot manager provide connect/disconnect/select/quit-all operations. Four titled freeform playfields now bind permanently to their slots; tiled playfields and embedded login states remain. |
 | Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
 
 The first implemented boundaries are `SessionID`, the app-owned session
@@ -130,9 +130,9 @@ bubbles, sound deduplication, visible-player observations, and tagged
 chat/console/audio events through the originating session. The app retains a
 bounded combined event model, and sound events from every session enter the
 shared mixer with their source ID. Existing entry points retain primary-session
-wrappers while the current playfield follows the selected session. Secondary
-BEPP/backend player, music, notification, and automation data is processed by
-the originating session.
+wrappers while each freeform playfield remains bound to its stable session
+slot. Secondary BEPP/backend player, music, notification, and automation data
+is processed by the originating session.
 Each session now also owns its TCP/UDP socket pair, connection status,
 cancellation boundary, transport generation, network dispatch loops, command
 packet construction, a background-safe input queue, selected server and
@@ -314,6 +314,12 @@ quitting the application.
 4. Add the tiled 2x2 grid by subdividing the existing game-window area, then
    add layout persistence.  The four slots already provide the explicit
    initial maximum.
+
+Freeform rendering and pointer routing are implemented through step 3. Each
+viewport owns its EUI window, visible image, grow-only backing image, draw
+snapshot, and reuse key. The remaining Phase 4 work is the full-area
+login/connection state, tiled composition, selected-tile treatment, and layout
+persistence.
 
 ### Phase 5: harden and document
 
