@@ -1549,6 +1549,7 @@ var (
 		blendPicts:               true,
 		mobilesReceiveSunShadows: true,
 		musicEnhancement:         true,
+		soundEnhancement:         true,
 	}
 	ultraPreset = qualityPreset{
 		artworkUpscaleMode:       artworkUpscaleBalanced,

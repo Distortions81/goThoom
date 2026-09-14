@@ -21,6 +21,8 @@ var serverCommandNames = []string{
 
 var localCommandNames = []string{"palette", "play", "setting", "testhooks"}
 
+const inputCompletionCandidateLimit = 32
+
 type inputCompletionCandidates struct {
 	commands []string
 	items    []string
@@ -173,12 +175,9 @@ func currentInputCompletionCandidates() inputCompletionCandidates {
 	}
 
 	itemNames := getInventoryCompletionNamesForSession(session)
-	chat := append([]string(nil), itemNames...)
-	for _, player := range playersSnapshotForSession(session) {
-		if player.Name != "" && !player.IsNPC {
-			chat = append(chat, player.Name)
-		}
-	}
+	chat := make([]string, 0, len(itemNames)+inputCompletionCandidateLimit)
+	chat = append(chat, itemNames...)
+	chat = append(chat, recentPlayerCompletionNamesForSession(session, inputCompletionCandidateLimit)...)
 	return inputCompletionCandidates{commands: commands, items: itemNames, chat: chat}
 }
 

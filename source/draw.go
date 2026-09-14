@@ -1968,9 +1968,7 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		if d, ok := draw.current.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, selfName)) {
 			sharee := false
 			dead := m.State == poseDead
-			if p, ok := session.players.player(d.Name); ok {
-				sharee = p.Sharee
-			}
+			sharee = playerShareeForSession(session, d.Name)
 			style := mobileNameStyle(m.Colors, sharee)
 			opacity := uint8(gs.NameBgOpacity*255 + 0.5)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead, mainFontRasterScale)

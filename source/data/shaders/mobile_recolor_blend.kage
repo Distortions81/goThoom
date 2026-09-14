@@ -6,14 +6,8 @@ const PaletteSize = 30
 
 var (
 	FlashColor vec4
-	PreviousPaletteR [PaletteSize]float
-	PreviousPaletteG [PaletteSize]float
-	PreviousPaletteB [PaletteSize]float
-	PreviousPaletteA [PaletteSize]float
-	CurrentPaletteR [PaletteSize]float
-	CurrentPaletteG [PaletteSize]float
-	CurrentPaletteB [PaletteSize]float
-	CurrentPaletteA [PaletteSize]float
+	PreviousPalette [PaletteSize]vec4
+	CurrentPalette [PaletteSize]vec4
 )
 
 func previousPaletteDelta(slot int) vec4 {
@@ -21,7 +15,7 @@ func previousPaletteDelta(slot int) vec4 {
 		return vec4(0)
 	}
 	index := slot - 1
-	return vec4(PreviousPaletteR[index], PreviousPaletteG[index], PreviousPaletteB[index], PreviousPaletteA[index])
+	return PreviousPalette[index]
 }
 
 func currentPaletteDelta(slot int) vec4 {
@@ -29,7 +23,7 @@ func currentPaletteDelta(slot int) vec4 {
 		return vec4(0)
 	}
 	index := slot - 1
-	return vec4(CurrentPaletteR[index], CurrentPaletteG[index], CurrentPaletteB[index], CurrentPaletteA[index])
+	return CurrentPalette[index]
 }
 
 func recolorPreviousAt(pos vec2) vec4 {

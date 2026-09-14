@@ -3,6 +3,7 @@
 package main
 
 const MaxLights = 128
+const MaxDarks = 128
 const MaxLightShadows = 32
 // Lights restore detail more aggressively near sources but never exceed base.
 const BaseLightScale = 4
@@ -22,33 +23,17 @@ const InvHaloRadiusFracSquared = 1 / (HaloRadiusFrac * HaloRadiusFrac)
 var (
     LightCount int
     DarkCount int
-    LightPosX [MaxLights]float
-    LightPosY [MaxLights]float
-    LightInvRadiusSquared [MaxLights]float
-    LightR [MaxLights]float
-    LightG [MaxLights]float
-    LightB [MaxLights]float
-    LightIntensity [MaxLights]float
-    DarkPosX [MaxLights]float
-    DarkPosY [MaxLights]float
-    DarkInvRadiusSquared [MaxLights]float
-    DarkAlpha [MaxLights]float
-    DarkIntensity [MaxLights]float
-    DarkPlane [MaxLights]float
+    LightGeometry [MaxLights]vec4
+    LightColor [MaxLights]vec4
+    LightEqualizedColor [MaxLights]vec4
+    DarkGeometry [MaxDarks]vec4
+    DarkParameters [MaxDarks]vec2
     ShadowCount int
-    ShadowLightX [MaxLightShadows]float
-    ShadowLightY [MaxLightShadows]float
-    ShadowLightInvRadiusSquared [MaxLightShadows]float
-    ShadowLightR [MaxLightShadows]float
-    ShadowLightG [MaxLightShadows]float
-    ShadowLightB [MaxLightShadows]float
-    ShadowLightIntensity [MaxLightShadows]float
-    ShadowCasterX [MaxLightShadows]float
-    ShadowCasterY [MaxLightShadows]float
-    ShadowCasterRadius [MaxLightShadows]float
-    ShadowAxisX [MaxLightShadows]float
-    ShadowAxisY [MaxLightShadows]float
-    ShadowInvDistance [MaxLightShadows]float
+    ShadowLightGeometry [MaxLightShadows]vec4
+    ShadowLightColor [MaxLightShadows]vec4
+    ShadowEqualizedLightColor [MaxLightShadows]vec4
+    ShadowCasterGeometry [MaxLightShadows]vec4
+    ShadowAxis [MaxLightShadows]vec2
     LightStrength float
     GlowStrength float
     NightFactor float
@@ -75,14 +60,16 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
     // Accumulate darkening multiplicatively (subtractive only)
     preLightDim := vec3(1.0, 1.0, 1.0)
     postLightDim := vec3(1.0, 1.0, 1.0)
-    for i := 0; i < MaxLights; i++ {
+    for i := 0; i < MaxDarks; i++ {
         if i < DarkCount {
-            dx := pixelPos.x - DarkPosX[i]
-            dy := pixelPos.y - DarkPosY[i]
-            nd2 := (dx*dx + dy*dy) * DarkInvRadiusSquared[i]
+            geometry := DarkGeometry[i]
+            parameters := DarkParameters[i]
+            dx := pixelPos.x - geometry.x
+            dy := pixelPos.y - geometry.y
+            nd2 := (dx*dx + dy*dy) * geometry.z
             f := 1.0 / (1.0 + nd2)
-            d := clamp(DarkScale*DarkAlpha[i]*f, 0.0, 1.0) * DarkIntensity[i]
-            if DarkPlane[i] > MaxLightPlane {
+            d := clamp(DarkScale*geometry.w*f, 0.0, 1.0) * parameters.x
+            if parameters.y > MaxLightPlane {
                 postLightDim *= vec3(1.0 - d)
             } else {
                 preLightDim *= vec3(1.0 - d)
@@ -104,17 +91,18 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
     chromaEQ := 0.03
     for i := 0; i < MaxLights; i++ {
         if i < LightCount {
-            dx := pixelPos.x - LightPosX[i]
-            dy := pixelPos.y - LightPosY[i]
-            nd2 := (dx*dx + dy*dy) * LightInvRadiusSquared[i]
+            geometry := LightGeometry[i]
+            dx := pixelPos.x - geometry.x
+            dy := pixelPos.y - geometry.y
+            nd2 := (dx*dx + dy*dy) * geometry.z
             if nd2 < LightCutoffEndSquared {
                 cutoff := 1.0 - smoothstep(LightCutoffStartSquared, LightCutoffEndSquared, nd2)
                 f := 1.0 / (1.0 + nd2)
                 // Sharper falloff to localize light influence.
                 f = f * f * cutoff
-                w := clamp(BaseLightScale*LightStrength*f, 0.0, 10.0) * LightIntensity[i]
+                w := clamp(BaseLightScale*LightStrength*f, 0.0, 10.0) * geometry.w
                 sumW += w
-                rgb := vec3(LightR[i], LightG[i], LightB[i])
+                rgb := LightColor[i].rgb
                 // Equalize by luminance to balance hue influence.
                 lum := max(dot(rgb, lumW), 0.001)
                 normRGB := rgb / lum
@@ -129,7 +117,7 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
                     haloCutoff := 1.0 - smoothstep(HaloCutoffStartSquared, HaloCutoffEndSquared, haloND2)
                     h := 1.0 / (1.0 + haloND2)
                     h = h * h * h * haloCutoff
-                    halo += LightIntensity[i] * h * rgb
+                    halo += geometry.w * h * rgb
                 }
             }
         }
@@ -143,23 +131,25 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
     blockedHalo := vec3(0.0, 0.0, 0.0)
     for i := 0; i < MaxLightShadows; i++ {
         if i < ShadowCount {
-            dx := pixelPos.x - ShadowLightX[i]
-            dy := pixelPos.y - ShadowLightY[i]
-            nd2 := (dx*dx + dy*dy) * ShadowLightInvRadiusSquared[i]
+            lightGeometry := ShadowLightGeometry[i]
+            dx := pixelPos.x - lightGeometry.x
+            dy := pixelPos.y - lightGeometry.y
+            nd2 := (dx*dx + dy*dy) * lightGeometry.z
             if nd2 < LightCutoffEndSquared {
-                axis := vec2(ShadowAxisX[i], ShadowAxisY[i])
-                behind := vec2(pixelPos.x - ShadowCasterX[i], pixelPos.y - ShadowCasterY[i])
+                axis := ShadowAxis[i]
+                casterGeometry := ShadowCasterGeometry[i]
+                behind := pixelPos - casterGeometry.xy
                 along := dot(behind, axis)
                 if along > 0.0 {
-                    halfWidth := ShadowCasterRadius[i] * (1.0 + along*ShadowInvDistance[i])
+                    halfWidth := casterGeometry.z * (1.0 + along*casterGeometry.w)
                     perpendicular := abs(behind.x*axis.y - behind.y*axis.x)
                     edgeStart := halfWidth * 0.65
                     cone := 1.0 - smoothstep(edgeStart, halfWidth, perpendicular)
                     cutoff := 1.0 - smoothstep(LightCutoffStartSquared, LightCutoffEndSquared, nd2)
                     f := 1.0 / (1.0 + nd2)
                     f = f * f * cutoff
-                    w := clamp(BaseLightScale*LightStrength*f, 0.0, 10.0) * ShadowLightIntensity[i] * cone
-                    rgb := vec3(ShadowLightR[i], ShadowLightG[i], ShadowLightB[i])
+                    w := clamp(BaseLightScale*LightStrength*f, 0.0, 10.0) * lightGeometry.w * cone
+                    rgb := ShadowLightColor[i].rgb
                     lum := max(dot(rgb, lumW), 0.001)
                     eqRGB := mix(rgb, rgb/lum, chromaEQ)
                     blockedW += w
@@ -171,7 +161,7 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
                         haloCutoff := 1.0 - smoothstep(HaloCutoffStartSquared, HaloCutoffEndSquared, haloND2)
                         haloFalloff := 1.0 / (1.0 + haloND2)
                         haloFalloff = haloFalloff * haloFalloff * haloFalloff * haloCutoff
-                        blockedHalo += ShadowLightIntensity[i] * haloFalloff * rgb * cone
+                        blockedHalo += lightGeometry.w * haloFalloff * rgb * cone
                     }
                 }
             }

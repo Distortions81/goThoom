@@ -6,10 +6,7 @@ const PaletteSize = 30
 
 var (
 	FlashColor vec4
-	PaletteR [PaletteSize]float
-	PaletteG [PaletteSize]float
-	PaletteB [PaletteSize]float
-	PaletteA [PaletteSize]float
+	Palette [PaletteSize]vec4
 )
 
 func paletteDelta(slot int) vec4 {
@@ -17,7 +14,7 @@ func paletteDelta(slot int) vec4 {
 		return vec4(0)
 	}
 	index := slot - 1
-	return vec4(PaletteR[index], PaletteG[index], PaletteB[index], PaletteA[index])
+	return Palette[index]
 }
 
 func recolorAt(pos vec2) vec4 {

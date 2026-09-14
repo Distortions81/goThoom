@@ -67,13 +67,14 @@ func drawDropShadow(screen *ebiten.Image, box *roundRect, size float32, col Colo
 			if dw <= 0 || dh <= 0 {
 				continue
 			}
-			part := mask.SubImage(image.Rect(src[column], src[row], src[column+1], src[row+1])).(*ebiten.Image)
+			part := mask.RecyclableSubImage(image.Rect(src[column], src[row], src[column+1], src[row+1]))
 			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 			op.GeoM.Scale(float64(dw)/float64(part.Bounds().Dx()), float64(dh)/float64(part.Bounds().Dy()))
 			op.GeoM.Translate(float64(dx[column]), float64(dy[row]))
 			op.ColorScale.ScaleWithColor(color.NRGBA{R: col.R, G: col.G, B: col.B, A: col.A})
 			op.ColorScale.ScaleAlpha(min(opacity, 1))
 			screen.DrawImage(part, op)
+			part.Recycle()
 		}
 	}
 }

@@ -17,6 +17,7 @@ import (
 
 const (
 	maxLights                  = 128
+	maxDarks                   = 128
 	maxLightShadows            = 32
 	lightCutoffStart           = 3.0
 	lightCutoffEnd             = 4.0
@@ -31,17 +32,16 @@ var (
 	lightingShaderVariants   []lightingShaderVariant
 	lightingTmp              *ebiten.Image
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
-	// Reused shader data to avoid per-frame allocations
-	leqR, leqG, leqB                                  [maxLights]float32
-	seqR, seqG, seqB                                  [maxLightShadows]float32
-	lposX, lposY, linvRadiusSquared, lr, lg, lb, lint [maxLights]float32
-	dposX, dposY, dinvRadiusSquared, da, dint, dplane [maxLights]float32
-	slightX, slightY, slightInvRadiusSquared          [maxLightShadows]float32
-	slightR, slightG, slightB, slightInt              [maxLightShadows]float32
-	scasterX, scasterY, scasterRadius                 [maxLightShadows]float32
-	shadowAxisX, shadowAxisY, shadowInvDistance       [maxLightShadows]float32
-	characterShadowMin, characterShadowMax            [2]float32
-	lightingIndices                                   = []uint32{0, 1, 2, 1, 2, 3}
+	// Reused, flattened vector uniforms avoid per-frame allocations and keep
+	// array elements tightly packed in backend constant buffers.
+	packedLightGeometry, packedLightColor, packedLightEqualizedColor                   [maxLights * 4]float32
+	packedDarkGeometry                                                                 [maxDarks * 4]float32
+	packedDarkParameters                                                               [maxDarks * 2]float32
+	packedShadowLightGeometry, packedShadowLightColor, packedShadowEqualizedLightColor [maxLightShadows * 4]float32
+	packedShadowCasterGeometry                                                         [maxLightShadows * 4]float32
+	packedShadowAxis                                                                   [maxLightShadows * 2]float32
+	characterShadowMin, characterShadowMax                                             [2]float32
+	lightingIndices                                                                    = []uint32{0, 1, 2, 1, 2, 3}
 )
 
 // viewportLightingFrame retains the output of one viewport's scene pass until
@@ -70,6 +70,7 @@ func lightingFrameForViewport(state *viewportRenderState) *viewportLightingFrame
 
 type lightingShaderVariant struct {
 	maxLights  int
+	maxDarks   int
 	maxShadows int
 	shader     *ebiten.Shader
 	uniforms   map[string]any
@@ -105,74 +106,60 @@ const (
 	shaderNightStrength = 0.96
 )
 
-func newLightingShaderVariant(shader *ebiten.Shader, lightLimit, shadowLimit int) lightingShaderVariant {
+func newLightingShaderVariant(shader *ebiten.Shader, lightLimit, darkLimit, shadowLimit int) lightingShaderVariant {
 	uniforms := map[string]any{
-		"LightEqualizedR":             leqR[:lightLimit],
-		"LightEqualizedG":             leqG[:lightLimit],
-		"LightEqualizedB":             leqB[:lightLimit],
-		"ShadowEqualizedR":            seqR[:shadowLimit],
-		"ShadowEqualizedG":            seqG[:shadowLimit],
-		"ShadowEqualizedB":            seqB[:shadowLimit],
-		"LightCount":                  0,
-		"DarkCount":                   0,
-		"LightPosX":                   lposX[:lightLimit],
-		"LightPosY":                   lposY[:lightLimit],
-		"LightInvRadiusSquared":       linvRadiusSquared[:lightLimit],
-		"LightR":                      lr[:lightLimit],
-		"LightG":                      lg[:lightLimit],
-		"LightB":                      lb[:lightLimit],
-		"LightIntensity":              lint[:lightLimit],
-		"DarkPosX":                    dposX[:lightLimit],
-		"DarkPosY":                    dposY[:lightLimit],
-		"DarkInvRadiusSquared":        dinvRadiusSquared[:lightLimit],
-		"DarkAlpha":                   da[:lightLimit],
-		"DarkIntensity":               dint[:lightLimit],
-		"DarkPlane":                   dplane[:lightLimit],
-		"ShadowCount":                 0,
-		"ShadowLightX":                slightX[:shadowLimit],
-		"ShadowLightY":                slightY[:shadowLimit],
-		"ShadowLightInvRadiusSquared": slightInvRadiusSquared[:shadowLimit],
-		"ShadowLightR":                slightR[:shadowLimit],
-		"ShadowLightG":                slightG[:shadowLimit],
-		"ShadowLightB":                slightB[:shadowLimit],
-		"ShadowLightIntensity":        slightInt[:shadowLimit],
-		"ShadowCasterX":               scasterX[:shadowLimit],
-		"ShadowCasterY":               scasterY[:shadowLimit],
-		"ShadowCasterRadius":          scasterRadius[:shadowLimit],
-		"ShadowAxisX":                 shadowAxisX[:shadowLimit],
-		"ShadowAxisY":                 shadowAxisY[:shadowLimit],
-		"ShadowInvDistance":           shadowInvDistance[:shadowLimit],
-		"LightStrength":               float32(1),
-		"GlowStrength":                float32(1),
-		"NightFactor":                 float32(0),
-		"MaxLightPlane":               float32(32767),
-		"HasCharacterShadowMask":      float32(0),
-		"CharacterShadowMin":          characterShadowMin[:],
-		"CharacterShadowMax":          characterShadowMax[:],
+		"LightGeometry":             packedLightGeometry[:lightLimit*4],
+		"LightColor":                packedLightColor[:lightLimit*4],
+		"LightEqualizedColor":       packedLightEqualizedColor[:lightLimit*4],
+		"LightCount":                0,
+		"DarkGeometry":              packedDarkGeometry[:darkLimit*4],
+		"DarkParameters":            packedDarkParameters[:darkLimit*2],
+		"DarkCount":                 0,
+		"ShadowLightGeometry":       packedShadowLightGeometry[:shadowLimit*4],
+		"ShadowLightColor":          packedShadowLightColor[:shadowLimit*4],
+		"ShadowEqualizedLightColor": packedShadowEqualizedLightColor[:shadowLimit*4],
+		"ShadowCasterGeometry":      packedShadowCasterGeometry[:shadowLimit*4],
+		"ShadowAxis":                packedShadowAxis[:shadowLimit*2],
+		"ShadowCount":               0,
+		"LightStrength":             float32(1),
+		"GlowStrength":              float32(1),
+		"NightFactor":               float32(0),
+		"MaxLightPlane":             float32(32767),
+		"HasCharacterShadowMask":    float32(0),
+		"CharacterShadowMin":        characterShadowMin[:],
+		"CharacterShadowMax":        characterShadowMax[:],
 	}
 	return lightingShaderVariant{
-		maxLights: lightLimit, maxShadows: shadowLimit, shader: shader, uniforms: uniforms,
+		maxLights: lightLimit, maxDarks: darkLimit, maxShadows: shadowLimit, shader: shader, uniforms: uniforms,
 		op: ebiten.DrawTrianglesShaderOptions{Uniforms: uniforms},
 	}
 }
 
 func compileLightingShaderVariants(source []byte) ([]lightingShaderVariant, error) {
-	if !bytes.Contains(source, []byte("const MaxLights = 128")) || !bytes.Contains(source, []byte("const MaxLightShadows = 32")) {
+	if !bytes.Contains(source, []byte("const MaxLights = 128")) ||
+		!bytes.Contains(source, []byte("const MaxDarks = 128")) ||
+		!bytes.Contains(source, []byte("const MaxLightShadows = 32")) {
 		return nil, fmt.Errorf("lighting shader capacity constants are missing")
 	}
-	tiers := [...]struct{ lights, shadows int }{{8, 8}, {32, 16}, {64, 32}, {128, 32}}
+	// The 64/8 tier matches the common busy-room shape without making the dark
+	// loop as wide as the light loop. The surrounding tiers retain full dark
+	// capacity for less typical dark-caster-heavy scenes.
+	tiers := [...]struct{ lights, darks, shadows int }{
+		{8, 8, 8}, {32, 32, 16}, {64, 8, 32}, {64, 64, 32}, {128, 128, 32},
+	}
 	variants := make([]lightingShaderVariant, 0, len(tiers))
 	for _, tier := range tiers {
 		variantSource := bytes.Replace(source, []byte("const MaxLights = 128"), []byte(fmt.Sprintf("const MaxLights = %d", tier.lights)), 1)
+		variantSource = bytes.Replace(variantSource, []byte("const MaxDarks = 128"), []byte(fmt.Sprintf("const MaxDarks = %d", tier.darks)), 1)
 		variantSource = bytes.Replace(variantSource, []byte("const MaxLightShadows = 32"), []byte(fmt.Sprintf("const MaxLightShadows = %d", tier.shadows)), 1)
 		shader, err := ebiten.NewShader(variantSource)
 		if err != nil {
 			for _, variant := range variants {
 				variant.shader.Deallocate()
 			}
-			return nil, fmt.Errorf("compile %d-light/%d-shadow variant: %w", tier.lights, tier.shadows, err)
+			return nil, fmt.Errorf("compile %d-light/%d-dark/%d-shadow variant: %w", tier.lights, tier.darks, tier.shadows, err)
 		}
-		variants = append(variants, newLightingShaderVariant(shader, tier.lights, tier.shadows))
+		variants = append(variants, newLightingShaderVariant(shader, tier.lights, tier.darks, tier.shadows))
 	}
 	return variants, nil
 }
@@ -239,10 +226,9 @@ func installLightingShaderVariants(source []byte) error {
 }
 
 func selectLightingShaderVariant(lightCount, darkCount, shadowCount int) *lightingShaderVariant {
-	neededLights := max(lightCount, darkCount)
 	for index := range lightingShaderVariants {
 		variant := &lightingShaderVariants[index]
-		if neededLights <= variant.maxLights && shadowCount <= variant.maxShadows {
+		if lightCount <= variant.maxLights && darkCount <= variant.maxDarks && shadowCount <= variant.maxShadows {
 			return variant
 		}
 	}
@@ -375,7 +361,7 @@ func applyWorldCompositeForViewport(state *viewportRenderState, night nightRende
 		darks = nil
 	}
 	il := lights[:min(len(lights), maxLights)]
-	id := darks[:min(len(darks), maxLights)]
+	id := darks[:min(len(darks), maxDarks)]
 	frame.shadows = buildLightShadows(il, frame.casters, frame.shadows[:0])
 	variant := selectLightingShaderVariant(len(il), len(id), len(frame.shadows))
 	if variant == nil {
@@ -392,59 +378,64 @@ func applyWorldCompositeForViewport(state *viewportRenderState, night nightRende
 	// Shader distance calculations use source-pixel coordinates, which are local
 	// to the temporary image. Sources are stored in destination-image coordinates.
 	dstBounds := source.Bounds()
-	for i := 0; i < len(il) && i < maxLights; i++ {
+	for i := 0; i < len(il); i++ {
 		ls := il[i]
-		lposX[i], lposY[i] = localLightingPosition(ls.X, ls.Y, dstBounds)
+		geometryIndex := i * 4
+		packedLightGeometry[geometryIndex], packedLightGeometry[geometryIndex+1] = localLightingPosition(ls.X, ls.Y, dstBounds)
 		effectiveRadius := ls.Radius * float32(lightRadiusScale)
-		linvRadiusSquared[i] = 1 / (effectiveRadius * effectiveRadius)
-		lr[i] = ls.R
-		lg[i] = ls.G
-		lb[i] = ls.B
-		leqR[i], leqG[i], leqB[i] = equalizedLightColor(ls.R, ls.G, ls.B)
+		packedLightGeometry[geometryIndex+2] = 1 / (effectiveRadius * effectiveRadius)
+		packedLightColor[geometryIndex] = ls.R
+		packedLightColor[geometryIndex+1] = ls.G
+		packedLightColor[geometryIndex+2] = ls.B
+		packedLightEqualizedColor[geometryIndex], packedLightEqualizedColor[geometryIndex+1], packedLightEqualizedColor[geometryIndex+2] = equalizedLightColor(ls.R, ls.G, ls.B)
 		if ls.Intensity <= 0 {
-			lint[i] = 0
+			packedLightGeometry[geometryIndex+3] = 0
 		} else if ls.Intensity >= 1 {
-			lint[i] = 1
+			packedLightGeometry[geometryIndex+3] = 1
 		} else {
-			lint[i] = ls.Intensity
+			packedLightGeometry[geometryIndex+3] = ls.Intensity
 		}
 	}
 	// Fill dark arrays
-	for i := 0; i < len(id) && i < maxLights; i++ {
+	for i := 0; i < len(id); i++ {
 		ds := id[i]
-		dposX[i], dposY[i] = localLightingPosition(ds.X, ds.Y, dstBounds)
+		geometryIndex := i * 4
+		packedDarkGeometry[geometryIndex], packedDarkGeometry[geometryIndex+1] = localLightingPosition(ds.X, ds.Y, dstBounds)
 		effectiveRadius := ds.Radius * float32(darkRadiusScale)
-		dinvRadiusSquared[i] = 1 / (effectiveRadius * effectiveRadius)
-		da[i] = ds.Alpha
-		dplane[i] = float32(ds.Plane)
+		packedDarkGeometry[geometryIndex+2] = 1 / (effectiveRadius * effectiveRadius)
+		packedDarkGeometry[geometryIndex+3] = ds.Alpha
+		parameterIndex := i * 2
+		packedDarkParameters[parameterIndex+1] = float32(ds.Plane)
 		if ds.Intensity <= 0 {
-			dint[i] = 0
+			packedDarkParameters[parameterIndex] = 0
 		} else if ds.Intensity >= 1 {
-			dint[i] = 1
+			packedDarkParameters[parameterIndex] = 1
 		} else {
-			dint[i] = ds.Intensity
+			packedDarkParameters[parameterIndex] = ds.Intensity
 		}
 	}
 	for i := 0; i < len(frame.shadows); i++ {
 		shadow := frame.shadows[i]
-		slightX[i], slightY[i] = localLightingPosition(shadow.LightX, shadow.LightY, dstBounds)
-		slightInvRadiusSquared[i] = 1 / (shadow.LightRadius * shadow.LightRadius)
-		slightR[i] = shadow.LightR
-		slightG[i] = shadow.LightG
-		slightB[i] = shadow.LightB
-		seqR[i], seqG[i], seqB[i] = equalizedLightColor(shadow.LightR, shadow.LightG, shadow.LightB)
-		slightInt[i] = shadow.LightIntensity
-		scasterX[i], scasterY[i] = localLightingPosition(shadow.CasterX, shadow.CasterY, dstBounds)
-		scasterRadius[i] = shadow.CasterRadius
+		geometryIndex := i * 4
+		packedShadowLightGeometry[geometryIndex], packedShadowLightGeometry[geometryIndex+1] = localLightingPosition(shadow.LightX, shadow.LightY, dstBounds)
+		packedShadowLightGeometry[geometryIndex+2] = 1 / (shadow.LightRadius * shadow.LightRadius)
+		packedShadowLightGeometry[geometryIndex+3] = shadow.LightIntensity
+		packedShadowLightColor[geometryIndex] = shadow.LightR
+		packedShadowLightColor[geometryIndex+1] = shadow.LightG
+		packedShadowLightColor[geometryIndex+2] = shadow.LightB
+		packedShadowEqualizedLightColor[geometryIndex], packedShadowEqualizedLightColor[geometryIndex+1], packedShadowEqualizedLightColor[geometryIndex+2] = equalizedLightColor(shadow.LightR, shadow.LightG, shadow.LightB)
+		packedShadowCasterGeometry[geometryIndex], packedShadowCasterGeometry[geometryIndex+1] = localLightingPosition(shadow.CasterX, shadow.CasterY, dstBounds)
+		packedShadowCasterGeometry[geometryIndex+2] = shadow.CasterRadius
 		dx := shadow.CasterX - shadow.LightX
 		dy := shadow.CasterY - shadow.LightY
 		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
 		if distance < 1 {
 			distance = 1
 		}
-		shadowAxisX[i] = dx / distance
-		shadowAxisY[i] = dy / distance
-		shadowInvDistance[i] = 1 / distance
+		axisIndex := i * 2
+		packedShadowAxis[axisIndex] = dx / distance
+		packedShadowAxis[axisIndex+1] = dy / distance
+		packedShadowCasterGeometry[geometryIndex+3] = 1 / distance
 	}
 
 	// Scalars
@@ -1024,7 +1015,7 @@ func addLightSourceForViewport(viewport *viewportRenderState, pictID, flags uint
 		if !lightIntersectsViewport(cx, cy, radius, bounds) {
 			return
 		}
-		if len(frame.darks) < maxLights {
+		if len(frame.darks) < maxDarks {
 			alpha := float32(li.Color[3]) / 255 * geometry.intensity
 			frame.darks = append(frame.darks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Plane: li.Plane, Intensity: 1})
 		}

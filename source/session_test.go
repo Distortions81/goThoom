@@ -36,6 +36,31 @@ func TestSessionIDsMapToFourStableSlots(t *testing.T) {
 	}
 }
 
+func TestPlayerShareeLookupDoesNotCopyPalette(t *testing.T) {
+	session := mustNewSession(1)
+	session.players.players["Alice"] = &Player{Name: "Alice", Sharee: true, Colors: []byte{1, 2, 3, 4}}
+	if !playerShareeForSession(session, "alice") {
+		t.Fatal("case-insensitive sharee lookup failed")
+	}
+	if allocations := testing.AllocsPerRun(100, func() {
+		if !playerShareeForSession(session, "Alice") {
+			t.Fatal("sharee lookup failed")
+		}
+	}); allocations != 0 {
+		t.Fatalf("sharee lookup allocated %.0f objects, want zero", allocations)
+	}
+}
+
+func TestSessionChatWithoutScriptHandlersSkipsClassification(t *testing.T) {
+	session := mustNewSession(1)
+	session.players.players["Alice"] = &Player{Name: "Alice", Colors: []byte{1, 2, 3, 4}}
+	if allocations := testing.AllocsPerRun(100, func() {
+		session.dispatchSessionScriptChat("Alice says, hello")
+	}); allocations != 0 {
+		t.Fatalf("chat dispatch without handlers allocated %.0f objects, want zero", allocations)
+	}
+}
+
 func TestSessionsOwnIndependentLoginRequestsAndStagedPasswords(t *testing.T) {
 	first := mustNewSession(1)
 	second := mustNewSession(2)

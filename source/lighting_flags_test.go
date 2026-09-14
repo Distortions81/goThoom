@@ -17,12 +17,37 @@ func TestLightingShaderCapacityVariantsCompile(t *testing.T) {
 			variant.shader.Deallocate()
 		}
 	})
-	wantLights := [...]int{8, 32, 64, 128}
-	wantShadows := [...]int{8, 16, 32, 32}
+	wantLights := [...]int{8, 32, 64, 64, 128}
+	wantDarks := [...]int{8, 32, 8, 64, 128}
+	wantShadows := [...]int{8, 16, 32, 32, 32}
 	for index, variant := range variants {
-		if variant.maxLights != wantLights[index] || variant.maxShadows != wantShadows[index] {
-			t.Fatalf("variant %d capacity = (%d, %d), want (%d, %d)", index, variant.maxLights, variant.maxShadows, wantLights[index], wantShadows[index])
+		if variant.maxLights != wantLights[index] || variant.maxDarks != wantDarks[index] || variant.maxShadows != wantShadows[index] {
+			t.Fatalf("variant %d capacity = (%d, %d, %d), want (%d, %d, %d)", index, variant.maxLights, variant.maxDarks, variant.maxShadows, wantLights[index], wantDarks[index], wantShadows[index])
 		}
+	}
+}
+
+func TestLightingShaderSelectsNarrowDarkTier(t *testing.T) {
+	variants, err := compileLightingShaderVariants(lightShaderSrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for _, variant := range variants {
+			variant.shader.Deallocate()
+		}
+	})
+	previous := lightingShaderVariants
+	lightingShaderVariants = variants
+	t.Cleanup(func() { lightingShaderVariants = previous })
+
+	variant := selectLightingShaderVariant(46, 5, 0)
+	if variant == nil || variant.maxLights != 64 || variant.maxDarks != 8 {
+		t.Fatalf("46-light/5-dark variant = %+v, want 64-light/8-dark tier", variant)
+	}
+	variant = selectLightingShaderVariant(46, 9, 0)
+	if variant == nil || variant.maxLights != 64 || variant.maxDarks != 64 {
+		t.Fatalf("46-light/9-dark variant = %+v, want 64-light/64-dark fallback", variant)
 	}
 }
 

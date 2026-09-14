@@ -480,10 +480,14 @@ func (s *Session) dispatchSessionScriptChat(msg string) {
 	if s == nil || s.automation == nil {
 		return
 	}
-	event := classifyScriptChatForSession(s, msg)
 	s.automation.scriptMu.RLock()
+	if len(s.automation.scriptChats) == 0 {
+		s.automation.scriptMu.RUnlock()
+		return
+	}
 	handlers := append([]structuredChatHandler(nil), s.automation.scriptChats...)
 	s.automation.scriptMu.RUnlock()
+	event := classifyScriptChatForSession(s, msg)
 	for _, handler := range handlers {
 		if handler.fn == nil || !scriptChatFilterMatches(handler.filter, event) {
 			continue

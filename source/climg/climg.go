@@ -594,35 +594,7 @@ func (c *CLImages) CustomPaletteDeltas(id uint32, custom []byte) []float32 {
 	if colLoc == nil {
 		return result
 	}
-	c.mu.Lock()
-	mapping := append([]byte(nil), c.customMappings[id]...)
-	c.mu.Unlock()
-	if len(mapping) == 0 {
-		imgLoc := c.images[ref.imageID]
-		if imgLoc == nil {
-			return result
-		}
-		data, width, _, err := decodeIndexedImage(c.data, imgLoc)
-		if err != nil {
-			return result
-		}
-		if width > 0 && len(data) >= width {
-			mapping = append(mapping, data[:width]...)
-		}
-		releaseIndexedPixels(data)
-		if len(mapping) != 0 {
-			c.mu.Lock()
-			if c.customMappings == nil {
-				c.customMappings = make(map[uint32][]byte)
-			}
-			if cached := c.customMappings[id]; len(cached) != 0 {
-				mapping = append(mapping[:0], cached...)
-			} else {
-				c.customMappings[id] = append([]byte(nil), mapping...)
-			}
-			c.mu.Unlock()
-		}
-	}
+	mapping := c.customColorMapping(id)
 	if len(mapping) == 0 {
 		return result
 	}
@@ -658,6 +630,86 @@ func (c *CLImages) CustomPaletteDeltas(id uint32, custom []byte) []float32 {
 		result[offset+1] = customG - baseG
 		result[offset+2] = customB - baseB
 		result[offset+3] = customA - baseA
+	}
+	return result
+}
+
+func (c *CLImages) customColorMapping(id uint32) []byte {
+	ref := c.idrefs[id]
+	if ref == nil || ref.flags&pictDefCustomColors == 0 {
+		return nil
+	}
+	c.mu.Lock()
+	mapping := append([]byte(nil), c.customMappings[id]...)
+	c.mu.Unlock()
+	if len(mapping) == 0 {
+		imgLoc := c.images[ref.imageID]
+		if imgLoc == nil {
+			return nil
+		}
+		data, width, _, err := decodeIndexedImage(c.data, imgLoc)
+		if err != nil {
+			return nil
+		}
+		if width > 0 && len(data) >= width {
+			mapping = append(mapping, data[:width]...)
+		}
+		releaseIndexedPixels(data)
+		if len(mapping) != 0 {
+			c.mu.Lock()
+			if c.customMappings == nil {
+				c.customMappings = make(map[uint32][]byte)
+			}
+			if cached := c.customMappings[id]; len(cached) != 0 {
+				mapping = append(mapping[:0], cached...)
+			} else {
+				c.customMappings[id] = append([]byte(nil), mapping...)
+			}
+			c.mu.Unlock()
+		}
+	}
+	if len(mapping) == 0 {
+		return nil
+	}
+	return mapping
+}
+
+// CustomPaletteInfluenceDeltas returns palette differences indexed by the
+// canonical slots emitted by DecodeRGBAWithCustomColorSlots. Some older
+// artwork maps multiple custom slots to the same color-table entry. The CPU
+// decoder applies only the supplied slots and lets the last supplied slot win,
+// while the palette-independent influence mask identifies the last mapped
+// slot. This method aliases the effective supplied delta onto that canonical
+// mask slot so GPU recoloring matches DecodeRGBA for short palettes as well.
+func (c *CLImages) CustomPaletteInfluenceDeltas(id uint32, custom []byte, maxSlots int) []float32 {
+	direct := c.CustomPaletteDeltas(id, custom)
+	return remapCustomPaletteInfluenceDeltas(c.customColorMapping(id), direct, len(custom), maxSlots)
+}
+
+func remapCustomPaletteInfluenceDeltas(mapping []byte, direct []float32, customCount, maxSlots int) []float32 {
+	if maxSlots < 0 {
+		maxSlots = 0
+	}
+	result := make([]float32, maxSlots*4)
+	var activeSlot, maskSlot [256]int
+	for index := range activeSlot {
+		activeSlot[index] = -1
+		maskSlot[index] = -1
+	}
+	for slot, colorTableIndex := range mapping {
+		if slot < customCount && slot*4+3 < len(direct) {
+			activeSlot[colorTableIndex] = slot
+		}
+		if slot < maxSlots && slot < 31 {
+			maskSlot[colorTableIndex] = slot
+		}
+	}
+	for colorTableIndex, sourceSlot := range activeSlot {
+		targetSlot := maskSlot[colorTableIndex]
+		if sourceSlot < 0 || targetSlot < 0 {
+			continue
+		}
+		copy(result[targetSlot*4:targetSlot*4+4], direct[sourceSlot*4:sourceSlot*4+4])
 	}
 	return result
 }

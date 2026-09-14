@@ -84,6 +84,7 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
 				characterShadows: true, shaderLighting: true,
 				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
+				soundEnhancement: true,
 			},
 			index: 3,
 		},

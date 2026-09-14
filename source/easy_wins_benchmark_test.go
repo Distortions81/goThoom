@@ -6,11 +6,12 @@ import (
 )
 
 func BenchmarkCompletionWordBoundaries(b *testing.B) {
-	candidates := make([]string, 500)
+	candidates := make([]string, inputCompletionCandidateLimit)
 	for i := range candidates {
 		candidates[i] = fmt.Sprintf("Player %03d", i)
 	}
 	candidates = append(candidates, "Healing Potion")
+	b.ReportAllocs()
 	for b.Loop() {
 		completionAtWordBoundary("I would like a healing p", candidates)
 	}

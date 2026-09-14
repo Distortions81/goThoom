@@ -30,7 +30,8 @@ func TestRenderSpriteUpscaleImages(t *testing.T) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	images, err := climg.Load(filepath.Join(filepath.Dir(sourceFile), "data", "CL_Images"))
+	userDataPath := platformDataDir(runtime.GOOS, runtime.GOARCH, os.Getenv, os.UserHomeDir, os.Executable)
+	images, err := climg.Load(filepath.Join(userDataPath, CL_ImagesFile))
 	if err != nil {
 		t.Fatalf("load CL_Images: %v", err)
 	}

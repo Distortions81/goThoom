@@ -93,9 +93,9 @@ func (g *recolorDecodeGame) verify() error {
 	cur, curMask := baseBacking.SubImage(curBounds).(*ebiten.Image), maskBacking.SubImage(curBounds).(*ebiten.Image)
 	p := testMobilePalette(makeMobileKey(60000, 0, []byte{1}), 0, 0, 0, 0)
 	c := testMobilePalette(makeMobileKey(60000, 0, []byte{2}), 0, 0, 0, 0)
-	for i := range p.r {
-		p.r[i], p.g[i], p.b[i] = float32(i-15)/32, float32((i*7)%30)/32, float32(i)/64
-		c.r[i], c.g[i], c.b[i] = float32(i)/64, -float32(i)/64, float32((i*13)%30)/32
+	for i := 0; i < maxColors; i++ {
+		p.palette[i*4], p.palette[i*4+1], p.palette[i*4+2] = float32(i-15)/32, float32((i*7)%30)/32, float32(i)/64
+		c.palette[i*4], c.palette[i*4+1], c.palette[i*4+2] = float32(i)/64, -float32(i)/64, float32((i*13)%30)/32
 	}
 	dst := ebiten.NewImage(1280, 400)
 	defer dst.Deallocate()

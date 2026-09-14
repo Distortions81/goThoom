@@ -3512,9 +3512,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		if showName {
 			sharee := false
 			dead := m.State == poseDead
-			if p, ok := playerSnapshotForSession(session, d.Name); ok {
-				sharee = p.Sharee
-			}
+			sharee = playerShareeForSession(session, d.Name)
 			style := mobileNameStyle(m.Colors, sharee)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead, gs.GameScale)
 			entry := borrowSharedNameTag(key)

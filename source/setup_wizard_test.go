@@ -33,6 +33,74 @@ func TestShouldShowSetupWizard(t *testing.T) {
 	}
 }
 
+func TestRecommendedSettingsPromptOnlyAppearsForUpgradeMismatch(t *testing.T) {
+	recommended := gsdef
+	recommended.PrecacheSounds = true
+	recommended.HighQualityResampling = false
+	recommended.BubbleBaseLife = 4
+
+	if shouldPromptForRecommendedSettings(false, 35, 36, recommended) {
+		t.Fatal("first run prompted for upgrade recommendations")
+	}
+	if shouldPromptForRecommendedSettings(true, 36, 36, recommended) {
+		t.Fatal("current release prompted for upgrade recommendations")
+	}
+	if shouldPromptForRecommendedSettings(true, 37, 36, recommended) {
+		t.Fatal("downgrade prompted for upgrade recommendations")
+	}
+	if shouldPromptForRecommendedSettings(true, 35, 36, recommended) {
+		t.Fatal("matching settings prompted for upgrade recommendations")
+	}
+
+	recommended.ShaderLighting = false
+	if !shouldPromptForRecommendedSettings(true, 35, 36, recommended) {
+		t.Fatal("upgrade with a mismatch did not prompt for recommendations")
+	}
+}
+
+func TestApplyRecommendedSettingsChangesOnlyRecommendedValues(t *testing.T) {
+	value := gsdef
+	value.FloatingPointSpriteCoords = false
+	value.InterpolateSmallMovingPictures = false
+	value.MobilesReceiveSunShadows = false
+	value.ShaderLighting = false
+	value.VSync = false
+	value.SpriteGammaCorrection = false
+	value.FlameLightFlicker = false
+	value.ObjectPinning = false
+	value.ThrottleSounds = false
+	value.StaggerSimultaneousSounds = false
+	value.BatchArtworkLoading = false
+	value.PrecacheSounds = false
+	value.PixelArtScaling = true
+	value.HighQualityResampling = true
+	value.PowerSaveAlways = true
+	value.AnimatedChatBubbles = true
+	value.BubbleBaseLife = 2
+	value.ClickToToggle = true
+
+	changes := recommendedSettingsChanges(value)
+	if len(changes) != 17 {
+		t.Fatalf("recommended setting changes = %d, want 17: %v", len(changes), changes)
+	}
+	applyRecommendedSettingsTo(&value)
+	if changes := recommendedSettingsChanges(value); len(changes) != 0 {
+		t.Fatalf("recommended settings still differ after applying: %v", changes)
+	}
+	if !value.ClickToToggle {
+		t.Fatal("applying recommendations changed an unrelated setting")
+	}
+	if value.BubbleBaseLife != 3 {
+		t.Fatalf("bubble base lifetime = %v, want 3", value.BubbleBaseLife)
+	}
+
+	value.BubbleBaseLife = 5
+	applyRecommendedSettingsTo(&value)
+	if value.BubbleBaseLife != 5 {
+		t.Fatalf("bubble base lifetime above minimum was reduced to %v", value.BubbleBaseLife)
+	}
+}
+
 func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 	originalSettings := gs
 	originalBypass := setupWizardVSyncBypass
@@ -520,6 +588,7 @@ func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 	}
 	if !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.WindowShadows ||
 		!gs.MobilesReceiveSunShadows || !gs.FadeObscuringPictures || !gs.MusicEnhancement ||
+		!gs.SoundEnhancement || gs.SoundEnhancementAmount != 2 ||
 		gs.GameScale != originalSettings.GameScale || artworkUpscaleMode() != artworkUpscaleBalanced {
 		t.Fatal("graphics detection did not apply High before sampling")
 	}

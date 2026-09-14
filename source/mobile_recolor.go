@@ -7,10 +7,10 @@ import (
 )
 
 type mobilePaletteShaderState struct {
-	key        mobileKey
-	r, g, b, a [maxColors]float32
-	flash      [4]float32
-	op         ebiten.DrawTrianglesShaderOptions
+	key     mobileKey
+	palette [maxColors * 4]float32
+	flash   [4]float32
+	op      ebiten.DrawTrianglesShaderOptions
 }
 
 type mobilePalettePairKey struct {
@@ -74,19 +74,13 @@ func mobilePaletteState(id uint16, colors []byte) *mobilePaletteShaderState {
 	imageMu.Unlock()
 
 	state := &mobilePaletteShaderState{key: key}
-	deltas := clImages.CustomPaletteDeltas(uint32(id), colors)
+	deltas := clImages.CustomPaletteInfluenceDeltas(uint32(id), colors, maxColors)
 	for slot := 0; slot < maxColors && slot*4+3 < len(deltas); slot++ {
-		state.r[slot] = deltas[slot*4]
-		state.g[slot] = deltas[slot*4+1]
-		state.b[slot] = deltas[slot*4+2]
-		state.a[slot] = deltas[slot*4+3]
+		copy(state.palette[slot*4:slot*4+4], deltas[slot*4:slot*4+4])
 	}
 	state.op.Uniforms = map[string]any{
 		"FlashColor": state.flash[:],
-		"PaletteR":   state.r[:],
-		"PaletteG":   state.g[:],
-		"PaletteB":   state.b[:],
-		"PaletteA":   state.a[:],
+		"Palette":    state.palette[:],
 	}
 	imageMu.Lock()
 	if cached := mobilePaletteDeltaCache[key]; cached != nil {
@@ -108,11 +102,9 @@ func mobilePaletteBlendState(previous, current *mobilePaletteShaderState) *mobil
 	imageMu.Unlock()
 	state := &mobilePaletteBlendShaderState{}
 	state.op.Uniforms = map[string]any{
-		"FlashColor":       state.flash[:],
-		"PreviousPaletteR": previous.r[:], "PreviousPaletteG": previous.g[:],
-		"PreviousPaletteB": previous.b[:], "PreviousPaletteA": previous.a[:],
-		"CurrentPaletteR": current.r[:], "CurrentPaletteG": current.g[:],
-		"CurrentPaletteB": current.b[:], "CurrentPaletteA": current.a[:],
+		"FlashColor":      state.flash[:],
+		"PreviousPalette": previous.palette[:],
+		"CurrentPalette":  current.palette[:],
 	}
 	imageMu.Lock()
 	if cached := mobilePaletteBlendCache[key]; cached != nil {

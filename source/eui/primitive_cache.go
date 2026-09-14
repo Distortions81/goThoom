@@ -30,8 +30,9 @@ type primitiveKey struct {
 }
 
 type primitiveMask struct {
-	image *ebiten.Image
-	used  uint64
+	image    *ebiten.Image
+	drawable *ebiten.Image
+	used     uint64
 }
 
 type primitiveCache struct {
@@ -70,7 +71,7 @@ func (cache *primitiveCache) mask(key primitiveKey) *ebiten.Image {
 		mask.used = cache.clock
 		cache.entries[key] = mask
 		cache.hits++
-		return key.drawable(mask.image)
+		return mask.drawable
 	}
 	cache.misses++
 	allocationW, allocationH := key.allocationSize()
@@ -108,9 +109,10 @@ func (cache *primitiveCache) mask(key primitiveKey) *ebiten.Image {
 	if cache.entries == nil {
 		cache.entries = make(map[primitiveKey]primitiveMask)
 	}
-	cache.entries[key] = primitiveMask{image: mask, used: cache.clock}
+	drawable := key.drawable(mask)
+	cache.entries[key] = primitiveMask{image: mask, drawable: drawable, used: cache.clock}
 	cache.bytes += bytes
-	return key.drawable(mask)
+	return drawable
 }
 
 // Large rectangles and straight lines keep fixed end/corner pieces and stretch
@@ -122,14 +124,19 @@ func drawPrimitiveMask(dst, mask *ebiten.Image, x, y, width, height, cornerX, co
 			return
 		}
 		part := mask
+		recyclable := false
 		if src != bounds {
-			part = mask.SubImage(src).(*ebiten.Image)
+			part = mask.RecyclableSubImage(src)
+			recyclable = true
 		}
 		op := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(float64(w)/float64(src.Dx()), float64(h)/float64(src.Dy()))
 		op.GeoM.Translate(float64(x), float64(y))
 		op.ColorScale.ScaleWithColor(tint)
 		dst.DrawImage(part, &op)
+		if recyclable {
+			part.Recycle()
+		}
 	}
 	if width == bounds.Dx() && height == bounds.Dy() {
 		draw(bounds, x, y, width, height)

@@ -655,6 +655,53 @@ func (s *sessionPlayerState) player(name string) (Player, bool) {
 	return out, true
 }
 
+func (s *sessionPlayerState) sharee(name string) (bool, bool) {
+	if s == nil || name == "" {
+		return false, false
+	}
+	s.mu.RLock()
+	p := s.players[name]
+	if p == nil {
+		for candidate, player := range s.players {
+			if strings.EqualFold(candidate, name) {
+				p = player
+				break
+			}
+		}
+	}
+	if p == nil {
+		s.mu.RUnlock()
+		return false, false
+	}
+	sharee := p.Sharee
+	s.mu.RUnlock()
+	return sharee, true
+}
+
+func (s *sessionPlayerState) playerSnapshotFold(name string) (Player, bool) {
+	if s == nil || name == "" {
+		return Player{}, false
+	}
+	s.mu.RLock()
+	p := s.players[name]
+	if p == nil {
+		for candidate, player := range s.players {
+			if strings.EqualFold(candidate, name) {
+				p = player
+				break
+			}
+		}
+	}
+	if p == nil {
+		s.mu.RUnlock()
+		return Player{}, false
+	}
+	out := *p
+	out.Colors = append([]byte(nil), p.Colors...)
+	s.mu.RUnlock()
+	return out, true
+}
+
 func (s *sessionPlayerState) snapshot() []Player {
 	if s == nil {
 		return nil
@@ -771,20 +818,112 @@ func characterPlayerLabel(character, name string) int {
 }
 
 func playerSnapshotForSession(session *Session, name string) (Player, bool) {
-	for _, player := range livePlayersSnapshotForSession(session) {
-		if strings.EqualFold(player.Name, name) {
-			return player, true
+	if name == "" {
+		return Player{}, false
+	}
+	profile, profileOK := playerProfileSnapshot(name)
+	if session != nil && session.players != nil {
+		if live, ok := session.players.playerSnapshotFold(name); ok {
+			if profileOK {
+				mergePlayerProfile(&live, profile)
+			}
+			applySessionPlayerLabel(&live, session.characterName())
+			return live, true
 		}
 	}
 	// App-wide labels and block state can apply before a player has appeared in
 	// this session's live directory (for example, the first bubble in an area).
-	for _, profile := range getPlayers() {
-		if strings.EqualFold(profile.Name, name) {
-			applySessionPlayerLabel(&profile, session.characterName())
-			return profile, true
+	if profileOK {
+		character := ""
+		if session != nil {
+			character = session.characterName()
 		}
+		applySessionPlayerLabel(&profile, character)
+		return profile, true
 	}
 	return Player{}, false
+}
+
+func playerProfileSnapshot(name string) (Player, bool) {
+	playersMu.RLock()
+	p := players[name]
+	if p == nil {
+		for candidate, player := range players {
+			if strings.EqualFold(candidate, name) {
+				p = player
+				break
+			}
+		}
+	}
+	if p == nil {
+		playersMu.RUnlock()
+		return Player{}, false
+	}
+	out := *p
+	out.Colors = append([]byte(nil), p.Colors...)
+	playersMu.RUnlock()
+	return out, true
+}
+
+func playerShareeForSession(session *Session, name string) bool {
+	if session != nil && session.players != nil {
+		if sharee, ok := session.players.sharee(name); ok {
+			return sharee
+		}
+	}
+	playersMu.RLock()
+	p := players[name]
+	if p == nil {
+		for candidate, player := range players {
+			if strings.EqualFold(candidate, name) {
+				p = player
+				break
+			}
+		}
+	}
+	sharee := p != nil && p.Sharee
+	playersMu.RUnlock()
+	return sharee
+}
+
+type recentPlayerCompletion struct {
+	name string
+	seen time.Time
+}
+
+func recentPlayerCompletionNamesForSession(session *Session, limit int) []string {
+	if session == nil || session.players == nil || limit <= 0 {
+		return nil
+	}
+	session.players.mu.RLock()
+	recent := make([]recentPlayerCompletion, 0, min(limit, len(session.players.players)))
+	for _, player := range session.players.players {
+		if player.Name == "" || player.IsNPC {
+			continue
+		}
+		candidate := recentPlayerCompletion{name: player.Name, seen: player.LastSeen}
+		insertAt := len(recent)
+		for index, existing := range recent {
+			if candidate.seen.After(existing.seen) || candidate.seen.Equal(existing.seen) && candidate.name < existing.name {
+				insertAt = index
+				break
+			}
+		}
+		if insertAt >= limit {
+			continue
+		}
+		if len(recent) < limit {
+			recent = append(recent, recentPlayerCompletion{})
+		}
+		copy(recent[insertAt+1:], recent[insertAt:len(recent)-1])
+		recent[insertAt] = candidate
+	}
+	session.players.mu.RUnlock()
+	names := make([]string, len(recent))
+	for index := range recent {
+		names[index] = recent[index].name
+	}
+	return names
 }
 
 func (s *sessionPlayerState) reset() {

@@ -58,16 +58,127 @@ var (
 	setupWizardGraphicsFPSSum         float64
 	setupWizardGraphicsFPSCount       int
 	setupWizardVSyncBypass            bool
+	setupWizardRecommendationOpen     bool
+	setupWizardRecommendationHandled  bool
 )
 
 func shouldShowSetupWizard(configLoaded bool, completedVersion, currentVersion int) bool {
 	return !configLoaded || completedVersion < currentVersion
 }
 
+func recommendedSettingsChanges(value settings) []string {
+	changes := make([]string, 0, 17)
+	addBool := func(label string, current, recommended bool) {
+		if current == recommended {
+			return
+		}
+		state := "Off"
+		if recommended {
+			state = "On"
+		}
+		changes = append(changes, "- "+label+": "+state)
+	}
+
+	addBool("Subpixel movement", value.FloatingPointSpriteCoords, true)
+	addBool("Smooth small moving objects", value.InterpolateSmallMovingPictures, true)
+	addBool("Characters receive sun shadows", value.MobilesReceiveSunShadows, true)
+	addBool("Shader lighting", value.ShaderLighting, true)
+	addBool("VSync", value.VSync, true)
+	addBool("Artwork gamma correction", value.SpriteGammaCorrection, true)
+	addBool("Flame light flicker", value.FlameLightFlicker, true)
+	addBool("Pin world objects", value.ObjectPinning, true)
+	addBool("Limit repeated sounds", value.ThrottleSounds, true)
+	addBool("Stagger simultaneous sounds", value.StaggerSimultaneousSounds, true)
+	addBool("Batch room artwork loading", value.BatchArtworkLoading, true)
+	addBool("Precache sounds", value.PrecacheSounds, true)
+	addBool("Pixel-perfect scaling", value.PixelArtScaling, false)
+	addBool("High-quality resampling", value.HighQualityResampling, false)
+	addBool("Always power save", value.PowerSaveAlways, false)
+	addBool("Animated chat bubbles", value.AnimatedChatBubbles, false)
+	if value.BubbleBaseLife < 3 {
+		changes = append(changes, "- Bubble base lifetime: At least 3 seconds")
+	}
+	return changes
+}
+
+func shouldPromptForRecommendedSettings(configLoaded bool, completedVersion, currentVersion int, value settings) bool {
+	return configLoaded && completedVersion < currentVersion && len(recommendedSettingsChanges(value)) > 0
+}
+
+func applyRecommendedSettingsTo(value *settings) {
+	value.FloatingPointSpriteCoords = true
+	value.InterpolateSmallMovingPictures = true
+	value.MobilesReceiveSunShadows = true
+	value.ShaderLighting = true
+	value.VSync = true
+	value.SpriteGammaCorrection = true
+	value.FlameLightFlicker = true
+	value.ObjectPinning = true
+	value.ThrottleSounds = true
+	value.StaggerSimultaneousSounds = true
+	value.BatchArtworkLoading = true
+	value.PrecacheSounds = true
+	value.PixelArtScaling = false
+	value.HighQualityResampling = false
+	value.PowerSaveAlways = false
+	value.AnimatedChatBubbles = false
+	if value.BubbleBaseLife < 3 {
+		value.BubbleBaseLife = 3
+	}
+}
+
+func applyRecommendedSettings() {
+	startSoundPrecache := !gs.PrecacheSounds
+	applyRecommendedSettingsTo(&gs)
+	setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	applySettings()
+	clearCaches()
+	settingsDirty = true
+	saveSettings()
+	if startSoundPrecache {
+		go precacheSounds()
+	}
+}
+
 func openSetupWizard(force bool) {
+	if setupWizardRecommendationOpen || setupWizardWin != nil && setupWizardWin.IsOpen() {
+		return
+	}
 	if !force && !shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
 		return
 	}
+	if !force && !setupWizardRecommendationHandled {
+		if shouldPromptForRecommendedSettings(settingsLoaded, gs.SetupWizardVersion, appVersion, gs) {
+			setupWizardRecommendationOpen = true
+			changes := recommendedSettingsChanges(gs)
+			message := "Some of your settings differ from goThoom's current recommendations:\n\n" +
+				strings.Join(changes, "\n") +
+				"\n\nOnly the settings listed here will change. You can adjust them later in Settings or Quality."
+			eui.ShowPopup(
+				"Recommended Settings",
+				message,
+				[]eui.PopupButton{
+					{Text: "Keep Current Settings", Width: 180, Action: func() {
+						setupWizardRecommendationOpen = false
+						setupWizardRecommendationHandled = true
+						openSetupWizardWindow()
+					}},
+					{Text: "Use Recommended Settings", Width: 210, Action: func() {
+						setupWizardRecommendationOpen = false
+						setupWizardRecommendationHandled = true
+						applyRecommendedSettings()
+						openSetupWizardWindow()
+					}},
+				},
+			)
+			return
+		}
+		setupWizardRecommendationHandled = true
+	}
+	openSetupWizardWindow()
+}
+
+func openSetupWizardWindow() {
 	setupWizardPage = 0
 	setupWizardScenePage = -1
 	setupWizardSceneStarted = time.Time{}

@@ -6,6 +6,8 @@ Movie playback:
 
 Graphics:
 - Removed thin background-colored seams between adjacent ground tiles when artwork upscaling is disabled.
+- Reduced lighting and custom-color rendering overhead, especially in busy scenes.
+- Corrected custom character colors in older recordings where a character supplies fewer colors than the artwork supports.
 
 Audio:
 - Improved enhanced game sounds so ambience keeps its intended character and simultaneous effects retain consistent volume.
@@ -14,6 +16,7 @@ Audio:
 
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.
+- Upgrades now offer to apply the current recommended graphics, loading, sound, power-saving, and speech-bubble settings when your choices differ; settings outside that list remain unchanged.
 
 Desktop:
 - Restored compatibility with macOS 13 Ventura by updating Ebitengine to v2.10.2.

@@ -40,7 +40,10 @@ func TestRenderRealMobileRecolorPixels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load CL_Images: %v", err)
 	}
-	pictID := uint64(453)
+	// Phroon in lore1.clMov has a 20-color palette on picture 451. That
+	// picture's archive mapping repeats an active color-table entry in a later,
+	// unsupplied slot, exercising canonical influence-slot remapping.
+	pictID := uint64(451)
 	if value := os.Getenv("GOTHOOM_RENDER_MOBILE_RECOLOR_PICT"); value != "" {
 		pictID, err = strconv.ParseUint(value, 10, 16)
 		if err != nil {
@@ -49,7 +52,7 @@ func TestRenderRealMobileRecolorPixels(t *testing.T) {
 	}
 	colorsHex := os.Getenv("GOTHOOM_RENDER_MOBILE_RECOLOR_COLORS")
 	if colorsHex == "" {
-		colorsHex = "14b2d608335e4e5681080f3a56ac4f81acacff6cc2"
+		colorsHex = "5e8908335ebd5aae8c8c8d2e837460aa2b813d86"
 	}
 	colors, err := hex.DecodeString(colorsHex)
 	if err != nil {
@@ -88,11 +91,10 @@ type mobileRecolorRenderGame struct {
 
 func testMobilePalette(key mobileKey, red, green, blue, alpha float32) *mobilePaletteShaderState {
 	state := &mobilePaletteShaderState{key: key}
-	state.r[0], state.g[0], state.b[0], state.a[0] = red, green, blue, alpha
+	state.palette[0], state.palette[1], state.palette[2], state.palette[3] = red, green, blue, alpha
 	state.op.Uniforms = map[string]any{
 		"FlashColor": state.flash[:],
-		"PaletteR":   state.r[:], "PaletteG": state.g[:],
-		"PaletteB": state.b[:], "PaletteA": state.a[:],
+		"Palette":    state.palette[:],
 	}
 	return state
 }
@@ -228,7 +230,17 @@ func (g *realMobileRecolorRenderGame) Draw(_ *ebiten.Image) {
 		delta := int(got[offset]) - int(want[offset])
 		if delta < -1 || delta > 1 {
 			pixel := offset / 4
-			g.err = fmt.Errorf("real recolor differs at (%d,%d) channel %d: got %d want %d", pixel%w, pixel/w, offset%4, got[offset], want[offset])
+			basePixels, influencePixels := make([]byte, len(got)), make([]byte, len(got))
+			base.ReadPixels(basePixels)
+			influence.ReadPixels(influencePixels)
+			pixelOffset := pixel * 4
+			encoded := uint32(influencePixels[pixelOffset]) |
+				uint32(influencePixels[pixelOffset+1])<<8 |
+				uint32(influencePixels[pixelOffset+2])<<16
+			g.err = fmt.Errorf("real recolor differs at (%d,%d) channel %d: got %v want %v base %v influence %v slots %d/%d/%d weight %d",
+				pixel%w, pixel/w, offset%4,
+				got[pixelOffset:pixelOffset+4], want[pixelOffset:pixelOffset+4], basePixels[pixelOffset:pixelOffset+4], influencePixels[pixelOffset:pixelOffset+4],
+				encoded&31, (encoded>>5)&31, (encoded>>10)&31, encoded>>15)
 			break
 		}
 	}

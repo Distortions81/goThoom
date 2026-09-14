@@ -13,7 +13,7 @@ func sourcePixel(cell vec2) vec4 {
 	size := imageSrc0Size()
 	pos := origin + (cell+vec2(0.5))*Scale
 	pos = clamp(pos, origin+vec2(0.5), origin+size-vec2(0.5))
-	return imageSrc0At(pos)
+	return imageSrc0UnsafeAt(pos)
 }
 
 func straightRGB(c vec4) vec3 {
