@@ -36,6 +36,7 @@ Interface:
 - Choosing an emoji from the chat picker appends it without replacing the existing draft, then closes the picker.
 - Input bar always open keeps the draft active and visible while another client control has focus.
 - The message input supports standard Select All, Cut, Copy, Paste, Backspace, and Delete selection editing with Ctrl or Command shortcuts.
+- Mac users can type punctuation such as slash in the game input using their keyboard layout.
 - Rebind or disable every client-owned shortcut, including keyboard movement, running, fullscreen, the command palette, and session tabs, from Actions > Hotkeys.
 - Settings calls the built-in interface style Default, falls back to it when a saved style is unavailable, and explains Keep window on top through its info tooltip.
 - Saved Data uses responsive script rows and a clearly placed View action; saved keys and values wrap in a larger, selectable detail window.

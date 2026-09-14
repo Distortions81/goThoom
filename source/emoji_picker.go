@@ -99,7 +99,6 @@ func appendMessageEmoji(flow *eui.ItemData, shortcode string) {
 		item.CursorPos = wrappedCursorPos(item.Text, inputPos)
 		item.SelectStart, item.SelectEnd = item.CursorPos, item.CursorPos
 	}
-	syncNativeChatInput()
 }
 
 func emojiGroupNames() []string {

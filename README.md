@@ -99,7 +99,7 @@ in [docs/CommandsHelp.md](docs/CommandsHelp.md). Persistent options without a
 dedicated control, automatically managed settings, and session-only controls
 are inventoried in [docs/Settings.md](docs/Settings.md).
 
-### Mac keyboard and dictation
+### Mac keyboard
 
 Legacy macros use `command` for Command (⌘), `option` for Option (⌥), and
 `control` for Control. Hotkeys and Go script bindings use `Meta`, `Alt`, and
@@ -116,22 +116,11 @@ Existing Control shortcuts still work.
 | Delete the preceding word | Option+Delete (Backspace) |
 | Delete back to the beginning of the game input | Command+Delete (Backspace) |
 
-The game input now connects to macOS native text input for dictation and IME
-composition. Enable Dictation in **System Settings → Keyboard → Dictation**,
-open the game input with Enter, and use the Dictation shortcut configured there.
-Finish dictation, review the text, then press Enter to send it.
-See [Apple's Dictation guide](https://support.apple.com/guide/mac-help/use-dictation-mh40584/mac).
-
 ### Linux file dialogs
 
 Opening movie files and choosing storage folders requires Zenity or Qarma.
 On Debian or Ubuntu, install Zenity with `sudo apt install zenity`.
 Windows and macOS use native dialogs without an extra installation.
-This connection currently covers the game input bar; other settings and login
-fields still use ordinary keyboard input. Native dictation requires verification
-on a Mac; the automated tests and cross-builds cannot exercise the microphone or
-macOS text services.
-
 ## Downloads and customization
 
 Open **Download Files** in the client to install optional extras:

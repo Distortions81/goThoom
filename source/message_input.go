@@ -45,9 +45,6 @@ func messageInputText() string {
 	if !inputActive && !gs.InputBarAlwaysOpen {
 		return "[Press Enter To Type]"
 	}
-	if chatComposing {
-		return chatComposition
-	}
 	return string(inputText)
 }
 
@@ -56,7 +53,7 @@ func updateMessageInputPresentation(flow *eui.ItemData) {
 		item.Focused = inputActive && item == currentMessageInputItem()
 		item.CursorPos = wrappedCursorPos(item.Text, inputPos)
 		item.Prediction = ""
-		if gs.InputAutocomplete && inputActive && !chatComposing {
+		if gs.InputAutocomplete && inputActive {
 			item.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
 		}
 	}
