@@ -76,6 +76,45 @@ func tabFontSize(item, style *itemData) float32 {
 	return 0
 }
 
+func tabSurfaceColor(tab *itemData, index, activeTab int, style *itemData) Color {
+	col := style.Color
+	if !tab.Clicked.IsZero() && renderNow.Sub(tab.Clicked) < clickFlash {
+		return style.ClickColor
+	}
+	if index == activeTab {
+		return tabSelectedSurfaceColor(style.SelectedColor, style.ClickColor)
+	}
+	if tab.Hovered {
+		return style.HoverColor
+	}
+	return col
+}
+
+func tabSelectedSurfaceColor(selected, accent Color) Color {
+	blend := func(base, tint uint8) uint8 {
+		return uint8(math.Round(float64(base)*0.9 + float64(tint)*0.1))
+	}
+	return NewColor(blend(selected.R, accent.R), blend(selected.G, accent.G), blend(selected.B, accent.B), selected.A)
+}
+
+func tabIndicatorClip(pos, size point) rect {
+	return rect{X0: pos.X, Y0: pos.Y, X1: pos.X + size.X, Y1: pos.Y + min(size.Y, 3*uiScale)}
+}
+
+func drawTabIndicator(screen *ebiten.Image, pos, size point, col Color, fillet, slope float32) {
+	clip := tabIndicatorClip(pos, size)
+	indicator := screen.RecyclableSubImage(clip.getRectangle())
+	defer indicator.Recycle()
+	drawTabShape(indicator, pos, size, col, fillet, slope)
+}
+
+func drawRoundedSurfaceIndicator(screen *ebiten.Image, pos, size point, col Color, fillet float32) {
+	clip := tabIndicatorClip(pos, size)
+	indicator := screen.RecyclableSubImage(clip.getRectangle())
+	defer indicator.Recycle()
+	drawRoundRect(indicator, &roundRect{Position: pos, Size: size, Fillet: fillet, Filled: true, Color: col})
+}
+
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
@@ -844,14 +883,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			x, tabY := offset.X+r.X0, offset.Y+r.Y0
 			w := r.X1 - r.X0
 			face := itemFace(tab, textSize)
-			col := style.Color
-			if renderNow.Sub(tab.Clicked) < clickFlash {
-				col = style.ClickColor
-			} else if i == item.ActiveTab {
-				col = style.SelectedColor
-			} else if tab.Hovered {
-				col = style.HoverColor
-			}
+			col := tabSurfaceColor(tab, i, item.ActiveTab, style)
 			if tabsFilled || i == item.ActiveTab {
 				drawTabShape(subImg,
 					point{X: x, Y: tabY},
@@ -876,20 +908,10 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				)
 			}
 			if item.ActiveOutline && style.ActiveOutline && i == item.ActiveTab {
-				if item.TabColumns > 0 || tabHeight > rowHeight {
-					// Keep the accent inside its row; the raised single-row tab
-					// outline would extend over the row above it.
-					drawFilledRect(subImg, x+6*uiScale, tabY, w-12*uiScale, 3*uiScale, style.ClickColor, false)
-				} else {
-					strokeTabTop(subImg,
-						point{X: x, Y: tabY},
-						point{X: w, Y: rowHeight},
-						style.ClickColor,
-						item.Fillet*uiScale,
-						item.BorderPad*uiScale,
-						3*uiScale,
-					)
-				}
+				drawTabIndicator(subImg,
+					point{X: x, Y: tabY}, point{X: w, Y: rowHeight}, style.ClickColor,
+					item.Fillet*uiScale, item.BorderPad*uiScale,
+				)
 			}
 			loo := text.LayoutOptions{PrimaryAlign: text.AlignCenter, SecondaryAlign: text.AlignCenter}
 			dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
@@ -1257,6 +1279,9 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Filled:   true,
 				Color:    itemColor,
 			})
+		}
+		if item.SelectionIndicator {
+			drawRoundedSurfaceIndicator(subImg, offset, maxSize, style.ClickColor, item.Fillet)
 		}
 		textSize := (item.FontSize * uiScale) + 2
 		face := itemFace(item, textSize)
@@ -2330,40 +2355,6 @@ func strokeTabShape(screen *ebiten.Image, pos point, size point, col Color, fill
 	path.QuadTo(pos.X+size.X-slope, pos.Y, pos.X+size.X-slope, pos.Y+fillet)
 	path.LineTo(pos.X+size.X-slope, pos.Y+size.Y)
 	path.LineTo(pos.X, pos.Y+size.Y)
-	path.Close()
-
-	strokeOp := &vector.StrokeOptions{Width: border}
-	drawOp := &vector.DrawPathOptions{AntiAlias: true}
-	drawOp.ColorScale.ScaleWithColor(color.RGBA(col))
-	vector.StrokePath(screen, &path, strokeOp, drawOp)
-}
-
-func strokeTabTop(screen *ebiten.Image, pos point, size point, col Color, fillet float32, slope float32, border float32) {
-	var path vector.Path
-
-	border = float32(math.Round(float64(border)))
-	off := pixelOffset(border)
-	pos.X = float32(math.Round(float64(pos.X))) + off
-	pos.Y = float32(math.Round(float64(pos.Y))) + off
-	size.X = float32(math.Round(float64(size.X)))
-	size.Y = float32(math.Round(float64(size.Y)))
-
-	if slope <= 0 {
-		slope = size.Y / 4
-	}
-	if fillet <= 0 {
-		fillet = size.Y / 8
-	}
-	fillet = float32(math.Round(float64(fillet)))
-
-	path.MoveTo(pos.X, pos.Y)
-	path.LineTo(pos.X+slope, pos.Y)
-	path.LineTo(pos.X+slope, pos.Y-fillet)
-	path.QuadTo(pos.X+slope, pos.Y-slope, pos.X+slope+fillet, pos.Y-slope)
-	path.LineTo(pos.X+size.X-slope-fillet, pos.Y-slope)
-	path.QuadTo(pos.X+size.X-slope, pos.Y-slope, pos.X+size.X-slope, pos.Y-fillet)
-	path.LineTo(pos.X+size.X-slope, pos.Y)
-	path.LineTo(pos.X, pos.Y)
 	path.Close()
 
 	strokeOp := &vector.StrokeOptions{Width: border}

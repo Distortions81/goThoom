@@ -8,6 +8,42 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
+func TestSelectedTabIndicatorMatchesTabBoundsAndSurface(t *testing.T) {
+	previousScale := uiScale
+	uiScale = 1
+	t.Cleanup(func() { uiScale = previousScale })
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatalf("font source: %v", err)
+	}
+
+	theme := *baseTheme
+	theme.Tab.Color = NewColor(20, 30, 40, 255)
+	theme.Tab.SelectedColor = NewColor(40, 50, 60, 255)
+	theme.Tab.ClickColor = NewColor(70, 80, 90, 255)
+	theme.Tab.Border = 0
+	theme.Tab.ActiveOutline = true
+	flow := &itemData{
+		ItemType:      ITEM_FLOW,
+		FlowType:      FLOW_VERTICAL,
+		Fixed:         true,
+		Filled:        true,
+		Size:          point{X: 160, Y: 100},
+		Theme:         &theme,
+		ActiveOutline: true,
+		ActiveTab:     1,
+		Tabs:          []*itemData{{Name: "First", ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL}, {Name: "Second", ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL}},
+	}
+	layout, _ := layoutTabs(flow, &theme.Tab)
+	active := layout[flow.ActiveTab]
+	wantIndicator := rect{X0: active.X0, Y0: active.Y0, X1: active.X1, Y1: active.Y0 + 3}
+	if got := tabIndicatorClip(point{X: active.X0, Y: active.Y0}, point{X: active.X1 - active.X0, Y: 24}); got != wantIndicator {
+		t.Fatalf("indicator clip = %v, want tab-top clip %v", got, wantIndicator)
+	}
+	if got, want := tabSurfaceColor(flow.Tabs[flow.ActiveTab], flow.ActiveTab, flow.ActiveTab, &theme.Tab), NewColor(43, 53, 63, 255); got != want {
+		t.Fatalf("selected tab background = %v, want lightly accented surface %v", got, want)
+	}
+}
+
 func TestTabRenderingUsesThemeFontAndSurfaceColor(t *testing.T) {
 	previousScale := uiScale
 	uiScale = 1

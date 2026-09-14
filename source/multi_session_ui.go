@@ -201,9 +201,7 @@ func refreshSessionTabs() {
 		selectButton.Size = eui.Point{X: selectWidth, Y: sessionTabBarHeight / scale}
 		selectButton.Position = eui.Point{}
 		selectButton.SetTooltip(hotkeyComboForCommand(fmt.Sprintf("/tab %d", position)))
-		if session.ID() == selected {
-			selectButton.Color = eui.AccentColor()
-		}
+		selectButton.SelectionIndicator = session.ID() == selected
 		selectEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick {
 				appSessions.selectSession(session.ID())

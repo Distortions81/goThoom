@@ -222,6 +222,9 @@ type itemData struct {
 	// NoSurface keeps a button's hit target, icon, caption, and tooltip while
 	// suppressing its own background so it can sit inside another control.
 	NoSurface bool
+	// SelectionIndicator draws a thin accent strip inside a button's top edge.
+	// It follows the button's current style, including square and rounded corners.
+	SelectionIndicator bool
 	// ColorSwatch fills a button with WheelColor, keeping its caption readable.
 	ColorSwatch bool
 

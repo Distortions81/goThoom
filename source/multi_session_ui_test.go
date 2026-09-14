@@ -55,6 +55,9 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	if closeButton := sessionTabBar.Contents[0].Contents[2]; !closeButton.Disabled {
 		t.Fatal("the final tab's close button is enabled")
 	}
+	if !sessionTabBar.Contents[0].Contents[0].SelectionIndicator {
+		t.Fatal("selected session tab is missing its highlight")
+	}
 	sessionTabBar.Contents[1].Handler.Handle(eui.UIEvent{Type: eui.EventClick})
 	if appSessions.count() != 2 || appSessions.selectedID() != 2 {
 		t.Fatalf("add button produced count/selection %d/%d", appSessions.count(), appSessions.selectedID())
