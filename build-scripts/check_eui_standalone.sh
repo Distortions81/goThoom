@@ -15,7 +15,7 @@ export CGO_ENABLED=0
 # will replace this prefix with its actual module path.
 go mod init gothoom
 go mod edit -go=1.27.1 \
-  -require=github.com/hajimehoshi/ebiten/v2@v2.10.1 \
+  -require=github.com/hajimehoshi/ebiten/v2@v2.10.2 \
   -require=golang.design/x/clipboard@v0.9.0 \
   -require=golang.org/x/image@v0.46.0 \
   -require=golang.org/x/time@v0.16.0

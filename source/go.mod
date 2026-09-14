@@ -10,7 +10,7 @@ require (
 	github.com/f1monkey/spellchecker v1.3.0
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/gopacket v1.1.19
-	github.com/hajimehoshi/ebiten/v2 v2.10.1
+	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/hugolgst/rich-go v0.0.0-20240715122152-74618cc1ace2
 	github.com/ncruces/zenity v0.10.15
