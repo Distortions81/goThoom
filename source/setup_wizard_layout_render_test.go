@@ -65,7 +65,7 @@ func (g *wizardLayoutRenderGame) Draw(screen *ebiten.Image) {
 	}
 	g.done = true
 	loadMaterialIcons()
-	for _, style := range []string{"Breeze", "HighContrast"} {
+	for _, style := range []string{"Default", "HighContrast"} {
 		if g.err = eui.LoadStyle(style); g.err != nil {
 			return
 		}
@@ -84,7 +84,7 @@ func (g *wizardLayoutRenderGame) Draw(screen *ebiten.Image) {
 						g.err = fmt.Errorf("%s page %d combined=%v scale %.2f: window %.0fx%.0f exceeds compact page budget", style, page, combined, scale, size.X, size.Y)
 						return
 					}
-					if g.dir != "" && style == "Breeze" && scale == 1 {
+					if g.dir != "" && style == "Default" && scale == 1 {
 						f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("page-%d-combined-%v.png", page+1, combined)))
 						if err != nil {
 							g.err = err

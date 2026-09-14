@@ -262,7 +262,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
 		"Windows & Toolbar": "Display", "Window Layout": "Display",
-		"Always on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
+		"Keep window on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
 		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"Music SoundFont": "Audio", "Audio Mixer": "Audio", "Enhance sound effects": "Audio", "Sound effect ambience": "Audio", "Enhance bard music": "Audio", "Bard music ambience": "Audio", "Music Buffer (s)": "Audio", "TTS Voice": "TTS", "TTS Speed": "TTS", "Enable Text to Speech": "TTS", "TTS files installed": "TTS", "Open Voices Folder": "TTS", "Browse More Voices": "TTS", "Spoken Messages": "TTS", "Speech": "TTS", "Whispers": "TTS", "Yells": "TTS", "Thoughts": "TTS", "Actions": "TTS", "Ponders": "TTS", "Monster speech": "TTS", "Your messages": "TTS", "Notifications": "TTS", "TTS test phrase": "TTS", "Test TTS": "TTS", "Edit TTS corrections": "TTS", "Notification Settings": "Audio",

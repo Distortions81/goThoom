@@ -121,8 +121,9 @@ The preference is saved as `chat.expand_emoji_names`.
 
 When enabled, an emoji button appears at the right of each chat input bar.
 The picker keeps group names on the left while emoji scroll on the right.
-Search finds emoji across groups. Choosing one inserts its shortcode at the
-cursor; press Enter in the input bar when you are ready to send the message.
+Search finds emoji across groups. Choosing one appends its shortcode to the
+draft and closes the picker; press Enter in the input bar when you are ready to
+send the message.
 
 ## Audit summary
 

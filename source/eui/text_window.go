@@ -22,6 +22,9 @@ type TextWindowOptions struct {
 	OnURLClick    func(string)
 	InputText     string
 	InputEditable bool
+	// InputExternalEditing leaves keyboard mutation to the embedding app while
+	// retaining EUI pointer cursor placement and selection.
+	InputExternalEditing bool
 	// InputAction is an optional fixed control to the right of the input.
 	InputAction *ItemData
 	// InputUnderlines receives wrapped input and returns rune-indexed spans.
@@ -344,6 +347,7 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 		textItem.Size = Point{X: textWidth, Y: inputContentH - textItem.Position.Y}
 		textItem.SelectableText = options.InputEditable
 		textItem.EditableText = options.InputEditable
+		textItem.ExternalTextEditing = options.InputExternalEditing
 		textItem.Underlines = miss
 		if scrollInput {
 			input.Scroll.Y = 1e9

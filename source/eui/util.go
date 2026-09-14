@@ -1211,7 +1211,9 @@ func (item *itemData) GetSize() Point {
 		sz.X += 18 * uiScale
 	}
 
-	sz.X = max(sz.X, item.buttonContentWidth())
+	if !item.ConstrainToSize || item.Size.X <= 0 {
+		sz.X = max(sz.X, item.buttonContentWidth())
+	}
 
 	// Account for label text below an item if set.
 	if item.Label != "" {
@@ -1231,6 +1233,10 @@ func (item *itemData) GetTextPtr() *string {
 
 func itemAcceptsTextEditing(item *itemData) bool {
 	return item != nil && (item.ItemType == ITEM_INPUT || (item.ItemType == ITEM_TEXT && item.EditableText))
+}
+
+func itemHandlesTextEditing(item *itemData) bool {
+	return itemAcceptsTextEditing(item) && !item.ExternalTextEditing
 }
 
 const (

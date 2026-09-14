@@ -2,9 +2,9 @@
 
 goThoom always uses session tabs above one game view. The first tab is ready at
 startup. Select **+** to open another independent login, up to ten tabs. A
-disconnected tab shows the saved-character list, Add/Edit/Delete actions,
-server list, password prompt, connection status, and errors inside the game
-view.
+disconnected tab opens the standard Login window with its saved-character list,
+Add/Edit/Delete actions, server list, password prompt, connection status, and
+errors.
 
 Saved characters belong to numbered server slots. Selecting a server shows
 only that slot's characters. Server addresses can be edited without affecting
@@ -13,13 +13,16 @@ new slots. Use **Edit Character** to move a character to another slot.
 
 Select a tab to make it active. Movement, keyboard input, chat, commands,
 hotkeys, toolbar actions, Inventory, Players, Scripts, Chat, and Console all
-target the active session. Use the logout icon in the lower-right of the game
-view to disconnect that tab without closing it.
+target the active session. A music note appears at the left of a tab while that
+session has an active bard performance. Use the toolbar logout button to
+disconnect the active session without closing its tab.
 
 The default tab shortcuts are **Ctrl-1** through **Ctrl-9**, with **Ctrl-0** for
-the tenth open tab. They select tabs by visible order, so gaps left by closed
-sessions do not affect the shortcut number. Edit their keys or modifiers from
-**Actions → Hotkeys**.
+the tenth open tab. Use **Ctrl-Tab** for the next tab and **Ctrl-Shift-Tab** for
+the previous tab; cycling wraps at either end. Number shortcuts select tabs by
+visible order, so gaps left by closed
+sessions do not affect the shortcut number. Edit any of these bindings from
+**Actions → Hotkeys**. A tab's tooltip shows its current number shortcut.
 
 ## Adding and closing tabs
 

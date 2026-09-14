@@ -63,7 +63,7 @@ func (g *controlTextFitGame) Draw(screen *ebiten.Image) {
 	}
 	g.done = true
 	loadMaterialIcons()
-	for _, style := range []string{"Breeze", "Flat", "Borderless", "Rounded", "Outline", "HighContrast"} {
+	for _, style := range []string{"Default", "Flat", "Borderless", "Rounded", "Outline", "HighContrast"} {
 		if g.err = eui.LoadStyle(style); g.err != nil {
 			return
 		}
@@ -85,7 +85,7 @@ func (g *controlTextFitGame) Draw(screen *ebiten.Image) {
 					g.err = fmt.Errorf("%s/%s at %.2fx: %w", style, tab.Name, scale, g.err)
 					return
 				}
-				if style == "Breeze" && scale == 1 && (tab.Name == "Display" || tab.Name == "Performance" || tab.Name == "Text" || tab.Name == "Audio" || tab.Name == "TTS") {
+				if style == "Default" && scale == 1 && (tab.Name == "Display" || tab.Name == "Performance" || tab.Name == "Text" || tab.Name == "Audio" || tab.Name == "TTS") {
 					f, err := os.Create(filepath.Join(g.dir, strings.ToLower(tab.Name)+".png"))
 					if err != nil {
 						g.err = err

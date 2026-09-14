@@ -62,6 +62,12 @@ func TestThemeHoverPreviewRestoresAndCommits(t *testing.T) {
 		assertRestored()
 		hover(1)
 		hover(2)
+		if palette {
+			assertRestored()
+		} else if eui.CurrentStyleName() != "Default" {
+			t.Fatal("unknown style did not preview the default fallback")
+		}
+		hover(-1)
 		assertRestored()
 		hover(1)
 		dropdown.Selected = 1

@@ -118,7 +118,7 @@
     "DisabledColor": "disabled",
     "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "Breeze",
+  "RecommendedStyle": "Default",
   "Progress": {
     "TextColor": "text",
     "Color": "view",

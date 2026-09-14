@@ -53,18 +53,26 @@ and verifies that a new folder is readable and writable before saving it.
 
 ## Using goThoom
 
-- **Movement:** Left-click in the game view to walk toward the cursor.
+- **Movement:** Left-click in the game view to walk toward the cursor. Keyboard
+  movement, its run key, fullscreen, the command palette, and session switching
+  can all be rebound or disabled under **Actions → Hotkeys**.
 - **Chat:** The input bar is open by default: type and press Enter to send.
-  Escape closes it; Enter reopens it. Up and Down browse message history.
+  **Input bar always open** keeps it available while using other controls and
+  after sending. When that setting is off, Escape closes it and Enter reopens
+  it. Up and Down browse message history.
   Use `:smile:`, `:thumbs_up:`, or pasted emoji. Emoji travel as readable names
   and appear in color in chat and speech bubbles.
   The emoji button at the right of the input bar opens a searchable picker
-  with groups on the left. Choosing an emoji inserts its name into your draft.
+  with groups on the left. Choosing an emoji appends its name to your draft and
+  closes the picker.
+  Standard Ctrl editing shortcuts work on Windows and Linux; use Command on
+  macOS for Select All, Cut, Copy, and Paste.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
   Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
 - **Multiple sessions:** Each character connection has a tab above the one game
-  view. Use **+** to open another tab, up to ten, and the tab's **X** to close it.
+  view. Use **+** to open another tab, up to ten. The tab's **X** closes it with
+  confirmation; the toolbar logout button disconnects the active session.
   The selected tab owns rendering, input, shared panels, and audio while every
   other session stays connected and keeps processing updates. See the
   [multi-session guide](docs/MultiSession.md).
@@ -102,7 +110,7 @@ Existing Control shortcuts still work.
 | Action | Mac shortcut |
 | --- | --- |
 | Copy / paste | Command+C / Command+V |
-| Open command palette | Command+Shift+P |
+| Open command palette | Command+Shift+P (rebindable in Hotkeys) |
 | Move by word in the game input | Option+Left / Option+Right |
 | Move to the beginning / end of the game input | Command+Left / Command+Right |
 | Delete the preceding word | Option+Delete (Backspace) |

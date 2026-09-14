@@ -10,7 +10,7 @@ Apply a palette and style from Go code:
 if err := eui.LoadTheme("AccentDark"); err != nil {
     log.Println(err)
 }
-if err := eui.LoadStyle("Breeze"); err != nil {
+if err := eui.LoadStyle("Default"); err != nil {
     log.Println(err)
 }
 ```
@@ -39,7 +39,7 @@ Color palettes live under `themes/palettes`. Each file defines a `Colors` map fo
   },
   "Button": { "TextColor": "accent", "Color": "panel" },
   ...
-  "RecommendedStyle": "Breeze"
+  "RecommendedStyle": "Default"
 }
 ```
 
@@ -89,12 +89,10 @@ Style themes are stored in `themes/styles`. They modify padding, border radius a
 - `Outlined` – whether an outline is drawn
 - `ActiveOutline` – highlight outline when active (tabs)
 
-## Breeze-inspired defaults
+## Default themes
 
-`AccentDark` and `AccentLight` use the neutral surfaces and blue accent of
-[KDE Breeze Dark](https://github.com/KDE/breeze/blob/master/colors/BreezeDark.colors)
-and [Breeze Light](https://github.com/KDE/breeze/blob/master/colors/BreezeLight.colors).
-Both recommend the `Breeze` style: thin borders, restrained corner rounding,
+`AccentDark` and `AccentLight` use neutral surfaces and an adjustable blue accent.
+Both recommend the `Default` style: thin borders, restrained corner rounding,
 and consistent control padding. Hover and disabled colors are adapted to EUI.
 The accent remains adjustable, and another style can still be chosen separately.
 
@@ -104,12 +102,12 @@ Each palette has a distinct purpose:
 
 | Palette | Character | Recommended style |
 | --- | --- | --- |
-| AccentDark | Breeze charcoal surfaces and an adjustable blue accent | Breeze |
-| AccentLight | Breeze light gray surfaces and an adjustable blue accent | Breeze |
+| AccentDark | Charcoal surfaces and an adjustable blue accent | Default |
+| AccentLight | Light gray surfaces and an adjustable blue accent | Default |
 | NeonNight | Dark violet, purple borders, and luminous cyan selections | Rounded |
 | Midnight | Pure black backgrounds with restrained silver accents | Flat |
 | Paper | Warm ivory and sepia for a softer light appearance | Rounded |
-| Forest | Evergreen surfaces and muted sage accents | Breeze |
+| Forest | Evergreen surfaces and muted sage accents | Default |
 | Dusk | Warm plum surfaces and rose accents | Rounded |
 | HighContrast | Black and white with yellow selections and strong boundaries | HighContrast |
 | Arcade | Navy surfaces, lime selections, and bold orange borders for a playful dark look | HighContrast |
@@ -121,7 +119,7 @@ Styles can be paired with any palette:
 
 | Style | Geometry |
 | --- | --- |
-| Breeze | Thin borders, modest rounding, balanced padding |
+| Default | Thin borders, modest rounding, balanced padding |
 | Flat | Compact controls, quiet fills, minimal button borders |
 | Borderless | Soft filled controls; no window, control, or tab outlines |
 | Rounded | Softer corners and roomier content padding |

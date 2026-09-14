@@ -42,7 +42,7 @@ func TestEmojiPickerSearchAndGroups(t *testing.T) {
 	}
 }
 
-func TestEmojiPickerInsertsIntoDraftWithoutSending(t *testing.T) {
+func TestEmojiPickerAppendsToDraftWithoutSending(t *testing.T) {
 	oldText, oldPos, oldActive, oldSelected := inputText, inputPos, inputActive, selectedMessageInput
 	oldConsole, oldChat := consoleWin, chatWin
 	oldEnabled := gs.ExpandEmojiNames
@@ -57,8 +57,8 @@ func TestEmojiPickerInsertsIntoDraftWithoutSending(t *testing.T) {
 	inputPos = 5
 	inputActive = false
 	resetCommandStateForTest(t, 1)
-	insertMessageEmoji(flow, ":smile:", 5, 10)
-	if string(inputText) != "café :smile:! " || inputPos != 12 || !inputActive || selectedMessageInput != flow {
+	appendMessageEmoji(flow, ":smile:")
+	if string(inputText) != "café PLACE! :smile:" || inputPos != len(inputText) || !inputActive || selectedMessageInput != flow {
 		t.Fatalf("draft %q cursor %d", string(inputText), inputPos)
 	}
 	if primarySession.commands.pending != "" || len(primarySession.commands.queue) != 0 {
@@ -67,5 +67,44 @@ func TestEmojiPickerInsertsIntoDraftWithoutSending(t *testing.T) {
 	gs.ExpandEmojiNames = false
 	if messageEmojiButton(flow) != nil {
 		t.Fatal("emoji button visible when disabled")
+	}
+}
+
+func TestEmojiPickerSearchFocusPreservesDraft(t *testing.T) {
+	oldText, oldPos, oldActive := inputText, inputPos, inputActive
+	oldHistory, oldHistoryPos := inputHistory, historyPos
+	oldPicker := activeEmojiPicker
+	oldAlwaysOpen := gs.InputBarAlwaysOpen
+	win := eui.NewWindow()
+	win.AddWindow(false)
+	win.MarkOpen()
+	activeEmojiPicker = &emojiPicker{win: win}
+	inputText = []rune("Keep this draft")
+	inputPos = 4
+	inputActive = true
+	inputHistory = []string{"earlier"}
+	historyPos = 0
+	gs.InputBarAlwaysOpen = false
+	t.Cleanup(func() {
+		win.RemoveWindow()
+		inputText, inputPos, inputActive = oldText, oldPos, oldActive
+		inputHistory, historyPos = oldHistory, oldHistoryPos
+		activeEmojiPicker = oldPicker
+		gs.InputBarAlwaysOpen = oldAlwaysOpen
+	})
+
+	if clearMessageInputForOtherUI(true, false) {
+		t.Fatal("emoji search focus deactivated the message input")
+	}
+	if string(inputText) != "Keep this draft" || inputPos != 4 || !inputActive {
+		t.Fatalf("emoji search focus changed draft %q at %d, active=%v", string(inputText), inputPos, inputActive)
+	}
+
+	activeEmojiPicker = nil
+	if !clearMessageInputForOtherUI(true, false) {
+		t.Fatal("ordinary UI focus did not deactivate the message input")
+	}
+	if len(inputText) != 0 || inputPos != 0 || inputActive || historyPos != len(inputHistory) {
+		t.Fatalf("ordinary UI focus left draft %q at %d, active=%v", string(inputText), inputPos, inputActive)
 	}
 }

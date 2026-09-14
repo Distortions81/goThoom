@@ -1,5 +1,5 @@
 {
-  "version": 59,
+  "version": 58,
   "clVersion": 1501,
   "screens": [
     {
@@ -31,7 +31,7 @@
           ]
         },
         {
-          "label": "Fullscreen (F12)",
+          "label": "Fullscreen",
           "kind": "Checkbox",
           "value": "Off",
           "rect": [
@@ -54,7 +54,8 @@
           ]
         },
         {
-          "label": "Always on top",
+          "label": "Keep window on top",
+          "help": "Keep goThoom above other application windows. Fullscreen\nalready stays on top.",
           "kind": "Checkbox",
           "value": "Off",
           "rect": [
@@ -157,10 +158,10 @@
           "label": "Style Theme",
           "help": "Hover to preview control shapes and spacing. Click to keep\nthe style.",
           "kind": "Choice",
-          "value": "Breeze",
+          "value": "Default",
           "options": [
             "Borderless",
-            "Breeze",
+            "Default",
             "Flat",
             "HighContrast",
             "Outline",

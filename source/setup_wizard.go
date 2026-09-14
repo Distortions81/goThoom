@@ -573,7 +573,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	root.AddItem(graphicsTestRow)
 
 	graphicsMode, graphicsModeEvents := eui.NewDropdown()
-	graphicsMode.Label = "Graphics performance mode"
+	graphicsMode.Label = "Graphics quality"
 	graphicsMode.Options = []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}
 	graphicsMode.Selected = detectQualityPreset()
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
@@ -640,13 +640,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		markQualityCustom()
 	}
 	root.AddItem(upscaleStyle)
-	wizardVSync := setupWizardCheckbox("VSync", "Synchronizes rendered frames with your display to reduce tearing.", effectiveVSyncEnabled(), func(checked bool) {
-		gs.VSync = checked
-		applyVSyncSetting()
-		settingsDirty = true
-	})
-	setSetupWizardDisabled(wizardVSync, setupWizardVSyncBypass)
-	root.AddItem(wizardVSync)
 }
 
 func updateSetupWizardGraphicsDetection() {

@@ -33,7 +33,7 @@ func TestCaptureHelp(t *testing.T) {
 	if err := eui.LoadTheme("AccentDark"); err != nil {
 		t.Fatal(err)
 	}
-	if err := eui.LoadStyle("Breeze"); err != nil {
+	if err := eui.LoadStyle("Default"); err != nil {
 		t.Fatal(err)
 	}
 	isolateScriptWorld(t)

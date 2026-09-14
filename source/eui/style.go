@@ -16,7 +16,7 @@ import (
 var embeddedStyles embed.FS
 
 var styleAliases = map[string]string{
-	"Default": "Breeze", "CleanLines": "Breeze", "MinimalPro": "Breeze",
+	"CleanLines": "Default", "MinimalPro": "Default",
 	"MinimalFade": "Flat", "SquareFlat": "Flat",
 	"NeoRounded": "Rounded", "SoftRound": "Rounded",
 	"RoundFlat": "Rounded", "RoundHybrid": "Rounded",
@@ -130,10 +130,14 @@ var defaultStyle = &StyleTheme{
 var (
 	baseStyle        = *defaultStyle
 	currentStyle     = defaultStyle
-	currentStyleName = "Breeze"
+	currentStyleName = "Default"
 )
 
 func LoadStyle(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Default"
+	}
 	// Try the user data directory first.
 	file := filepath.Join(themeDirectory, "styles", name+".json")
 	data, err := os.ReadFile(file)
@@ -143,9 +147,13 @@ func LoadStyle(name string) error {
 		}
 		// Fallback to embedded styles; embed paths must use forward slashes
 		data, err = embeddedStyles.ReadFile(path.Join("themes", "styles", name+".json"))
-		if err != nil {
-			return err
+		if err != nil && name != "Default" {
+			name = "Default"
+			data, err = embeddedStyles.ReadFile(path.Join("themes", "styles", name+".json"))
 		}
+	}
+	if err != nil {
+		return err
 	}
 	next := baseStyle
 	if err := json.Unmarshal(data, &next); err != nil {

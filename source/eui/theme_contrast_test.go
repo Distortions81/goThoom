@@ -229,6 +229,16 @@ func TestRetiredThemeNamesAndLocalOverrides(t *testing.T) {
 	}
 }
 
+func TestUnknownStyleFallsBackToDefault(t *testing.T) {
+	isolateThemeTest(t)
+	if err := LoadStyle("UnknownSavedStyle"); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentStyleName(); got != "Default" {
+		t.Fatalf("unknown style resolved to %q, want Default", got)
+	}
+}
+
 func TestNonTextWidgetsRenderWithoutCaptionStyle(t *testing.T) {
 	isolateThemeTest(t)
 	if err := LoadTheme("AccentLight"); err != nil {

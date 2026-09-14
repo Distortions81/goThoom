@@ -882,7 +882,7 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 			if item.Text == "High (Recommended)" {
 				foundRecommendation = true
 			}
-			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}) {
+			if item.Label == "Graphics quality" && slices.Equal(item.Options, []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}) {
 				foundModeChoice = true
 			}
 		}

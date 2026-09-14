@@ -10,10 +10,6 @@ import (
 	"unicode"
 
 	"gothoom/eui"
-	"gothoom/internal/inputkeys"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 type commandPaletteAction struct {
@@ -50,9 +46,7 @@ func commandSettingEntries() []settingsSchemaEntry {
 }
 
 func commandPaletteShortcutPressed() bool {
-	shortcut := inputkeys.Current().Shortcut()
-	shift := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
-	return shortcut && shift && inpututil.IsKeyJustPressed(ebiten.KeyP)
+	return clientHotkeyActionActive(clientHotkeyCommandPalette, true, nil)
 }
 
 func toggleCommandPalette() {

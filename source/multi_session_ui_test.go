@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"testing"
+	"time"
 
 	"gothoom/eui"
 )
@@ -17,6 +18,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	oldFake, oldMovie, oldPCAP := fake, clmov, pcapPath
 	oldScale := eui.UIScale()
 	oldWorkspace := multiSessionWorkspace
+	oldMusicIndicators, oldMusicIndicatorRun := sessionMusicIndicators, lastSessionMusicIndicatorRun
 	oldWorkspaceUsed, oldWorkspaceDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
 	appMusicSource.mu.RLock()
 	oldMusicSource, oldMusicGeneration := appMusicSource.source, appMusicSource.generation
@@ -31,6 +33,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 		eui.SetUIScale(oldScale)
 		multiSessionWorkspace = oldWorkspace
 		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldWorkspaceUsed, oldWorkspaceDirty
+		sessionMusicIndicators, lastSessionMusicIndicatorRun = oldMusicIndicators, oldMusicIndicatorRun
 		appMusicSource.mu.Lock()
 		appMusicSource.source, appMusicSource.generation = oldMusicSource, oldMusicGeneration
 		appMusicSource.mu.Unlock()
@@ -49,7 +52,7 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	if sessionTabBar == nil || len(sessionTabBar.Contents) != 2 {
 		t.Fatalf("initial tab bar has %d items, want one tab and add", len(sessionTabBar.Contents))
 	}
-	if closeButton := sessionTabBar.Contents[0].Contents[1]; !closeButton.Disabled {
+	if closeButton := sessionTabBar.Contents[0].Contents[2]; !closeButton.Disabled {
 		t.Fatal("the final tab's close button is enabled")
 	}
 	sessionTabBar.Contents[1].Handler.Handle(eui.UIEvent{Type: eui.EventClick})
@@ -90,12 +93,18 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 		t.Fatalf("tab and add widths = %.2f, want %.2f", childWidth, wantWidth)
 	}
 	firstTab := sessionTabBar.Contents[0]
-	selectButton, closeButton := firstTab.Contents[0], firstTab.Contents[1]
+	selectButton, closeButton := firstTab.Contents[0], firstTab.Contents[2]
+	if firstTab.FlowType != eui.FLOW_OVERLAY {
+		t.Fatal("session actions are not contained by an overlay tab")
+	}
 	if got, want := selectButton.GetSize().X, firstTab.GetSize().X; math.Abs(float64(got-want)) > 0.01 {
 		t.Fatalf("tab button width = %.2f, want enclosing tab width %.2f", got, want)
 	}
-	if got, want := closeButton.Position.X, -closeButton.Size.X; math.Abs(float64(got-want)) > 0.01 {
-		t.Fatalf("close button x offset = %.2f, want %.2f so it sits inside its tab", got, want)
+	if got, want := closeButton.Position.X+closeButton.GetSize().X, firstTab.GetSize().X; math.Abs(float64(got-want)) > 0.01 {
+		t.Fatalf("close button right edge = %.2f, want tab edge %.2f", got, want)
+	}
+	if !closeButton.NoSurface {
+		t.Fatal("close action draws a separate button surface inside the tab")
 	}
 
 	originalTabWidth := firstTab.GetSize().X
@@ -107,6 +116,18 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	}
 	if got := sessionTabBar.Contents[0].GetSize().X; got >= originalTabWidth {
 		t.Fatalf("tab width did not shrink with available space: %.2f >= %.2f", got, originalTabWidth)
+	}
+
+	second, ok := appSessions.session(2)
+	if !ok {
+		t.Fatal("second session is unavailable")
+	}
+	now := time.Unix(100, 0)
+	second.music.startTracks([]tuneJob{{notes: []Note{{Duration: 10 * time.Second}}}}, now)
+	refreshSessionMusicIndicators(now.Add(time.Second))
+	playingTab := sessionTabBar.Contents[1]
+	if len(playingTab.Contents) < 3 || playingTab.Contents[2].ImageName != "music_note" {
+		t.Fatal("playing tab does not contain a music-note icon before its actions")
 	}
 }
 
@@ -137,5 +158,37 @@ func TestSessionTabPositionUsesOpenTabOrder(t *testing.T) {
 	}
 	if got := appSessions.selectedID(); got != 3 {
 		t.Fatalf("selected session = %d, want session 3", got)
+	}
+}
+
+func TestSessionTabCyclingUsesOpenOrderAndWraps(t *testing.T) {
+	oldSessions := appSessions
+	oldWorkspace := multiSessionWorkspace
+	oldWorkspaceUsed, oldWorkspaceDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
+	appMusicSource.mu.RLock()
+	oldMusicSource, oldMusicGeneration := appMusicSource.source, appMusicSource.generation
+	appMusicSource.mu.RUnlock()
+	t.Cleanup(func() {
+		appSessions = oldSessions
+		multiSessionWorkspace = oldWorkspace
+		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldWorkspaceUsed, oldWorkspaceDirty
+		appMusicSource.mu.Lock()
+		appMusicSource.source, appMusicSource.generation = oldMusicSource, oldMusicGeneration
+		appMusicSource.mu.Unlock()
+	})
+	appSessions = newSessionManager(mustNewSession(primarySessionID))
+	for range 3 {
+		appSessions.addSession()
+	}
+	if !appSessions.closeSession(2) || !appSessions.selectSession(1) {
+		t.Fatal("could not arrange open sessions")
+	}
+	for _, want := range []SessionID{3, 4, 1} {
+		if !selectAdjacentSessionTab(1) || appSessions.selectedID() != want {
+			t.Fatalf("forward selected %d, want %d", appSessions.selectedID(), want)
+		}
+	}
+	if !selectAdjacentSessionTab(-1) || appSessions.selectedID() != 4 {
+		t.Fatalf("backward wrap selected %d, want 4", appSessions.selectedID())
 	}
 }

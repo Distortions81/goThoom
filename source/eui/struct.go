@@ -208,8 +208,8 @@ type itemData struct {
 
 	Fixed, Scrollable bool
 	// ConstrainToSize prevents a non-scrollable flow from expanding beyond its
-	// declared Size to accommodate children. Use it for an explicitly sized
-	// viewport whose contents must remain within that rectangle.
+	// declared Size to accommodate children. On a control with an explicit
+	// width, it clips content instead of widening to fit its caption.
 	ConstrainToSize bool
 
 	ImageName string
@@ -219,6 +219,9 @@ type itemData struct {
 	SmoothImage bool
 	// TintImage draws a monochrome button icon in the current text color.
 	TintImage bool
+	// NoSurface keeps a button's hit target, icon, caption, and tooltip while
+	// suppressing its own background so it can sit inside another control.
+	NoSurface bool
 	// ColorSwatch fills a button with WheelColor, keeping its caption readable.
 	ColorSwatch bool
 
@@ -254,8 +257,11 @@ type itemData struct {
 	CursorPos  int
 	// SelectableText allows text to be drag-selected and copied. EditableText is
 	// required separately for ITEM_TEXT values that accept keyboard changes.
-	SelectableText         bool
-	EditableText           bool
+	SelectableText bool
+	EditableText   bool
+	// ExternalTextEditing keeps pointer focus, cursor placement, and selection
+	// in EUI while leaving keyboard mutations to the embedding application.
+	ExternalTextEditing    bool
 	SelectStart, SelectEnd int
 	selecting              bool
 	// OnURLClick is called when a HTTP(S) URL in a text item is clicked.
@@ -327,9 +333,11 @@ type flowType int
 const (
 	FLOW_HORIZONTAL = iota
 	FLOW_VERTICAL
-
 	FLOW_HORIZONTAL_REV
 	FLOW_VERTICAL_REV
+	// FLOW_OVERLAY positions every child from the same origin. Child Position
+	// values place controls within the shared container rectangle.
+	FLOW_OVERLAY
 )
 
 type alignType int

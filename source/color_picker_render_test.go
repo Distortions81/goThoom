@@ -90,7 +90,7 @@ func verifyColorPickerControlBounds() error {
 	defer canvas.Deallocate()
 	defer eui.SetUIScale(1)
 	defer eui.LoadStyle("Borderless")
-	for _, style := range []string{"Breeze", "Borderless", "Flat", "Rounded", "Outline", "HighContrast"} {
+	for _, style := range []string{"Default", "Borderless", "Flat", "Rounded", "Outline", "HighContrast"} {
 		if err := eui.LoadStyle(style); err != nil {
 			return err
 		}

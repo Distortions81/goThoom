@@ -124,9 +124,19 @@ func (*emojiPickerRenderGame) verify() error {
 	if rocket == nil {
 		return fmt.Errorf("rocket absent from search results")
 	}
+	pickerWindow := p.win
 	rocket.Handler.Emit(eui.UIEvent{Type: eui.EventClick})
-	if activeEmojiPicker != nil || string(inputText) != "Hello :smile::rocket:" || selectedMessageInput != inputFlow {
+	if activeEmojiPicker != nil || pickerWindow.IsOpen() || string(inputText) != "Hello :smile::rocket:" || selectedMessageInput != inputFlow {
 		return fmt.Errorf("emoji selection did not return to the draft: %q", string(inputText))
+	}
+	for _, win := range eui.Windows() {
+		if win == pickerWindow {
+			return fmt.Errorf("closed emoji picker remains in the window list")
+		}
+	}
+	rocket.Handler.Emit(eui.UIEvent{Type: eui.EventClick})
+	if string(inputText) != "Hello :smile::rocket:" {
+		return fmt.Errorf("closed emoji picker accepted a second selection: %q", string(inputText))
 	}
 	return nil
 }

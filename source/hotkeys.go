@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -20,6 +22,33 @@ import (
 
 const hotkeysFile = "global-hotkeys.json"
 const hotkeyCommandInputHeight float32 = 20
+const clientHotkeysVersion = 1
+
+type clientHotkeyAction uint8
+
+const (
+	clientHotkeyCommandPalette clientHotkeyAction = iota
+	clientHotkeyMoveLeft
+	clientHotkeyMoveRight
+	clientHotkeyMoveUp
+	clientHotkeyMoveDown
+	clientHotkeyRun
+	clientHotkeyActionCount
+)
+
+type compiledClientHotkey struct {
+	key       ebiten.Key
+	modifiers uint8
+}
+
+type compiledClientHotkeys [clientHotkeyActionCount][]compiledClientHotkey
+
+const (
+	clientHotkeyModCtrl uint8 = 1 << iota
+	clientHotkeyModAlt
+	clientHotkeyModShift
+	clientHotkeyModMeta
+)
 
 type HotkeyCommand struct {
 	Command string `json:"command,omitempty"`
@@ -31,6 +60,7 @@ type Hotkey struct {
 	Commands     []HotkeyCommand `json:"commands"`
 	Script       string          `json:"script,omitempty"`
 	Disabled     bool            `json:"disabled,omitempty"`
+	BuiltIn      bool            `json:"built_in,omitempty"`
 	defaultCombo string
 	registration scriptRegistrationHandle
 }
@@ -43,6 +73,7 @@ var (
 	hotkeyEditWin    *eui.WindowData
 	hotkeyComboText  *eui.ItemData
 	hotkeyNameInput  *eui.ItemData
+	hotkeyEnabledCB  *eui.ItemData
 	hotkeyCmdSection *eui.ItemData
 	hotkeyCmdInputs  []*eui.ItemData
 	editingHotkey    int = -1
@@ -51,12 +82,14 @@ var (
 	recordStart   time.Time
 	recordTarget  *eui.ItemData
 	recordedCombo string
+	recordedMods  string
 
 	scriptHotkeyMu sync.RWMutex
 
 	// scriptHotkeyEnabled holds the persisted enabled state for script
 	// hotkeys. The map is keyed first by script name and then by combo.
-	scriptHotkeyEnabled = map[string]map[string]bool{}
+	scriptHotkeyEnabled  = map[string]map[string]bool{}
+	clientHotkeyBindings atomic.Pointer[compiledClientHotkeys]
 )
 
 func loadHotkeys() {
@@ -66,7 +99,6 @@ func loadHotkeys() {
 	data, err := os.ReadFile(path)
 
 	var newList []Hotkey
-	noFile := false
 	if err == nil {
 		type hotkeyJSON struct {
 			Combo    string          `json:"combo"`
@@ -77,6 +109,7 @@ func loadHotkeys() {
 			Script   string          `json:"script,omitempty"`
 			Disabled *bool           `json:"disabled,omitempty"`
 			Enabled  *bool           `json:"enabled,omitempty"`
+			BuiltIn  bool            `json:"built_in,omitempty"`
 		}
 		var raw []hotkeyJSON
 		if err := json.Unmarshal(data, &raw); err != nil {
@@ -103,7 +136,7 @@ func loadHotkeys() {
 			if r.Disabled != nil {
 				disabled = *r.Disabled
 			}
-			hk := Hotkey{Combo: r.Combo, Name: r.Name, Disabled: disabled}
+			hk := Hotkey{Combo: r.Combo, Name: r.Name, Disabled: disabled, BuiltIn: r.BuiltIn}
 			if len(r.Commands) > 0 {
 				for _, c := range r.Commands {
 					cmd := strings.TrimSpace(c.Command)
@@ -119,39 +152,44 @@ func loadHotkeys() {
 			}
 			newList = append(newList, hk)
 		}
-	} else if os.IsNotExist(err) {
-		noFile = true
-	} else {
+	} else if !os.IsNotExist(err) {
 		scriptHotkeyMu.Unlock()
 		return
 	}
 	scriptHotkeyMu.Unlock()
-
-	// Add default hotkeys only on first run (no existing config file).
-	if noFile {
-		fs := Hotkey{Name: "Toggle Fullscreen", Combo: "F12", Commands: []HotkeyCommand{{Command: "/fullscreen"}}}
-		exists := false
-		for _, hk := range newList {
-			if hk.Combo == fs.Combo && hk.Script == "" {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			newList = append(newList, fs)
-		}
-	}
-	addedSessionDefaults := false
+	var removedRetiredDefaults bool
+	newList, removedRetiredDefaults = removeRetiredSessionTabHotkeys(newList)
+	addedSessionDefaults := removedRetiredDefaults
 	if !multiSessionWorkspace.TabHotkeysInitialized {
 		newList, addedSessionDefaults = addDefaultSessionTabHotkeys(newList)
 		multiSessionWorkspace.TabHotkeysInitialized = true
 		markMultiSessionWorkspaceUsed()
 		multiSessionWorkspaceDirty = true
 	}
+	if !multiSessionWorkspace.TabCycleInitialized {
+		var added bool
+		newList, added = addDefaultSessionTabCycleHotkeys(newList)
+		addedSessionDefaults = addedSessionDefaults || added
+		multiSessionWorkspace.TabCycleInitialized = true
+		markMultiSessionWorkspaceUsed()
+		multiSessionWorkspaceDirty = true
+	}
+	if multiSessionWorkspace.ClientHotkeysVersion < clientHotkeysVersion {
+		var added bool
+		newList, added = addDefaultClientHotkeys(newList)
+		addedSessionDefaults = addedSessionDefaults || added
+		multiSessionWorkspace.ClientHotkeysVersion = clientHotkeysVersion
+		markMultiSessionWorkspaceUsed()
+		multiSessionWorkspaceDirty = true
+	}
+	if markKnownBuiltInHotkeys(newList) {
+		addedSessionDefaults = true
+	}
 
 	hotkeysMu.Lock()
 	hotkeys = newList
 	hotkeysMu.Unlock()
+	rebuildClientHotkeyBindings(newList)
 	refreshHotkeysList()
 	if addedSessionDefaults {
 		saveHotkeys()
@@ -185,10 +223,294 @@ func addDefaultSessionTabHotkeys(list []Hotkey) ([]Hotkey, bool) {
 			Name:     fmt.Sprintf("Select Session Tab %d", position),
 			Combo:    fmt.Sprintf("Ctrl-%d", key),
 			Commands: []HotkeyCommand{{Command: command}},
+			BuiltIn:  true,
 		})
 		added = true
 	}
 	return list, added
+}
+
+func addDefaultSessionTabCycleHotkeys(list []Hotkey) ([]Hotkey, bool) {
+	defaults := []Hotkey{
+		{Name: "Next Session Tab", Combo: "Ctrl-Tab", Commands: []HotkeyCommand{{Command: "/tab next"}}, BuiltIn: true},
+		{Name: "Previous Session Tab", Combo: "Ctrl-Shift-Tab", Commands: []HotkeyCommand{{Command: "/tab previous"}}, BuiltIn: true},
+	}
+	added := false
+	for _, candidate := range defaults {
+		found := false
+		for _, existing := range list {
+			if sameCombo(existing.Combo, candidate.Combo) {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		list = append(list, candidate)
+		added = true
+	}
+	return list, added
+}
+
+func removeRetiredSessionTabHotkeys(list []Hotkey) ([]Hotkey, bool) {
+	filtered := make([]Hotkey, 0, len(list))
+	removed := false
+	for _, hotkey := range list {
+		command := ""
+		if hotkey.Script == "" && len(hotkey.Commands) == 1 {
+			command = strings.ToLower(strings.TrimSpace(hotkey.Commands[0].Command))
+		}
+		name := strings.ToLower(strings.TrimSpace(hotkey.Name))
+		retiredName := (name == "previous session tab (alternate)" && command == "/tab previous") ||
+			(name == "next session tab (alternate)" && command == "/tab next")
+		retiredMarkedDefault := hotkey.BuiltIn && ((sameCombo(hotkey.Combo, "Ctrl-Comma") && command == "/tab previous") ||
+			(sameCombo(hotkey.Combo, "Ctrl-Period") && command == "/tab next"))
+		if retiredName || retiredMarkedDefault {
+			removed = true
+			continue
+		}
+		filtered = append(filtered, hotkey)
+	}
+	return filtered, removed
+}
+
+func addDefaultClientHotkeys(list []Hotkey) ([]Hotkey, bool) {
+	paletteCombo := "Ctrl-Shift-P"
+	if runtime.GOOS == "darwin" {
+		paletteCombo = "Meta-Shift-P"
+	}
+	defaults := []Hotkey{
+		{Name: "Toggle Fullscreen", Combo: "F12", Commands: []HotkeyCommand{{Command: "/fullscreen"}}, BuiltIn: true},
+		{Name: "Open Command Palette", Combo: paletteCombo, Commands: []HotkeyCommand{{Command: "/palette"}}, BuiltIn: true},
+		{Name: "Walk Left", Combo: "A", Commands: []HotkeyCommand{{Command: "/move left"}}, BuiltIn: true},
+		{Name: "Walk Left (alternate)", Combo: "ArrowLeft", Commands: []HotkeyCommand{{Command: "/move left"}}, BuiltIn: true},
+		{Name: "Walk Right", Combo: "D", Commands: []HotkeyCommand{{Command: "/move right"}}, BuiltIn: true},
+		{Name: "Walk Right (alternate)", Combo: "ArrowRight", Commands: []HotkeyCommand{{Command: "/move right"}}, BuiltIn: true},
+		{Name: "Walk Up", Combo: "W", Commands: []HotkeyCommand{{Command: "/move up"}}, BuiltIn: true},
+		{Name: "Walk Up (alternate)", Combo: "ArrowUp", Commands: []HotkeyCommand{{Command: "/move up"}}, BuiltIn: true},
+		{Name: "Walk Down", Combo: "S", Commands: []HotkeyCommand{{Command: "/move down"}}, BuiltIn: true},
+		{Name: "Walk Down (alternate)", Combo: "ArrowDown", Commands: []HotkeyCommand{{Command: "/move down"}}, BuiltIn: true},
+		{Name: "Run While Walking", Combo: "Shift", Commands: []HotkeyCommand{{Command: "/move run"}}, BuiltIn: true},
+	}
+	added := false
+	for _, candidate := range defaults {
+		command := candidate.Commands[0].Command
+		if (command == "/fullscreen" || command == "/palette") && hotkeyListHasCommand(list, command) {
+			continue
+		}
+		occupied := false
+		for _, existing := range list {
+			if sameCombo(existing.Combo, candidate.Combo) {
+				occupied = true
+				break
+			}
+		}
+		if occupied {
+			continue
+		}
+		list = append(list, candidate)
+		added = true
+	}
+	return list, added
+}
+
+func markKnownBuiltInHotkeys(list []Hotkey) bool {
+	definitions := map[string]string{
+		"Next Session Tab":       "/tab next",
+		"Previous Session Tab":   "/tab previous",
+		"Toggle Fullscreen":      "/fullscreen",
+		"Open Command Palette":   "/palette",
+		"Walk Left":              "/move left",
+		"Walk Left (alternate)":  "/move left",
+		"Walk Right":             "/move right",
+		"Walk Right (alternate)": "/move right",
+		"Walk Up":                "/move up",
+		"Walk Up (alternate)":    "/move up",
+		"Walk Down":              "/move down",
+		"Walk Down (alternate)":  "/move down",
+		"Run While Walking":      "/move run",
+	}
+	for position := 1; position <= maxSessions; position++ {
+		definitions[fmt.Sprintf("Select Session Tab %d", position)] = fmt.Sprintf("/tab %d", position)
+	}
+	changed := false
+	for i := range list {
+		hotkey := &list[i]
+		if hotkey.BuiltIn || hotkey.Script != "" || len(hotkey.Commands) != 1 {
+			continue
+		}
+		command, ok := definitions[hotkey.Name]
+		if ok && strings.EqualFold(strings.TrimSpace(hotkey.Commands[0].Command), command) {
+			hotkey.BuiltIn = true
+			changed = true
+		}
+	}
+	return changed
+}
+
+func hotkeyListHasCommand(list []Hotkey, command string) bool {
+	for _, hotkey := range list {
+		if hotkey.Script != "" {
+			continue
+		}
+		for _, entry := range hotkey.Commands {
+			if strings.EqualFold(strings.TrimSpace(entry.Command), command) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hotkeyComboForCommand(command string) string {
+	command = strings.TrimSpace(command)
+	hotkeysMu.RLock()
+	defer hotkeysMu.RUnlock()
+	for _, hotkey := range hotkeys {
+		if hotkey.Disabled || hotkey.Script != "" {
+			continue
+		}
+		for _, entry := range hotkey.Commands {
+			if strings.EqualFold(strings.TrimSpace(entry.Command), command) {
+				return hotkey.Combo
+			}
+		}
+	}
+	return ""
+}
+
+func clientHotkeyActionForCommand(command string) (clientHotkeyAction, bool) {
+	switch strings.ToLower(strings.TrimSpace(command)) {
+	case "/palette":
+		return clientHotkeyCommandPalette, true
+	case "/move left":
+		return clientHotkeyMoveLeft, true
+	case "/move right":
+		return clientHotkeyMoveRight, true
+	case "/move up":
+		return clientHotkeyMoveUp, true
+	case "/move down":
+		return clientHotkeyMoveDown, true
+	case "/move run":
+		return clientHotkeyRun, true
+	default:
+		return 0, false
+	}
+}
+
+func compileClientHotkey(combo string) (compiledClientHotkey, bool) {
+	parts := strings.Split(strings.TrimSpace(combo), "-")
+	if len(parts) == 0 || strings.TrimSpace(parts[len(parts)-1]) == "" {
+		return compiledClientHotkey{}, false
+	}
+	var modifiers uint8
+	for _, part := range parts[:len(parts)-1] {
+		switch strings.ToLower(strings.TrimSpace(part)) {
+		case "ctrl", "control", "controlleft", "controlright":
+			modifiers |= clientHotkeyModCtrl
+		case "alt", "option", "altleft", "altright":
+			modifiers |= clientHotkeyModAlt
+		case "shift", "shiftleft", "shiftright":
+			modifiers |= clientHotkeyModShift
+		case "meta", "command", "cmd", "metaleft", "metaright":
+			modifiers |= clientHotkeyModMeta
+		default:
+			return compiledClientHotkey{}, false
+		}
+	}
+	trigger := strings.TrimSpace(parts[len(parts)-1])
+	for key := ebiten.Key(0); key <= ebiten.KeyMax; key++ {
+		if strings.EqualFold(key.String(), trigger) || sameCombo(scriptKeyName(key, nil, nil, false, false), trigger) {
+			return compiledClientHotkey{key: key, modifiers: modifiers}, true
+		}
+	}
+	return compiledClientHotkey{}, false
+}
+
+func rebuildClientHotkeyBindings(list []Hotkey) {
+	compiled := &compiledClientHotkeys{}
+	for _, hotkey := range list {
+		if hotkey.Disabled || hotkey.Script != "" {
+			continue
+		}
+		binding, ok := compileClientHotkey(hotkey.Combo)
+		if !ok {
+			continue
+		}
+		for _, entry := range hotkey.Commands {
+			action, ok := clientHotkeyActionForCommand(entry.Command)
+			if !ok {
+				continue
+			}
+			compiled[action] = append(compiled[action], binding)
+		}
+	}
+	clientHotkeyBindings.Store(compiled)
+}
+
+func currentClientHotkeyModifiers() uint8 {
+	var modifiers uint8
+	if ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight) {
+		modifiers |= clientHotkeyModCtrl
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight) {
+		modifiers |= clientHotkeyModAlt
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight) {
+		modifiers |= clientHotkeyModShift
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight) {
+		modifiers |= clientHotkeyModMeta
+	}
+	return modifiers
+}
+
+func clientHotkeyActionActive(action clientHotkeyAction, justPressed bool, accept func(ebiten.Key) bool) bool {
+	bindings := clientHotkeyBindings.Load()
+	if bindings == nil || action >= clientHotkeyActionCount {
+		return false
+	}
+	modifiers := currentClientHotkeyModifiers()
+	for _, binding := range bindings[action] {
+		if clientHotkeyBindingActive(binding, modifiers, justPressed) && (accept == nil || accept(binding.key)) {
+			return true
+		}
+	}
+	return false
+}
+
+func clientHotkeyBindingActive(binding compiledClientHotkey, modifiers uint8, justPressed bool) bool {
+	if modifiers&binding.modifiers != binding.modifiers {
+		return false
+	}
+	if justPressed {
+		return inpututil.IsKeyJustPressed(binding.key)
+	}
+	return ebiten.IsKeyPressed(binding.key)
+}
+
+func clientMovementHotkeyActive(bindings *compiledClientHotkeys, modifiers uint8, action clientHotkeyAction, consumed InputEvent) bool {
+	for _, binding := range bindings[action] {
+		if clientHotkeyBindingActive(binding, modifiers, false) &&
+			!legacyMacroKeyConsumed(binding.key) && !scriptInputConsumesKey(consumed, binding.key) {
+			return true
+		}
+	}
+	return false
+}
+
+func clientMovementHotkeys(consumed InputEvent) (left, right, up, down, run bool) {
+	bindings := clientHotkeyBindings.Load()
+	if bindings == nil {
+		return false, false, false, false, false
+	}
+	modifiers := currentClientHotkeyModifiers()
+	return clientMovementHotkeyActive(bindings, modifiers, clientHotkeyMoveLeft, consumed),
+		clientMovementHotkeyActive(bindings, modifiers, clientHotkeyMoveRight, consumed),
+		clientMovementHotkeyActive(bindings, modifiers, clientHotkeyMoveUp, consumed),
+		clientMovementHotkeyActive(bindings, modifiers, clientHotkeyMoveDown, consumed),
+		clientMovementHotkeyActive(bindings, modifiers, clientHotkeyRun, consumed)
 }
 
 func saveHotkeys() {
@@ -201,6 +523,7 @@ func saveHotkeys() {
 	hotkeysMu.RLock()
 	snap := append([]Hotkey(nil), hotkeys...)
 	hotkeysMu.RUnlock()
+	rebuildClientHotkeyBindings(snap)
 	type scriptState struct {
 		Script  string `json:"script"`
 		Combo   string `json:"combo"`
@@ -389,8 +712,11 @@ func refreshHotkeysList() {
 			}
 			btnText += " -> " + text
 		}
+		if hk.Disabled {
+			btnText = "Disabled — " + btnText
+		}
 		btn.Text = btnText
-		btn.Size = eui.Point{X: 460, Y: 20}
+		btn.Size = eui.Point{X: 480, Y: 20}
 		btn.FontSize = 10
 		events.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {
@@ -398,17 +724,20 @@ func refreshHotkeysList() {
 			}
 		}
 		row.AddItem(btn)
-		delBtn, delEvents := eui.NewButton()
-		setMaterialIconOnly(delBtn, "delete", "x")
-		delBtn.SetTooltip("Remove this hotkey")
-		delBtn.Size = eui.Point{X: 20, Y: 20}
-		delBtn.FontSize = 10
-		delEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				confirmRemoveHotkey(idx)
+		if !hk.BuiltIn {
+			btn.Size.X = 460
+			delBtn, delEvents := eui.NewButton()
+			setMaterialIconOnly(delBtn, "delete", "x")
+			delBtn.SetTooltip("Remove this hotkey")
+			delBtn.Size = eui.Point{X: 20, Y: 20}
+			delBtn.FontSize = 10
+			delEvents.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventClick {
+					confirmRemoveHotkey(idx)
+				}
 			}
+			row.AddItem(delBtn)
 		}
-		row.AddItem(delBtn)
 		hotkeysList.AddItem(row)
 	}
 
@@ -483,6 +812,9 @@ func confirmRemoveHotkey(idx int) {
 	}
 	hk := hotkeys[idx]
 	hotkeysMu.RUnlock()
+	if hk.BuiltIn {
+		return
+	}
 	eui.ShowPopup(
 		"Remove Hotkey",
 		fmt.Sprintf("Remove hotkey %s : %s?", hk.Name, hk.Combo),
@@ -495,6 +827,7 @@ func confirmRemoveHotkey(idx int) {
 				}
 				hotkeysMu.Unlock()
 				saveHotkeys()
+				queueSessionWorkspaceUIUpdate()
 				refreshHotkeysList()
 			}},
 		},
@@ -506,8 +839,19 @@ func openHotkeyEditor(idx int) {
 		return
 	}
 	editingHotkey = idx
+	hotkeyEnabledCB = nil
+	hotkeysMu.RLock()
+	current := Hotkey{}
+	hasCurrent := idx >= 0 && idx < len(hotkeys)
+	if hasCurrent {
+		current = hotkeys[idx]
+	}
+	hotkeysMu.RUnlock()
 	hotkeyEditWin = eui.NewWindow()
-	hotkeyEditWin.OnClose = func() { hotkeyEditWin = nil }
+	hotkeyEditWin.OnClose = func() {
+		hotkeyEditWin = nil
+		hotkeyEnabledCB = nil
+	}
 	hotkeyEditWin.Title = "Hotkey"
 	hotkeyEditWin.Size = eui.Point{X: 400, Y: 160}
 	hotkeyEditWin.AutoSize = true
@@ -556,6 +900,14 @@ func openHotkeyEditor(idx int) {
 	hotkeyNameInput.FontSize = 12
 	nameRow.AddItem(hotkeyNameInput)
 	flow.AddItem(nameRow)
+	if hasCurrent && current.BuiltIn {
+		hotkeyEnabledCB, _ = eui.NewCheckbox()
+		hotkeyEnabledCB.Text = "Enabled"
+		hotkeyEnabledCB.Checked = !current.Disabled
+		hotkeyEnabledCB.Size = eui.Point{X: hotkeyEditWin.Size.X - 40, Y: 20}
+		hotkeyEnabledCB.SetTooltip("Use this built-in hotkey")
+		flow.AddItem(hotkeyEnabledCB)
+	}
 
 	hotkeyCmdSection = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
 	flow.AddItem(hotkeyCmdSection)
@@ -601,22 +953,17 @@ func openHotkeyEditor(idx int) {
 
 	flow.AddItem(btnRow)
 
-	hotkeysMu.RLock()
-	curLen := len(hotkeys)
-	if idx >= 0 && idx < curLen {
-		hk := hotkeys[idx]
-		hotkeysMu.RUnlock()
-		hotkeyComboText.Text = hk.Combo
-		hotkeyNameInput.Text = hk.Name
-		if len(hk.Commands) > 0 {
-			for _, c := range hk.Commands {
+	if hasCurrent {
+		hotkeyComboText.Text = current.Combo
+		hotkeyNameInput.Text = current.Name
+		if len(current.Commands) > 0 {
+			for _, c := range current.Commands {
 				addHotkeyCommand(c.Command)
 			}
 		} else {
 			addHotkeyCommand("")
 		}
 	} else {
-		hotkeysMu.RUnlock()
 		addHotkeyCommand("")
 	}
 
@@ -694,12 +1041,23 @@ func finishHotkeyEdit(save bool) {
 			}
 		}
 		if combo != "" {
+			builtIn := false
+			disabled := false
+			hotkeysMu.RLock()
+			if editingHotkey >= 0 && editingHotkey < len(hotkeys) {
+				builtIn = hotkeys[editingHotkey].BuiltIn
+				disabled = hotkeys[editingHotkey].Disabled
+			}
+			hotkeysMu.RUnlock()
+			if builtIn && hotkeyEnabledCB != nil {
+				disabled = !hotkeyEnabledCB.Checked
+			}
 			hotkeysMu.RLock()
 			for i, hk := range hotkeys {
 				if i == editingHotkey {
 					continue
 				}
-				if strings.EqualFold(hk.Combo, combo) {
+				if !disabled && !hk.Disabled && strings.EqualFold(hk.Combo, combo) {
 					hotkeysMu.RUnlock()
 					name := hk.Name
 					if name == "" {
@@ -714,17 +1072,19 @@ func finishHotkeyEdit(save bool) {
 			}
 			hotkeysMu.RUnlock()
 
-			hk := Hotkey{Name: name, Combo: combo, Commands: cmds}
+			hk := Hotkey{Name: name, Combo: combo, Commands: cmds, Disabled: disabled, BuiltIn: builtIn}
 			hotkeysMu.Lock()
 			if editingHotkey >= 0 && editingHotkey < len(hotkeys) {
 				hotkeys[editingHotkey] = hk
 				hotkeysMu.Unlock()
 				saveHotkeys()
+				queueSessionWorkspaceUIUpdate()
 				refreshHotkeysList()
 			} else {
 				hotkeys = append(hotkeys, hk)
 				hotkeysMu.Unlock()
 				saveHotkeys()
+				queueSessionWorkspaceUIUpdate()
 				refreshHotkeysList()
 			}
 		}
@@ -740,6 +1100,7 @@ func startHotkeyRecording(target *eui.ItemData) {
 	recordStart = time.Now()
 	recordTarget = target
 	recordedCombo = ""
+	recordedMods = ""
 	if recordTarget != nil {
 		recordTarget.Text = "Recording..."
 		recordTarget.Dirty = true
@@ -827,6 +1188,9 @@ func scriptKeyName(key ebiten.Key, pressed []ebiten.Key, typed []rune, shifted, 
 		if name := shiftedNames[key]; name != "" {
 			return name
 		}
+	}
+	if key >= ebiten.KeyDigit0 && key <= ebiten.KeyDigit9 {
+		return string(rune('0') + rune(key-ebiten.KeyDigit0))
 	}
 	return key.String()
 }
@@ -986,16 +1350,22 @@ func updateHotkeyRecording() {
 	if !recording {
 		return
 	}
-	if time.Since(recordStart) > 5*time.Second {
-		finishRecording()
-		return
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		finishRecording()
-		return
-	}
 	if c := detectCombo(); c != "" {
 		recordedCombo = c
+		finishRecording()
+		return
+	}
+	if modifiers := currentMods(); len(modifiers) > 0 {
+		candidate := strings.Join(modifiers, "-")
+		if recordedMods == "" || strings.Count(candidate, "-") > strings.Count(recordedMods, "-") {
+			recordedMods = candidate
+		}
+	} else if recordedMods != "" {
+		recordedCombo = recordedMods
+		finishRecording()
+		return
+	}
+	if time.Since(recordStart) > 5*time.Second {
 		finishRecording()
 	}
 }
@@ -1272,6 +1642,11 @@ func sameCombo(a, b string) bool {
 			return map[string]bool{}, ""
 		}
 		trig = strings.ToLower(parts[len(parts)-1])
+		if strings.HasPrefix(trig, "digit") && len(trig) == len("digit0") {
+			if digit := trig[len(trig)-1]; digit >= '0' && digit <= '9' {
+				trig = string(digit)
+			}
+		}
 		// Be forgiving about spaces in manually entered mouse names while the
 		// recorder and documentation always produce the compact spelling.
 		if strings.HasPrefix(trig, "mouse") {

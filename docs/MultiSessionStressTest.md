@@ -25,7 +25,8 @@ available, then fill the remaining slots with disconnected tabs to exercise the
 ten-tab layout.
 
 1. Add tabs until ten are open. Confirm **+** disables, Ctrl-1 through Ctrl-9
-   and Ctrl-0 select the expected visible tab, customized modifiers work, and
+   and Ctrl-0 select the expected visible tab, Ctrl-Tab/Ctrl-. and
+   Ctrl-Shift-Tab/Ctrl-, cycle with wraparound, customized modifiers work, and
    closing a middle tab makes the shortcuts follow the remaining visible order.
 2. Connect at least two sessions in different areas. Rapidly switch tabs and
    confirm movement, keyboard input, Inventory, Players, Scripts, Chat, Console,

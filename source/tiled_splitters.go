@@ -182,7 +182,11 @@ func maximizeCenteredGameForWorkspace(width, height int, toolbarMinimum float64)
 
 	leftMinimum, rightMinimum := centeredSideMinimums(toolbarMinimum)
 
-	idealGameWidth := float64(height) * float64(gameAreaSizeX) / float64(gameAreaSizeY) / float64(width)
+	playfieldHeight := height
+	if sessionTabsVisible() {
+		playfieldHeight = max(1, playfieldHeight-sessionTabBarHeight)
+	}
+	idealGameWidth := float64(playfieldHeight) * float64(gameAreaSizeX) / float64(gameAreaSizeY) / float64(width)
 	gameWidth := math.Min(idealGameWidth, 1-leftMinimum-rightMinimum)
 	gameWidth = math.Max(gameWidth, 0.30)
 	remaining := 1 - gameWidth

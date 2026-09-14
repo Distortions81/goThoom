@@ -87,9 +87,41 @@ type tuneJob struct {
 	parseErr *tuneParseError
 }
 
-// processMusicRequests remains a main-loop hook. Playback failures and song
-// stops must never alter the user's Music mixer preference.
-func processMusicRequests() {}
+var (
+	sessionMusicIndicators       [maxSessions]bool
+	lastSessionMusicIndicatorRun time.Time
+)
+
+// processMusicRequests keeps the session tabs in sync with time-based music
+// playback. Playback failures and song stops never alter the Music preference.
+func processMusicRequests() {
+	now := time.Now()
+	if !lastSessionMusicIndicatorRun.IsZero() && now.Sub(lastSessionMusicIndicatorRun) < 100*time.Millisecond {
+		return
+	}
+	lastSessionMusicIndicatorRun = now
+	refreshSessionMusicIndicators(now)
+}
+
+func refreshSessionMusicIndicators(now time.Time) {
+	if appSessions == nil {
+		return
+	}
+	next := [maxSessions]bool{}
+	for _, session := range appSessions.snapshot() {
+		if session == nil || session.music == nil {
+			continue
+		}
+		slot, ok := session.ID().Slot()
+		if ok {
+			next[slot] = len(session.music.activeTracks(now)) > 0
+		}
+	}
+	if next != sessionMusicIndicators {
+		sessionMusicIndicators = next
+		refreshSessionTabs()
+	}
+}
 
 func disableMusic() {
 	gs.Music = false

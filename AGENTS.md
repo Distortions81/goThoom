@@ -84,6 +84,10 @@ script rather than assuming a normal Linux build covers them.
 
 ## Release workflow
 
+- Do not advance to a new numbered changelog just because the current highest
+  version already exists in `versions.json`. First verify that highest version
+  has an actual release tag. If it has not been released, keep folding net
+  user-visible changes into that existing unreleased changelog.
 - A release number must exist in both `source/data/versions.json` and
   `source/data/changelog/<number>.txt` before it is tagged. Keep the versions
   strictly increasing and use the current Clan Lord version for `CLVersion`.

@@ -39,6 +39,19 @@ func NewRow(children ...*ItemData) *ItemData {
 	return item
 }
 
+// NewOverlay stacks children in one coordinate space. Set each child's
+// Position to place it within the container; later children draw and receive
+// input above earlier children.
+func NewOverlay(children ...*ItemData) *ItemData {
+	item := &ItemData{ItemType: ITEM_FLOW, FlowType: FLOW_OVERLAY}
+	for _, child := range children {
+		if child != nil {
+			item.AddItem(child)
+		}
+	}
+	return item
+}
+
 // NewLabel creates a compact, automatically measured label using theme colors.
 func NewLabel(label string) *ItemData {
 	item, _ := NewText()

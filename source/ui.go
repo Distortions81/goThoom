@@ -516,19 +516,20 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(recordBtn)
 
-	exitBtn, exitEvents := eui.NewButton()
-	exitBtn.Text = "Logout"
-	setMaterialButtonIcon(exitBtn, "logout")
-	exitBtn.SetTooltip("Disconnect and return to the login screen.")
-	exitBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	exitBtn.FontSize = toolFontSize
-	exitBtn.Color = eui.ColorDarkRed
-	exitEvents.Handle = func(ev eui.UIEvent) {
+	helpBtn, helpEvents := eui.NewButton()
+	helpBtn.Text = "Help"
+	setMaterialButtonIcon(helpBtn, "help")
+	helpBtn.SetTooltip("Open the online user manual.")
+	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	helpBtn.FontSize = toolFontSize
+	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			confirmExitSession()
+			if err := open.Run(userManualURL); err != nil {
+				consoleMessage("open user manual: " + err.Error())
+			}
 		}
 	}
-	row2.AddItem(exitBtn)
+	row2.AddItem(helpBtn)
 
 	/*
 	   stopBtn, stopEvents := eui.NewButton()
@@ -2929,6 +2930,7 @@ type loginCharacterListConfig struct {
 type sessionLoginControlsConfig struct {
 	sessionID    SessionID
 	viewport     bool
+	target       func() loginSurfaceTarget
 	width        float32
 	listHeight   float32
 	connectWidth float32
@@ -2941,6 +2943,7 @@ type sessionLoginControlsConfig struct {
 type sessionLoginControls struct {
 	characters       *eui.ItemData
 	characterActions *eui.ItemData
+	serverLabel      *eui.ItemData
 	connectRow       *eui.ItemData
 	server           *eui.ItemData
 	connect          *eui.ItemData
@@ -2951,6 +2954,12 @@ type sessionLoginControls struct {
 
 func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginControls {
 	controls := sessionLoginControls{}
+	loginTarget := func() loginSurfaceTarget {
+		if config.target != nil {
+			return config.target()
+		}
+		return loginSurfaceTarget{sessionID: config.sessionID, viewport: config.viewport}
+	}
 	controls.characters = eui.NewColumn()
 	controls.characters.Scrollable = true
 	controls.characters.Fixed = true
@@ -2964,7 +2973,7 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 	controls.add.Size = eui.Point{X: (config.width - 16) / 3, Y: 32}
 	addEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
-			openAddCharacterForLogin(loginSurfaceTarget{sessionID: config.sessionID, viewport: config.viewport}, event.Item)
+			openAddCharacterForLogin(loginTarget(), event.Item)
 		}
 	}
 
@@ -2976,7 +2985,7 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 	controls.edit.Size = controls.add.Size
 	editEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
-			openEditCharacterForLogin(loginSurfaceTarget{sessionID: config.sessionID, viewport: config.viewport}, config.selection(), event.Item)
+			openEditCharacterForLogin(loginTarget(), config.selection(), event.Item)
 		}
 	}
 
@@ -2997,7 +3006,7 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 			makeErrorWindow("Select a saved character to delete.")
 			return
 		}
-		confirmRemoveCharacter(character, config.sessionID)
+		confirmRemoveCharacter(character, loginTarget().sessionID)
 	}
 	controls.characterActions = eui.NewRow(controls.add, controls.edit, controls.delete)
 	controls.characterActions.Size = eui.Point{X: config.width, Y: 32}
@@ -3019,7 +3028,6 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 
 	server, serverEvents := eui.NewDropdown()
 	controls.server = server
-	controls.server.Label = "Server"
 	controls.server.Size = eui.Point{X: config.width - config.connectWidth - 8, Y: 44}
 	controls.server.SetTooltip("Choose the server to connect to, or edit the server list.")
 	controls.server.Options, controls.server.Selected = loginServerOptions(config.server())
@@ -3038,7 +3046,15 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 			config.onServer(selection)
 		}
 	}
-	controls.connectRow = eui.NewRow(controls.connect, controls.server)
+	controls.serverLabel, _ = eui.NewText()
+	controls.serverLabel.Text = "Server:"
+	controls.serverLabel.FontSize = 13
+	eui.ApplyBoldFace(controls.serverLabel)
+	controls.serverLabel.Size = eui.Point{X: config.width, Y: 28}
+	controls.server.Position = eui.Point{}
+	controls.connect.Position = eui.Point{X: 8}
+	controls.connectRow = eui.NewRow(controls.server, controls.connect)
+	controls.connectRow.Size = eui.Point{X: config.width, Y: 44}
 	return controls
 }
 
@@ -3172,6 +3188,18 @@ func updateCharacterButtons() {
 	if charactersList == nil {
 		return
 	}
+	target := selectedLoginTarget()
+	if target.viewport {
+		updateSecondaryLoginWindow(target)
+		return
+	}
+	loginWin.Title = "Login"
+	charactersList.Disabled = false
+	charactersList.Dirty = true
+	if loginServerDropdown != nil {
+		loginServerDropdown.Disabled = false
+		loginServerDropdown.Dirty = true
+	}
 	serverSlot := selectedServerSlot()
 	savedCharacters := charactersForServerSlot(serverSlot)
 	if name != "" && !validLoginCharacterSelection(serverSlot, name) {
@@ -3251,6 +3279,8 @@ func updateCharacterButtons() {
 		action.button.Dirty = true
 	}
 	if loginConnectButton != nil {
+		loginConnectButton.Text = "Connect"
+		loginConnectButton.OutlineColor = eui.ColorGreen
 		loginConnectButton.Disabled = name == ""
 		if loginConnectButton.Disabled {
 			loginConnectButton.SetTooltip("Select a character before connecting.")
@@ -3260,6 +3290,180 @@ func updateCharacterButtons() {
 		loginConnectButton.Dirty = true
 	}
 	// Keep UI fresh after potential content changes.
+	loginWin.Refresh()
+}
+
+func selectedLoginTarget() loginSurfaceTarget {
+	id := primarySessionID
+	if appSessions != nil {
+		id = appSessions.selectedID()
+	}
+	return loginSurfaceTarget{sessionID: id, viewport: id != primarySessionID}
+}
+
+func initializeViewportLoginState(target loginSurfaceTarget) (*viewportRenderState, *Session) {
+	if !target.viewport || appViewports == nil {
+		return nil, sessionForLoginTarget(target.sessionID)
+	}
+	state := appViewports.renderStateForSession(target.sessionID)
+	session := sessionForLoginTarget(target.sessionID)
+	if state == nil || session == nil {
+		return state, session
+	}
+	request := session.login.requestSnapshot()
+	if strings.TrimSpace(state.loginServer) == "" {
+		state.loginServer = strings.TrimSpace(request.host)
+		if state.loginServer == "" {
+			state.loginServer = strings.TrimSpace(gs.ServerAddress)
+		}
+	}
+	if state.loginCharacter == "" && request.character != "" {
+		state.loginCharacter = request.character
+	}
+	return state, session
+}
+
+func selectedLoginSelection() string {
+	target := selectedLoginTarget()
+	if !target.viewport {
+		return name
+	}
+	state, _ := initializeViewportLoginState(target)
+	if state == nil {
+		return ""
+	}
+	return state.loginCharacter
+}
+
+func selectedLoginServer() string {
+	target := selectedLoginTarget()
+	if !target.viewport {
+		return gs.ServerAddress
+	}
+	state, _ := initializeViewportLoginState(target)
+	if state == nil {
+		return gs.ServerAddress
+	}
+	return state.loginServer
+}
+
+func selectServerForSelectedLogin(address string) {
+	target := selectedLoginTarget()
+	if !target.viewport {
+		selectLoginServer(address)
+		return
+	}
+	state, session := initializeViewportLoginState(target)
+	if state == nil || session == nil {
+		return
+	}
+	state.loginServer = address
+	state.loginCharacter = ""
+	updateCharacterButtons()
+}
+
+func connectSelectedLogin(anchor *eui.ItemData) {
+	target := selectedLoginTarget()
+	if target.viewport {
+		state, session := initializeViewportLoginState(target)
+		if state != nil && session != nil {
+			startViewportLogin(state, session)
+			updateCharacterButtons()
+		}
+		return
+	}
+	if name == "" {
+		makeErrorWindow("Please select a character to connect with first.")
+		return
+	}
+	if name == freeDemoSelection {
+		startDemoLogin()
+		return
+	}
+	if passHash == "" && pass == "" {
+		showPasswordPrompt(false, passwordRememberPreference(name), anchor)
+		return
+	}
+	rememberLastCharacter(name)
+	startLogin()
+	updateCharacterButtons()
+}
+
+func updateSecondaryLoginWindow(target loginSurfaceTarget) {
+	state, session := initializeViewportLoginState(target)
+	if state == nil || session == nil || charactersList == nil {
+		return
+	}
+	serverSlot := serverSlotForAddress(state.loginServer)
+	savedCharacters := charactersForServerSlot(serverSlot)
+	if state.loginCharacter != "" && !validLoginCharacterSelection(serverSlot, state.loginCharacter) {
+		state.loginCharacter = ""
+	}
+	if state.loginCharacter == "" {
+		if saved, ok := characterForServerSlot(serverSlot, gs.LastCharacter); ok {
+			state.loginCharacter = saved.Name
+		} else if len(savedCharacters) == 1 {
+			state.loginCharacter = savedCharacters[0].Name
+		} else if len(savedCharacters) == 0 {
+			state.loginCharacter = freeDemoSelection
+		}
+	}
+	refreshLoginCharacterList(loginCharacterListConfig{
+		list:       charactersList,
+		width:      charWinWidth,
+		radioGroup: fmt.Sprintf("characters-session-%d", session.ID()),
+		server:     state.loginServer,
+		selection:  state.loginCharacter,
+		onSelect: func(choice loginCharacterChoice) {
+			session.login.discardStagedPassword()
+			state.loginCharacter = choice.selection
+			rememberLastCharacter(choice.selection)
+			updateCharacterButtons()
+		},
+	})
+	busy := session.connectionBusy() || state.loginDemoLookup
+	for _, action := range []struct {
+		button *eui.ItemData
+		help   string
+	}{
+		{editCharBtn, "Change the selected character's password or password saving."},
+		{deleteCharBtn, "Delete the selected saved character"},
+	} {
+		if action.button == nil {
+			continue
+		}
+		action.button.Disabled = busy || state.loginCharacter == freeDemoSelection
+		if state.loginCharacter == freeDemoSelection {
+			action.button.SetTooltip("The demo character is built in and cannot be edited or deleted.")
+		} else {
+			action.button.SetTooltip(action.help)
+		}
+		action.button.Dirty = true
+	}
+	if loginServerDropdown != nil {
+		loginServerDropdown.Options, loginServerDropdown.Selected = loginServerOptions(state.loginServer)
+		loginServerDropdown.Disabled = busy
+		loginServerDropdown.Dirty = true
+	}
+	charactersList.Disabled = busy
+	charactersList.Dirty = true
+	if loginConnectButton != nil {
+		switch {
+		case state.loginDemoLookup:
+			loginConnectButton.Text = "Finding Demo..."
+			loginConnectButton.Disabled = true
+		case session.connectionBusy():
+			loginConnectButton.Text = "Cancel"
+			loginConnectButton.Disabled = false
+			loginConnectButton.OutlineColor = eui.ColorDarkRed
+		default:
+			loginConnectButton.Text = "Connect"
+			loginConnectButton.Disabled = state.loginCharacter == ""
+			loginConnectButton.OutlineColor = eui.ColorGreen
+		}
+		loginConnectButton.Dirty = true
+	}
+	loginWin.Title = fmt.Sprintf("Login — Session %d", session.ID())
 	loginWin.Refresh()
 }
 
@@ -3292,18 +3496,18 @@ func serverSlotForLoginTarget(target loginSurfaceTarget) int {
 }
 
 func restoreLoginTarget(target loginSurfaceTarget) {
-	if !target.viewport {
-		if loginWin != nil {
-			loginWin.MarkOpen()
-		}
-		return
+	if appSessions != nil {
+		appSessions.selectSession(target.sessionID)
 	}
-	focusViewportLogin(target.sessionID)
+	if loginWin != nil {
+		updateCharacterButtons()
+		centerLoginWindow()
+		loginWin.MarkOpen()
+	}
 }
 
 func refreshLoginCharacterPanels() {
 	updateCharacterButtons()
-	refreshAllViewportLoginCharacterLists()
 }
 
 func selectCharacterForLoginTarget(target loginSurfaceTarget, characterName, passwordHash string) {
@@ -3339,7 +3543,7 @@ func openAddCharacterForLogin(target loginSurfaceTarget, anchor *eui.ItemData) {
 	addCharPassPrev = ""
 	clearCapsWarnings()
 	addCharRemember = true
-	if !target.viewport && loginWin != nil {
+	if loginWin != nil {
 		loginWin.Close()
 	}
 	addCharWin.MarkOpenNear(anchor)
@@ -3362,7 +3566,7 @@ func openEditCharacterForLogin(target loginSurfaceTarget, characterName string, 
 		makeErrorWindow("Error: Edit Character: " + err.Error())
 		return
 	}
-	if !target.viewport && loginWin != nil {
+	if loginWin != nil {
 		loginWin.Close()
 	}
 	editCharWin.MarkOpenNear(anchor)
@@ -4121,11 +4325,10 @@ func startDemoLogin() {
 }
 
 func refreshLoginServerDropdown() {
-	refreshAllViewportLoginServerChoices()
 	if loginServerDropdown == nil {
 		return
 	}
-	loginServerDropdown.Options, loginServerDropdown.Selected = loginServerOptions(gs.ServerAddress)
+	loginServerDropdown.Options, loginServerDropdown.Selected = loginServerOptions(selectedLoginServer())
 	loginServerDropdown.Dirty = true
 	if loginWin != nil {
 		loginWin.Refresh()
@@ -4305,29 +4508,14 @@ func makeLoginWindow() {
 	loginFlow := eui.NewColumn()
 	controls := newSessionLoginControls(sessionLoginControlsConfig{
 		sessionID:    primarySessionID,
+		target:       selectedLoginTarget,
 		width:        charWinWidth,
 		listHeight:   224,
 		connectWidth: 200,
-		selection:    func() string { return name },
-		server:       func() string { return gs.ServerAddress },
-		onServer:     selectLoginServer,
-		onConnect: func(anchor *eui.ItemData) {
-			if name == "" {
-				makeErrorWindow("Please select a character to connect with first.")
-				return
-			}
-			if name == freeDemoSelection {
-				startDemoLogin()
-				return
-			}
-			if passHash == "" && pass == "" {
-				showPasswordPrompt(false, passwordRememberPreference(name), anchor)
-				return
-			}
-			rememberLastCharacter(name)
-			startLogin()
-			updateCharacterButtons()
-		},
+		selection:    selectedLoginSelection,
+		server:       selectedLoginServer,
+		onServer:     selectServerForSelectedLogin,
+		onConnect:    connectSelectedLogin,
 	})
 	charactersList = controls.characters
 	characterActions := controls.characterActions
@@ -4477,12 +4665,8 @@ func makeLoginWindow() {
 	loginFlow.AddItem(characterListLabel)
 	loginFlow.AddItem(charactersList)
 	addLoginSpacer(12)
-	connectRow := eui.NewRow()
-	connBtn.Position = eui.Point{}
-	serverDropdown.Position = eui.Point{X: 8}
-	connectRow.AddItem(connBtn)
-	connectRow.AddItem(serverDropdown)
-	loginFlow.AddItem(connectRow)
+	loginFlow.AddItem(controls.serverLabel)
+	loginFlow.AddItem(controls.connectRow)
 	addLoginSpacer(8)
 	loginFlow.AddItem(verFlow)
 

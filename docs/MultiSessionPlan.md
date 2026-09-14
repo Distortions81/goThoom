@@ -8,8 +8,9 @@ tab is always open.
 
 - **+** opens and selects the first available stable session slot.
 - A tab **X** confirms, disconnects, and closes that slot.
-- The active tab is selected with the mouse or the default customizable
-  Ctrl-1 through Ctrl-9 and Ctrl-0 hotkeys.
+- The active tab is selected with the mouse, the default customizable Ctrl-1
+  through Ctrl-9 and Ctrl-0 hotkeys, or customizable forward/backward cycling
+  hotkeys.
 - Hotkeys address the visible tab order. Internal session IDs remain stable for
   ownership, logging, and persistence.
 - `multi_session.json` stores open slots and the active slot.

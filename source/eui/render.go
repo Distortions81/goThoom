@@ -1238,7 +1238,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			r, g, b, a := (color.NRGBA{R: c.R, G: c.G, B: c.B, A: c.A}).RGBA()
 			itemColor = NewColor(uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
 		}
-		filled := item.Filled || item.ColorSwatch
+		filled := (item.Filled && !item.NoSurface) || item.ColorSwatch
 		captionColor := item.surfaceTextColor(style.TextColor, itemColor, filled)
 		if item.ColorSwatch && item.Disabled {
 			readable := *item
@@ -1916,7 +1916,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		}
 	}
 
-	if item.Outlined && item.Border > 0 && style != nil && style.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
+	if itemDrawsOutline(item, style) {
 		outlineColor := item.OutlineColor
 		if outlineColor == (Color{}) {
 			outlineColor = style.OutlineColor
@@ -1941,6 +1941,11 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 	}
 
 	item.DrawRect = rectAdd(item.DrawRect, base)
+}
+
+func itemDrawsOutline(item, style *itemData) bool {
+	return item != nil && !item.NoSurface && item.Outlined && item.Border > 0 && style != nil && style.Border > 0 &&
+		item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO
 }
 
 // drawParallelogram draws a filled, axis-aligned parallelogram with a rightward slant.

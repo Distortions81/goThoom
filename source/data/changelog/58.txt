@@ -2,11 +2,12 @@ goThoom 58 changes since test57.
 
 Local streaming:
 - Choose whether to show a cursor indicator in a local Browser Source stream.
-- Game-render streams now include transient think messages and notifications.
+- Game-render streams now can include transient think messages and notifications.
 
 Login:
 - An incorrect saved password now opens the password prompt for another attempt instead of showing a generic login error.
 - Turning off Save Password or Remember Password immediately removes the saved password, even if the dialog is canceled.
+- The server selector and Connect action share a clean, aligned row.
 
 Macros and scripts:
 - Macros and scripts supplied with the client are labeled Included with goThoom.
@@ -20,3 +21,26 @@ Audio and graphics:
 - Rapidly repeated enhanced sounds no longer stack into an excessively strong echo when sound throttling is enabled.
 - Recording, playback, FPS, streaming, notification, thought, and activity overlays share the game view without covering one another.
 - Faster directional character shadows stay behind character sprites instead of darkening them.
+
+Multi-session:
+- Open up to ten independent character tabs above one shared game view. Tabs resize to fit the available width, show active music, and keep their close actions inside the tab.
+- Connect the selected tab through the standard Login window with saved characters or the built-in demo character.
+- Switch tabs directly or cycle forward and backward with customizable number, Ctrl-Tab, and Ctrl-Shift-Tab hotkeys. Rendering, input, shared windows, scripts, and audio follow the selected character.
+- Keep background sessions connected and processing network updates, macros, Go scripts, recordings, reconnects, and separate Text Logs without rendering their scenes.
+- Resume a still-active bard performance at its current time when its tab is selected.
+- Restore open tabs and the selected tab on the next launch without reconnecting automatically.
+- Keep saved login characters in permanent numbered server slots. Every server address can be edited without detaching its characters, and Edit Character can move a login between slots.
+
+Interface:
+- Use the toolbar Help button to open the online user manual.
+- Choosing an emoji from the chat picker appends it without replacing the existing draft, then closes the picker.
+- Input bar always open keeps the draft active and visible while another client control has focus.
+- The message input supports standard Select All, Cut, Copy, Paste, Backspace, and Delete selection editing with Ctrl or Command shortcuts.
+- Rebind or disable every client-owned shortcut, including keyboard movement, running, fullscreen, the command palette, and session tabs, from Actions > Hotkeys.
+- Settings calls the built-in interface style Default, falls back to it when a saved style is unavailable, and explains Keep window on top through its info tooltip.
+- Saved Data uses responsive script rows and a clearly placed View action; saved keys and values wrap in a larger, selectable detail window.
+- The setup wizard calls its preset selector Graphics quality and leaves VSync in the full Performance settings.
+
+Bard music:
+- Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.
+- Render synchronized /with instruments together through one multi-channel synthesizer, reducing music rendering and buffering overhead.

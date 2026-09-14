@@ -2,21 +2,12 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"math"
-	"strings"
 
 	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
-)
-
-const (
-	viewportLoginPanelWidth   float32 = 360
-	viewportLoginPanelPadding float32 = 12
-	viewportLogoutButtonSize  float32 = 28
-	viewportControlInset      float32 = 6
 )
 
 func refreshViewportTitles() {
@@ -137,13 +128,8 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 		item.Image = state.image
 		item.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
 		item.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset+tabHeight) / s}
-		if state.loginOverlay != nil {
-			win.PrependItem(item)
-		} else {
-			win.AddItem(item)
-		}
+		win.AddItem(item)
 		syncPrimaryViewportAliases(state)
-		layoutViewportLoginOverlay(state)
 		return
 	}
 	iw, ih := 0, 0
@@ -164,7 +150,6 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 	state.imageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
 	state.imageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset+tabHeight) / s}
 	syncPrimaryViewportAliases(state)
-	layoutViewportLoginOverlay(state)
 }
 
 func loginServerOptions(server string) ([]string, int) {
@@ -186,20 +171,6 @@ func loginServerOptions(server string) ([]string, int) {
 	return options, selected
 }
 
-func refreshAllViewportLoginServerChoices() {
-	if appViewports == nil {
-		return
-	}
-	for _, view := range appViewports.snapshot() {
-		state := view.render
-		if state == nil || state.loginServerChoice == nil {
-			continue
-		}
-		state.loginServerChoice.Options, state.loginServerChoice.Selected = loginServerOptions(state.loginServer)
-		state.loginServerChoice.Dirty = true
-	}
-}
-
 func viewportLoginRememberPreference(session *Session, serverSlot int, characterName string) bool {
 	if session != nil {
 		if _, remember, staged := session.login.stagedPasswordSettings(serverSlot, characterName); staged {
@@ -210,78 +181,6 @@ func viewportLoginRememberPreference(session *Session, serverSlot int, character
 		return !character.DontRemember
 	}
 	return true
-}
-
-func selectViewportLoginSavedCharacter(state *viewportRenderState, session *Session, characterName string) bool {
-	if state == nil || session == nil {
-		return false
-	}
-	character, ok := characterForServerSlot(serverSlotForAddress(state.loginServer), characterName)
-	if !ok {
-		return false
-	}
-	state.loginCharacter = character.Name
-	appSessions.selectSession(session.ID())
-	refreshViewportLoginCharacterList(state, session)
-	return true
-}
-
-func refreshViewportLoginCharacterList(state *viewportRenderState, session *Session) {
-	if state == nil || session == nil || state.loginCharacters == nil {
-		return
-	}
-	serverSlot := serverSlotForAddress(state.loginServer)
-	savedCharacters := charactersForServerSlot(serverSlot)
-	if state.loginCharacter != "" && !validLoginCharacterSelection(serverSlot, state.loginCharacter) {
-		state.loginCharacter = ""
-	}
-	if state.loginCharacter == "" {
-		if session == primarySession && validLoginCharacterSelection(serverSlot, name) {
-			state.loginCharacter = name
-		} else if gs.LastCharacter != "" {
-			if saved, ok := characterForServerSlot(serverSlot, gs.LastCharacter); ok {
-				state.loginCharacter = saved.Name
-			}
-		}
-		if state.loginCharacter == "" && len(savedCharacters) == 1 {
-			state.loginCharacter = savedCharacters[0].Name
-		}
-		if state.loginCharacter == "" && len(savedCharacters) == 0 {
-			state.loginCharacter = freeDemoSelection
-		}
-	}
-	refreshLoginCharacterList(loginCharacterListConfig{
-		list:       state.loginCharacters,
-		width:      viewportLoginPanelWidth,
-		radioGroup: fmt.Sprintf("characters-session-%d", session.ID()),
-		server:     state.loginServer,
-		selection:  state.loginCharacter,
-		onSelect: func(choice loginCharacterChoice) {
-			state.loginCharacter = choice.selection
-			appSessions.selectSession(session.ID())
-			refreshViewportLoginCharacterList(state, session)
-			refreshViewportLoginOverlay(state, session, true)
-		},
-	})
-	disabled := state.loginCharacter == "" || state.loginCharacter == freeDemoSelection
-	for _, button := range []*eui.ItemData{state.loginEdit, state.loginDelete} {
-		if button != nil {
-			button.Disabled = disabled
-			button.Dirty = true
-		}
-	}
-}
-
-func refreshAllViewportLoginCharacterLists() {
-	if appSessions == nil || appViewports == nil {
-		return
-	}
-	sessions := appSessions.snapshot()
-	for slot, view := range appViewports.snapshot() {
-		if view.render != nil && sessions[slot] != nil {
-			refreshViewportLoginCharacterList(view.render, sessions[slot])
-		}
-	}
 }
 
 func startViewportLogin(state *viewportRenderState, session *Session) {
@@ -308,7 +207,7 @@ func startViewportLogin(state *viewportRenderState, session *Session) {
 		passwordHash = staged
 	}
 	if passwordHash == "" {
-		showPasswordPromptForSession(session, state, false, viewportLoginRememberPreference(session, serverSlot, character.Name), state.loginAction)
+		showPasswordPromptForSession(session, state, false, viewportLoginRememberPreference(session, serverSlot, character.Name), loginConnectButton)
 		return
 	}
 	startViewportLoginRequest(state, session, passwordHash)
@@ -366,206 +265,22 @@ func startViewportDemoLogin(state *viewportRenderState, session *Session) {
 	}()
 }
 
-func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
-	if state == nil || state.window == nil || session == nil || state.loginOverlay != nil {
-		return
-	}
-	request := session.login.requestSnapshot()
-	state.loginServer = request.host
-	state.loginCharacter = request.character
-	if state.loginServer == "" {
-		state.loginServer = strings.TrimSpace(gs.ServerAddress)
-	}
-	if session == primarySession && state.loginCharacter == "" {
-		state.loginCharacter = strings.TrimSpace(name)
-	}
-	heading, _ := eui.NewText()
-	heading.Text = fmt.Sprintf("Connect Session %d", session.ID())
-	heading.FontSize = 18
-	heading.Size = eui.Point{X: viewportLoginPanelWidth, Y: 32}
-
-	controls := newSessionLoginControls(sessionLoginControlsConfig{
-		sessionID:    session.ID(),
-		viewport:     true,
-		width:        viewportLoginPanelWidth,
-		listHeight:   224,
-		connectWidth: 140,
-		selection:    func() string { return state.loginCharacter },
-		server:       func() string { return state.loginServer },
-		onServer: func(address string) {
-			state.loginServer = address
-			state.loginCharacter = ""
-			appSessions.selectSession(session.ID())
-			refreshViewportLoginCharacterList(state, session)
-			refreshViewportLoginOverlay(state, session, true)
-		},
-		onConnect: func(_ *eui.ItemData) {
-			appSessions.selectSession(session.ID())
-			startViewportLogin(state, session)
-		},
-	})
-	state.loginServerChoice = controls.server
-	state.loginCharacters = controls.characters
-	state.loginAdd = controls.add
-	state.loginEdit = controls.edit
-	state.loginDelete = controls.delete
-	state.loginAction = controls.connect
-
-	statusItem, _ := eui.NewText()
-	statusItem.Size = eui.Point{X: viewportLoginPanelWidth, Y: 48}
-	statusItem.FontSize = 13
-	state.loginStatus = statusItem
-
-	form := eui.NewColumn(heading, controls.characterActions, controls.characters, controls.connectRow, statusItem)
-	state.loginForm = form
-	overlay := eui.NewColumn(form)
-	overlay.Fixed = true
-	overlay.Filled = true
-	overlay.Scrollable = true
-	state.loginOverlay = overlay
-	state.window.AddItem(overlay)
-
-	logout, logoutEvents := eui.NewButton()
-	setMaterialIconOnly(logout, "logout", "X")
-	logout.SetTooltip(fmt.Sprintf("Log out of Session %d.", session.ID()))
-	logout.Size = eui.Point{X: viewportLogoutButtonSize, Y: viewportLogoutButtonSize}
-	logout.Color = eui.ColorDarkRed
-	logout.Invisible = true
-	logoutEvents.Handle = func(event eui.UIEvent) {
-		if event.Type == eui.EventClick {
-			appSessions.disconnectSession(session.ID())
-		}
-	}
-	state.sessionLogout = logout
-	state.window.AddItem(logout)
-
-	refreshViewportLoginCharacterList(state, session)
-	layoutViewportLoginOverlay(state)
-}
-
-func layoutViewportLoginOverlay(state *viewportRenderState) {
-	if state == nil || state.imageItem == nil || state.image == nil {
-		return
-	}
-	bounds := state.image.Bounds()
-	scale := eui.UIScale()
-	if scale <= 0 {
-		scale = 1
-	}
-	if state.loginOverlay != nil && state.loginForm != nil {
-		controlRoom := max(120, bounds.Dx()-int(4*viewportLoginPanelPadding))
-		controlWidth := float32(math.Min(float64(viewportLoginPanelWidth), float64(float32(controlRoom)/scale)))
-		for index, item := range state.loginForm.Contents {
-			if index >= len(state.loginForm.Contents)-1 {
-				break
-			}
-			item.Size.X = controlWidth
-			item.Dirty = true
-		}
-
-		formSize := state.loginForm.GetSize()
-		padding := viewportLoginPanelPadding
-		panelWidth := float32(math.Min(float64(formSize.X+2*padding), float64(float32(bounds.Dx())-2*padding)))
-		panelHeight := float32(math.Min(float64(formSize.Y+2*padding), float64(float32(bounds.Dy())-2*padding)))
-		panelWidth = float32(math.Max(1, float64(panelWidth)))
-		panelHeight = float32(math.Max(1, float64(panelHeight)))
-		state.loginOverlay.Size = eui.Point{X: panelWidth / scale, Y: panelHeight / scale}
-		state.loginOverlay.Position = eui.Point{
-			X: state.imageItem.Position.X + float32(math.Max(float64(padding), float64((float32(bounds.Dx())-panelWidth)/2))),
-			Y: state.imageItem.Position.Y + float32(math.Max(float64(padding), float64((float32(bounds.Dy())-panelHeight)/2))),
-		}
-		state.loginForm.Position = eui.Point{X: padding, Y: padding}
-		background := eui.NewColor(32, 32, 32, 255)
-		if state.window != nil && state.window.Theme != nil {
-			background = state.window.Theme.Window.BGColor
-		}
-		background.A = uint8(uint16(background.A) * 9 / 10)
-		state.loginOverlay.Color = background
-		state.loginOverlay.Dirty = true
-	}
-	if state.sessionLogout != nil {
-		buttonSize := state.sessionLogout.GetSize()
-		state.sessionLogout.Position = eui.Point{
-			X: state.imageItem.Position.X + float32(math.Max(0, float64(float32(bounds.Dx())-buttonSize.X-viewportControlInset))),
-			Y: state.imageItem.Position.Y + float32(math.Max(0, float64(float32(bounds.Dy())-buttonSize.Y-viewportControlInset))),
-		}
-		state.sessionLogout.Dirty = true
-	}
-}
-
 func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, multi bool) {
-	if state == nil || session == nil || state.window == nil {
+	if state == nil || session == nil {
 		return
 	}
-	if multi {
-		makeViewportLoginOverlay(state, session)
+	if multi && appSessions != nil && appSessions.selectedID() == session.ID() && loginWin != nil {
+		updateCharacterButtons()
 	}
-	if state.loginOverlay == nil {
-		return
-	}
-	connected := session.transport.connected()
-	visible := multi && !connected
-	state.loginOverlay.Invisible = !visible
-	if state.sessionLogout != nil {
-		state.sessionLogout.Invisible = !multi || !connected
-		state.sessionLogout.Dirty = true
-	}
-	layoutViewportLoginOverlay(state)
-	if !visible {
-		state.window.Refresh()
-		return
-	}
-	statusText, lastErr := session.login.statusSnapshot()
-	if statusText == "" {
-		statusText = "Disconnected"
-	}
-	if lastErr != "" {
-		if strings.HasPrefix(statusText, "Reconnecting") {
-			statusText += "\n" + lastErr
-		} else {
-			statusText = "Error: " + lastErr
-		}
-	}
-	state.loginStatus.Text = statusText
-	state.loginStatus.Dirty = true
-	busy := session.connectionBusy() || state.loginDemoLookup
-	state.loginServerChoice.Disabled = busy
-	state.loginCharacters.Disabled = busy
-	state.loginCharacters.Dirty = true
-	for _, button := range []*eui.ItemData{state.loginAdd, state.loginEdit, state.loginDelete} {
-		if button != nil {
-			button.Disabled = busy || (button != state.loginAdd && (state.loginCharacter == "" || state.loginCharacter == freeDemoSelection))
-			button.Dirty = true
-		}
-	}
-	if state.loginDemoLookup {
-		state.loginAction.Text = "Finding Demo..."
-		state.loginAction.Disabled = true
-		state.loginAction.OutlineColor = eui.ColorGreen
-	} else if busy {
-		state.loginAction.Text = "Cancel"
-		state.loginAction.Disabled = false
-		state.loginAction.OutlineColor = eui.ColorDarkRed
-	} else {
-		state.loginAction.Text = "Connect"
-		state.loginAction.Disabled = state.loginCharacter == ""
-		state.loginAction.OutlineColor = eui.ColorGreen
-		if state.loginAction.Disabled {
-			state.loginAction.SetTooltip("Select a character before connecting.")
-		} else {
-			state.loginAction.SetTooltip("Connect as the selected character.")
-		}
-	}
-	state.loginAction.Dirty = true
-	state.window.Refresh()
 }
 
 func focusViewportLogin(id SessionID) {
-	state := appViewports.renderStateForSession(id)
-	if state == nil || state.window == nil || state.loginOverlay == nil || state.loginOverlay.Invisible {
+	if appSessions == nil || !appSessions.selectSession(id) || loginWin == nil {
 		return
 	}
-	state.window.BringForward()
+	updateCharacterButtons()
+	centerLoginWindow()
+	loginWin.MarkOpen()
 }
 
 func refreshViewportSelectionTreatment() {
@@ -576,37 +291,20 @@ func refreshViewportWorkspace() {
 	if appSessions == nil || appViewports == nil || gameWin == nil {
 		return
 	}
-	ensureSessionTabBar()
+	createdTabBar := ensureSessionTabBar()
 	selected := appSessions.selectedID()
 	appViewports.showSession(selected)
 	bindSelectedViewportWindow()
 	views := appViewports.snapshot()
 	sessions := appSessions.snapshot()
-	if loginWin != nil && loginWin.IsOpen() {
-		loginWin.Close()
-	}
 	for slot, view := range views {
 		state := view.render
 		if state == nil {
 			continue
 		}
-		if state.loginOverlay != nil {
-			state.loginOverlay.Invisible = true
-		}
-		if state.sessionLogout != nil {
-			state.sessionLogout.Invisible = true
-		}
 		if sessions[slot] == nil {
 			if state.window != nil && state.window != gameWin {
 				state.window.RemoveWindow()
-			}
-			if gameWin != nil {
-				if state.loginOverlay != nil {
-					gameWin.RemoveItem(state.loginOverlay)
-				}
-				if state.sessionLogout != nil {
-					gameWin.RemoveItem(state.sessionLogout)
-				}
 			}
 			if state.imageBacking != nil && state.imageBacking != gameImageBacking {
 				state.imageBacking.Deallocate()
@@ -621,7 +319,6 @@ func refreshViewportWorkspace() {
 			state.lightingTmp = nil
 			state.nightTransition = nightTransitionState{}
 			state.worldRenderValid = false
-			clearViewportLoginUI(state)
 			continue
 		}
 		if view.SessionID != selected {
@@ -640,29 +337,24 @@ func refreshViewportWorkspace() {
 		state.imageBacking = gameImageBacking
 		state.worldRenderValid = false
 		updateViewportImageSize(state, gs.TiledWindows)
-		refreshViewportLoginOverlay(state, sessions[slot], sessionTabsVisible())
 	}
 	refreshSessionTabs()
+	if createdTabBar && !gs.TiledWindows {
+		onGameWindowResize()
+	}
 	if !gameWin.IsOpen() {
 		gameWin.MarkOpen()
 	}
-	refreshViewportTitles()
-}
-
-func clearViewportLoginUI(state *viewportRenderState) {
-	if state == nil {
-		return
+	if session, ok := appSessions.session(selected); ok && loginWin != nil && sessionTabsVisible() && !status.NeedImages && !status.NeedSounds {
+		if session.transport.connected() {
+			loginWin.Close()
+		} else {
+			updateCharacterButtons()
+			centerLoginWindow()
+			loginWin.MarkOpen()
+		}
 	}
-	state.loginOverlay = nil
-	state.loginForm = nil
-	state.loginStatus = nil
-	state.loginServerChoice = nil
-	state.loginCharacters = nil
-	state.loginAdd = nil
-	state.loginEdit = nil
-	state.loginDelete = nil
-	state.loginAction = nil
-	state.sessionLogout = nil
+	refreshViewportTitles()
 }
 
 func refreshViewportRectsFromDrawRects() {

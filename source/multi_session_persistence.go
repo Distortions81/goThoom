@@ -18,6 +18,8 @@ type multiSessionWorkspaceDocument struct {
 	Selected              SessionID         `json:"selected_session"`
 	OpenTabs              [maxSessions]bool `json:"open_tabs"`
 	TabHotkeysInitialized bool              `json:"tab_hotkeys_initialized,omitempty"`
+	TabCycleInitialized   bool              `json:"tab_cycle_hotkeys_initialized,omitempty"`
+	ClientHotkeysVersion  int               `json:"client_hotkeys_version,omitempty"`
 }
 
 var (

@@ -139,7 +139,7 @@ func TestKeepGameLargeRefitsAfterWorkspaceChanges(t *testing.T) {
 	}
 	updateTiledKeepGameLarge(true)
 	applyTiledWindowStates()
-	want := float64(1080) * 0.75 * float64(gameAreaSizeX) / float64(gameAreaSizeY) / 2560
+	want := (float64(1080)*0.75 - sessionTabBarHeight) * float64(gameAreaSizeX) / float64(gameAreaSizeY) / 2560
 	if !tiledSizeNear(gs.GameWindow.Size.X, want) {
 		t.Fatalf("re-enabled automatic width = %g, want %g for the new game height", gs.GameWindow.Size.X, want)
 	}
@@ -147,7 +147,7 @@ func TestKeepGameLargeRefitsAfterWorkspaceChanges(t *testing.T) {
 		t.Fatal("message row divider did not move")
 	}
 	applyTiledWindowStates()
-	want = float64(1080) * 0.80 * float64(gameAreaSizeX) / float64(gameAreaSizeY) / 2560
+	want = (float64(1080)*0.80 - sessionTabBarHeight) * float64(gameAreaSizeX) / float64(gameAreaSizeY) / 2560
 	if !tiledSizeNear(gs.GameWindow.Size.X, want) {
 		t.Fatal("automatic width did not follow the changed message row height")
 	}

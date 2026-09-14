@@ -36,6 +36,8 @@ func TestMultiSessionWorkspaceIsLazyAndRoundTripsTabs(t *testing.T) {
 	open[0], open[2], open[9] = true, true, true
 	appSessions.restoreTabs(open, 3)
 	multiSessionWorkspace.TabHotkeysInitialized = true
+	multiSessionWorkspace.TabCycleInitialized = true
+	multiSessionWorkspace.ClientHotkeysVersion = clientHotkeysVersion
 	multiSessionWorkspaceUsed = true
 	multiSessionWorkspaceDirty = true
 	saveMultiSessionWorkspace()
@@ -50,6 +52,12 @@ func TestMultiSessionWorkspaceIsLazyAndRoundTripsTabs(t *testing.T) {
 	}
 	if !multiSessionWorkspace.TabHotkeysInitialized {
 		t.Fatal("tab hotkey migration marker was not restored")
+	}
+	if !multiSessionWorkspace.TabCycleInitialized {
+		t.Fatal("tab cycle hotkey migration marker was not restored")
+	}
+	if multiSessionWorkspace.ClientHotkeysVersion != clientHotkeysVersion {
+		t.Fatalf("client hotkey version = %d", multiSessionWorkspace.ClientHotkeysVersion)
 	}
 }
 

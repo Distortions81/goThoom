@@ -69,19 +69,8 @@ func openMessageEmojiPicker(flow, anchor *eui.ItemData) {
 		return
 	}
 	selectedMessageInput = flow
-	before := string(inputText)
-	start, end := inputPos, inputPos
-	if item := messageInputItem(flow); item != nil && item.SelectStart != item.SelectEnd {
-		start, end = plainCursorPos(item.Text, item.SelectStart), plainCursorPos(item.Text, item.SelectEnd)
-		if start > end {
-			start, end = end, start
-		}
-	}
 	picker := newEmojiPicker(func(entry emojiEntry) {
-		if string(inputText) != before {
-			start, end = inputPos, inputPos
-		}
-		insertMessageEmoji(flow, encodeEmojiShortcodes(entry.Emoji), start, end)
+		appendMessageEmoji(flow, encodeEmojiShortcodes(entry.Emoji))
 	})
 	activeEmojiPicker = picker
 	picker.win.OnClose = func() {
@@ -95,15 +84,11 @@ func openMessageEmojiPicker(flow, anchor *eui.ItemData) {
 	eui.Focus(picker.search)
 }
 
-func insertMessageEmoji(flow *eui.ItemData, shortcode string, start, end int) {
+func appendMessageEmoji(flow *eui.ItemData, shortcode string) {
 	inputMu.Lock()
-	start = max(0, min(start, len(inputText)))
-	end = max(start, min(end, len(inputText)))
 	insert := []rune(shortcode)
-	updated := append([]rune(nil), inputText[:start]...)
-	updated = append(updated, insert...)
-	inputText = append(updated, inputText[end:]...)
-	inputPos = start + len(insert)
+	inputText = append(inputText, insert...)
+	inputPos = len(inputText)
 	inputActive = true
 	inputMu.Unlock()
 	selectedMessageInput = flow
@@ -266,11 +251,8 @@ func (p *emojiPicker) rebuild() {
 		button.Face = &text.GoTextFace{Source: emojiFaceSource, Size: float64(button.FontSize*eui.UIScale()) + 2}
 		button.SetTooltip(entry.Name + " (" + encodeEmojiShortcodes(entry.Emoji) + ")")
 		events.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick && gs.ExpandEmojiNames {
-				p.win.Close()
-				if p.choose != nil {
-					p.choose(entry)
-				}
+			if ev.Type == eui.EventClick {
+				p.selectEntry(entry)
 			}
 		}
 		row.AddItem(button)
@@ -283,6 +265,16 @@ func (p *emojiPicker) rebuild() {
 	for group, button := range p.groupButtons {
 		button.Filled = p.search.Text == "" && group == p.group
 	}
-	p.status.Text = fmt.Sprintf("%d emoji · Choose one to insert its name", len(entries))
+	p.status.Text = fmt.Sprintf("%d emoji · Choose one to append its name", len(entries))
 	p.win.Refresh()
+}
+
+func (p *emojiPicker) selectEntry(entry emojiEntry) {
+	if p == nil || p.win == nil || !p.win.IsOpen() || p.choose == nil {
+		return
+	}
+	choose := p.choose
+	p.choose = nil
+	choose(entry)
+	p.win.Close()
 }

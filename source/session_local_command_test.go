@@ -56,6 +56,15 @@ func TestSessionScriptCommandsUseOnlyOwningRuntime(t *testing.T) {
 	}
 }
 
+func TestMovementHotkeyCommandsStayLocal(t *testing.T) {
+	session := mustNewSession(2)
+	for _, command := range []string{"/move left", "/move right", "/move up", "/move down", "/move run"} {
+		if !dispatchSessionLocalCommand(session, command) {
+			t.Errorf("%q was not consumed locally", command)
+		}
+	}
+}
+
 func TestSessionScriptHotkeysUseOnlyOwningRuntime(t *testing.T) {
 	first := mustNewSession(2)
 	second := mustNewSession(3)

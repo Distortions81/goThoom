@@ -1,5 +1,5 @@
 {
-  "Comment": "Inspired by KDE Breeze Dark. Neutral surfaces, subtle borders, and an adjustable blue accent. Colors use #RRGGBBAA.",
+  "Comment": "Neutral dark surfaces, subtle borders, and an adjustable blue accent. Colors use #RRGGBBAA.",
   "Colors": {
     "background": "#202326ff",
     "panel": "#292c30ff",
@@ -118,7 +118,7 @@
     "DisabledColor": "disabled",
     "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "Breeze",
+  "RecommendedStyle": "Default",
   "Progress": {
     "TextColor": "text",
     "Color": "view",

@@ -52,11 +52,13 @@ func (g *Game) Layout(w, h int) (int, int) { return eui.Layout(w, h) }
 layout, call `SetScreenSize` with its actual dimensions and manage UI scaling
 explicitly. Most widget sizes use logical UI units. Set `Size` when you need an
 explicit width or height; `Fixed` and `Scrollable` create bounded viewports.
-Set `ConstrainToSize` when a non-scrollable flow must not expand to its children.
+Set `ConstrainToSize` when a non-scrollable flow must not expand to its children,
+or when a fixed-width control should clip a long caption instead of widening.
 
 ## Building UI
 
-- `NewColumn`, `NewRow`, `NewLabel`, and `NewActionButton` cover basic composition.
+- `NewColumn`, `NewRow`, `NewOverlay`, `NewLabel`, and `NewActionButton` cover basic composition.
+  Overlay children share one origin, so icon actions can sit inside a larger control without changing its layout width.
   `NewSection` and `NewSubheading` add consistent configuration headings.
 - The original widget constructors return an item and event handler for detailed
   control. Populate the item and assign `events.Handle` for the events you need.

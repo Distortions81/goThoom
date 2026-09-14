@@ -1,5 +1,5 @@
 {
-  "Comment": "Inspired by KDE Breeze Light. Neutral surfaces, subtle borders, and an adjustable blue accent. Colors use #RRGGBBAA.",
+  "Comment": "Neutral light surfaces, subtle borders, and an adjustable blue accent. Colors use #RRGGBBAA.",
   "Colors": {
     "background": "#eff0f1ff",
     "panel": "#dee0e2ff",
@@ -17,7 +17,7 @@
     "disabledtoggle": "#838688ff",
     "disabledtoggletext": "#33383dff"
   },
-  "RecommendedStyle": "Breeze",
+  "RecommendedStyle": "Default",
   "Window": {
     "Padding": 8,
     "BGColor": "background",

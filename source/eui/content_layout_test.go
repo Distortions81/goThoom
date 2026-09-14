@@ -63,6 +63,26 @@ func TestConstrainedFlowKeepsDeclaredViewportSize(t *testing.T) {
 	}
 }
 
+func TestConstrainedButtonKeepsDeclaredWidth(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := UIScale()
+	t.Cleanup(func() { SetUIScale(oldScale) })
+	SetUIScale(1)
+
+	button, _ := NewButton()
+	button.Text = "A caption wider than the available tab"
+	button.Size = Point{X: 40, Y: 20}
+	if button.GetSize().X <= 40 {
+		t.Fatal("test caption does not exercise content width expansion")
+	}
+	button.ConstrainToSize = true
+	if got := button.GetSize().X; got != 40 {
+		t.Fatalf("constrained button width = %.2f, want 40", got)
+	}
+}
+
 func TestWindowBodyReservesMeasuredFooterAndPositionGaps(t *testing.T) {
 	if err := Init(); err != nil {
 		t.Fatal(err)

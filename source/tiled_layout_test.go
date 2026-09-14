@@ -29,7 +29,7 @@ func TestCenteredTiledLayoutUsesCurrentThreeColumnWorkspace(t *testing.T) {
 	assertWindowRect(t, gs.PlayersWindow, 1-gs.TiledRightWidth, 0, gs.TiledRightWidth, 0.70)
 	assertWindowRect(t, gs.MessagesWindow, 0, 0.70, gs.TiledLeftWidth, 0.30)
 	assertWindowRect(t, gs.ChatWindow, 1-gs.TiledRightWidth, 0.70, gs.TiledRightWidth, 0.30)
-	wantGamePixels := float64(1080*gameAreaSizeX) / float64(gameAreaSizeY)
+	wantGamePixels := float64((1080-sessionTabBarHeight)*gameAreaSizeX) / float64(gameAreaSizeY)
 	if gamePixels := gs.GameWindow.Size.X * 1920; math.Abs(gamePixels-wantGamePixels) > 1e-9 {
 		t.Fatalf("game pane width = %v pixels, want aspect-matched %v", gamePixels, wantGamePixels)
 	}

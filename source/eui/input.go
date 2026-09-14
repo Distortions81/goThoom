@@ -373,7 +373,7 @@ func Update() error {
 		focusedItem = nil
 	}
 
-	if focusedItem != nil && !keyboardInputCaptured {
+	if focusedItem != nil && !keyboardInputCaptured && itemHandlesTextEditing(focusedItem) {
 		for _, r := range chars {
 			if r >= 32 && r != 127 && r != '\r' && r != '\n' {
 				if focusedItem.HideText {

@@ -47,7 +47,7 @@
   {
     "title": "Command palette",
     "url": "./#command-palette",
-    "text": "Press Ctrl + Shift + P or choose Tools → Palette . Type to filter, use ↑ / ↓ , press Enter to run, or Esc to close."
+    "text": "Press the default Ctrl + Shift + P shortcut on Windows/Linux or Command + Shift + P on macOS, or choose Tools → Palette . Change the shortcut under Actions → Hotkeys . Type to filter, use ↑ / ↓ , press Enter to run, or Esc to close."
   },
   {
     "title": "Pointer actions at a glance",
@@ -57,7 +57,7 @@
   {
     "title": "Choose how to walk",
     "url": "./#movement-options",
-    "text": "Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it. For a continuing movement target, open Settings → Controls and enable Click-to-toggle movement . Try it in a clear area so you can get used to toggling movement. Adjust Keyboard Walk Speed for keyboard walking. This changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game. The Gamepad window is currently marked “Work in progress, does not function.” Use mouse or keyboard movement. Use the input tester if a key or mouse button is not recognized as expected. Keep Middle-click moves windows off if you use that button for game actions. When enabled, it provides another way to reposition movable windows. 1 Settings → Controls 1 With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message. Hide highlights Open full-size image"
+    "text": "Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it. For a continuing movement target, open Settings → Controls and enable Click-to-toggle movement . Try it in a clear area so you can get used to toggling movement. Adjust Keyboard Walk Speed for keyboard walking. Change the WASD, arrow-key, and run bindings under Actions → Hotkeys . The speed setting changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game. The Gamepad window is currently marked “Work in progress, does not function.” Use mouse or keyboard movement. Use the input tester if a key or mouse button is not recognized as expected. Keep Middle-click moves windows off if you use that button for game actions. When enabled, it provides another way to reposition movable windows. 1 Settings → Controls 1 With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message. Hide highlights Open full-size image"
   },
   {
     "title": "Mac shortcuts and dictation",
@@ -77,7 +77,7 @@
   {
     "title": "The toolbar",
     "url": "./#the-toolbar",
-    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, and the Snap capture window. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Logout Disconnects and returns to the Login window."
+    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, and the Snap capture window. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Help Opens the online user manual."
   },
   {
     "title": "Default tiled layout",
@@ -332,7 +332,7 @@
   {
     "title": "Hotkeys",
     "url": "automation.html#hotkeys-2",
-    "text": "Open Actions → Hotkeys and press + . Give the hotkey a name, choose Record , press the desired keyboard or mouse combination, and add one or more commands. Script-provided hotkeys appear in the same window and can be individually enabled or disabled. Use Actions → Keybindings to inspect active script and legacy-macro bindings in one place. Test Keyboard/Mouse shows the input names the client detects and helps diagnose unusual keyboards or mouse buttons."
+    "text": "Open Actions → Hotkeys to rebind or disable the client’s fullscreen, command-palette, keyboard-movement, run, and session-tab shortcuts. Select a built-in hotkey to change its Enabled state; built-in entries remain available instead of being deleted. Press + to add another hotkey: give it a name, choose Record , press the desired keyboard or mouse combination, and add one or more commands. Script-provided hotkeys appear in the same window and can be individually enabled or disabled. To record a modifier by itself, such as Shift for running, press and release it without pressing another key. Use Actions → Keybindings to inspect active script and legacy-macro bindings in one place. Test Keyboard/Mouse shows the input names the client detects and helps diagnose unusual keyboards or mouse buttons."
   },
   {
     "title": "Create a hotkey for the selected player",
@@ -492,7 +492,7 @@
   {
     "title": "Settings: Display",
     "url": "reference.html#settings-display",
-    "text": "Settings → Display UI Scale Apply Fullscreen (F12) Show FPS Show the current frame rate in the game view. Always on top Window Shadows Show the shadow or glow defined by the theme around floating windows and menus. Toolbar Placement Choose which list contains the toolbar. Window Layout Open panel ordering, game placement, and combined-message controls. Toolbar Info Show network and performance stats. Reset Windows Restore the default window layout. Color Theme Follow system switches between AccentLight and AccentDark with your system appearance. Hover to preview; click to keep a choice. Style Theme Hover to preview control shapes and spacing. Click to keep the style. Choose accent color Choose accent color Inventory Chat Console Players Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply. Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences."
+    "text": "Settings → Display UI Scale Apply Fullscreen Show FPS Show the current frame rate in the game view. Keep window on top Keep goThoom above other application windows. Fullscreen already stays on top. Window Shadows Show the shadow or glow defined by the theme around floating windows and menus. Toolbar Placement Choose which list contains the toolbar. Window Layout Open panel ordering, game placement, and combined-message controls. Toolbar Info Show network and performance stats. Reset Windows Restore the default window layout. Color Theme Follow system switches between AccentLight and AccentDark with your system appearance. Hover to preview; click to keep a choice. Style Theme Hover to preview control shapes and spacing. Click to keep the style. Choose accent color Choose accent color Inventory Chat Console Players Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply. Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences."
   },
   {
     "title": "Settings: World",

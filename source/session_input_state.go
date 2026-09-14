@@ -314,7 +314,7 @@ func bindMessageInputSession(session *Session) {
 	inputPos = state.draftPos
 	inputHistory = append(inputHistory[:0], state.history...)
 	historyPos = state.historyPos
-	inputActive = state.active
+	inputActive = state.active || gs.InputBarAlwaysOpen
 	selectedMessageInput = nil
 	walkToggled = false
 	keyWalkPrev = false

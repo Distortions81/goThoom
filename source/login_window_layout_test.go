@@ -42,7 +42,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		t.Fatalf("login root items = %d, want 1 flow", len(loginWin.Contents))
 	}
 	items := loginWin.Contents[0].Contents
-	if len(items) != 11 {
+	if len(items) != 12 {
 		t.Fatalf("login flow items = %d, want controls, Character list label, and spacers", len(items))
 	}
 	utilities := items[0].Contents
@@ -52,18 +52,27 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	if items[2].Text != "Edit Characters:" || items[5].Text != "Character list:" || items[6] != charactersList {
 		t.Fatal("login controls are not ordered utilities, character actions, character list, Connect")
 	}
-	connectRow := items[8].Contents
-	if len(connectRow) != 2 || connectRow[0].Text != "Connect" || connectRow[1] != loginServerDropdown {
-		t.Fatal("Connect row should contain Connect and the server selector")
+	if items[8].Text != "Server:" {
+		t.Fatal("server selector should have a separate row label")
 	}
-	if !utilities[1].Outlined || utilities[1].OutlineColor != eui.ColorRed || !connectRow[0].Outlined || connectRow[0].OutlineColor != eui.ColorGreen {
+	connectRow := items[9].Contents
+	if len(connectRow) != 2 || connectRow[0] != loginServerDropdown || connectRow[1].Text != "Connect" {
+		t.Fatal("Connect row should contain the server selector and Connect")
+	}
+	if loginServerDropdown.Label != "" || loginServerDropdown.Size.Y != connectRow[1].Size.Y {
+		t.Fatal("server selector and Connect should share one aligned control height")
+	}
+	if loginServerDropdown.Size.X+connectRow[1].Position.X+connectRow[1].Size.X != charWinWidth {
+		t.Fatal("server selector and Connect should fill the login width")
+	}
+	if !utilities[1].Outlined || utilities[1].OutlineColor != eui.ColorRed || !connectRow[1].Outlined || connectRow[1].OutlineColor != eui.ColorGreen {
 		t.Fatal("Quit and Connect do not have red and green frames")
 	}
 	actions := items[3].Contents
 	if len(actions) != 3 || actions[0].Text != "Add" || actions[1].Text != "Edit" || actions[2].Text != "Delete" {
 		t.Fatalf("character action row = %#v, want Add, Edit, Delete", actions)
 	}
-	versionRow := items[10].Contents
+	versionRow := items[11].Contents
 	if len(versionRow) != 3 || versionRow[1].Text != "Changelog" || versionRow[2].Text != "About" {
 		t.Fatalf("version row does not end with Changelog and About")
 	}

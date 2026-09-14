@@ -220,7 +220,7 @@ func makeSettingsWindow() {
 	windowSection.AddItem(uiScaleRow)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
-	fullscreenCB.Text = "Fullscreen (F12)"
+	fullscreenCB.Text = "Fullscreen"
 	fullscreenCB.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	fullscreenCB.Checked = gs.Fullscreen
 	fullscreenEvents.Handle = func(ev eui.UIEvent) {
@@ -1216,9 +1216,10 @@ func addDisplaySettings(windowSection *eui.ItemData, columnWidth float32) {
 	windowSection.AddItem(showFPSCB)
 
 	alwaysTopCB, alwaysTopEvents := eui.NewCheckbox()
-	alwaysTopCB.Text = "Always on top"
+	alwaysTopCB.Text = "Keep window on top"
 	alwaysTopCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
 	alwaysTopCB.Checked = gs.AlwaysOnTop
+	alwaysTopCB.SetTooltip("Keep goThoom above other application windows. Fullscreen already stays on top.")
 	alwaysTopEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()

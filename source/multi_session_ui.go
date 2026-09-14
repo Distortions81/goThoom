@@ -42,14 +42,15 @@ func sessionTabBarPixelHeight() int {
 	return sessionTabBarHeight
 }
 
-func ensureSessionTabBar() {
+func ensureSessionTabBar() bool {
 	if sessionTabBar != nil || gameWin == nil {
-		return
+		return false
 	}
 	sessionTabBar = eui.NewRow()
 	sessionTabBar.Fixed = true
 	sessionTabBar.ConstrainToSize = true
 	gameWin.PrependItem(sessionTabBar)
+	return true
 }
 
 func sessionTabWidths(available float32, count int) (tab, closeButton, addButton float32) {
@@ -100,6 +101,35 @@ func selectSessionTabPosition(position int) bool {
 	return false
 }
 
+func selectAdjacentSessionTab(direction int) bool {
+	if appSessions == nil || direction == 0 {
+		return false
+	}
+	var open []SessionID
+	for _, session := range appSessions.snapshot() {
+		if session != nil {
+			open = append(open, session.ID())
+		}
+	}
+	if len(open) == 0 {
+		return false
+	}
+	selected := appSessions.selectedID()
+	index := 0
+	for candidate, id := range open {
+		if id == selected {
+			index = candidate
+			break
+		}
+	}
+	if direction > 0 {
+		index = (index + 1) % len(open)
+	} else {
+		index = (index - 1 + len(open)) % len(open)
+	}
+	return appSessions.selectSession(open[index])
+}
+
 func confirmCloseSessionTab(session *Session) {
 	if session == nil || appSessions == nil {
 		return
@@ -138,27 +168,39 @@ func refreshSessionTabs() {
 	count := appSessions.count()
 	contentWidth := gameWin.GetSize().X - 2*(gameWin.Padding+gameWin.BorderPad)
 	width := maxFloat32(1, contentWidth) / scale
-	tabWidth, closeWidth, plusWidth := sessionTabWidths(width, count)
+	tabWidth, actionWidth, plusWidth := sessionTabWidths(width, count)
 	items := make([]*eui.ItemData, 0, count+1)
 	selected := appSessions.selectedID()
+	position := 0
 	for _, session := range sessions {
 		if session == nil {
 			continue
 		}
+		position++
 		session := session
-		segment := eui.NewRow()
+		segment := eui.NewOverlay()
 		segment.Fixed = true
 		segment.ConstrainToSize = true
 		segment.Size = eui.Point{X: tabWidth, Y: sessionTabBarHeight / scale}
-		// The close button overlaps the right edge of the full-width tab
-		// button. This keeps the X visibly inside the tab it closes while the
-		// reverse-order hit testing still gives the X its own click target.
+		// The action hit targets live inside the full-width tab surface. The game
+		// window does not scale positions, while item sizes retain the global UI
+		// scale, so overlay positions are expressed in final screen pixels.
+		tabPixelWidth := tabWidth * scale
+		actionPixelWidth := actionWidth * scale
 		selectWidth := tabWidth
 		selectButton, selectEvents := eui.NewButton()
-		selectButton.Text = sessionTabLabel(session, tabWidth-closeWidth)
+		musicVisible := false
+		if slot, ok := session.ID().Slot(); ok {
+			musicVisible = sessionMusicIndicators[slot]
+		}
+		labelWidth := tabWidth - actionWidth
+		if musicVisible {
+			labelWidth -= actionWidth
+		}
+		selectButton.Text = ""
 		selectButton.Size = eui.Point{X: selectWidth, Y: sessionTabBarHeight / scale}
 		selectButton.Position = eui.Point{}
-		selectButton.SetTooltip(fmt.Sprintf("Show Session %d. The shortcut can be changed in Hotkeys.", session.ID()))
+		selectButton.SetTooltip(hotkeyComboForCommand(fmt.Sprintf("/tab %d", position)))
 		if session.ID() == selected {
 			selectButton.Color = eui.AccentColor()
 		}
@@ -169,10 +211,39 @@ func refreshSessionTabs() {
 		}
 		segment.AddItem(selectButton)
 
+		labelButton, labelEvents := eui.NewButton()
+		labelButton.Text = sessionTabLabel(session, labelWidth)
+		labelButton.NoSurface = true
+		labelButton.ConstrainToSize = true
+		labelButton.Size = eui.Point{X: maxFloat32(1, labelWidth), Y: sessionTabBarHeight / scale}
+		labelButton.Position = eui.Point{}
+		if musicVisible {
+			labelButton.Position.X = actionPixelWidth
+		}
+		labelButton.SetTooltip(selectButton.Tooltip)
+		labelEvents.Handle = selectEvents.Handle
+		segment.AddItem(labelButton)
+
+		if musicVisible {
+			musicButton, musicEvents := eui.NewButton()
+			setMaterialIconOnly(musicButton, "music_note", "")
+			musicButton.ImageName = "music_note"
+			musicButton.NoSurface = true
+			musicButton.Size = eui.Point{X: actionWidth, Y: sessionTabBarHeight / scale}
+			musicButton.Position = eui.Point{}
+			musicButton.SetTooltip(selectButton.Tooltip)
+			musicEvents.Handle = selectEvents.Handle
+			segment.AddItem(musicButton)
+		}
+
 		closeButton, closeEvents := eui.NewButton()
 		setMaterialIconOnly(closeButton, "close", "X")
-		closeButton.Size = eui.Point{X: closeWidth, Y: sessionTabBarHeight / scale}
-		closeButton.Position = eui.Point{X: -closeWidth}
+		// Material icons load on the first draw. Do not let their temporary text
+		// fallback enlarge a narrow tab before the icon is available.
+		closeButton.Text = ""
+		closeButton.NoSurface = true
+		closeButton.Size = eui.Point{X: actionWidth, Y: sessionTabBarHeight / scale}
+		closeButton.Position = eui.Point{X: tabPixelWidth - actionPixelWidth}
 		closeButton.Disabled = count <= 1
 		if closeButton.Disabled {
 			closeButton.SetTooltip("At least one session tab must remain open.")

@@ -35,16 +35,6 @@ type viewportRenderState struct {
 	nightTransition    nightTransitionState
 	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
 	bubbleLayout       bubbleLayoutContext
-	loginOverlay       *eui.ItemData
-	loginForm          *eui.ItemData
-	loginStatus        *eui.ItemData
-	loginServerChoice  *eui.ItemData
-	loginCharacters    *eui.ItemData
-	loginAdd           *eui.ItemData
-	loginEdit          *eui.ItemData
-	loginDelete        *eui.ItemData
-	loginAction        *eui.ItemData
-	sessionLogout      *eui.ItemData
 	loginServer        string
 	loginCharacter     string
 	loginDemoLookup    bool
