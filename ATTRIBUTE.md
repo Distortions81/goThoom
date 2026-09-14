@@ -18,7 +18,7 @@ Copyright (c) 2025 Carl Frank Otto III.
 - **rich-go** — MIT — Hugo Lageneste  
   https://github.com/hugolgst/rich-go
 - **go-meltysynth** — MIT — Nobuaki Tanaka  
-  https://github.com/sinshu/go-meltysynth
+  https://github.com/Distortions81/go-meltysynth
 - **dialog** — ISC — sqweek and contributors  
   https://github.com/sqweek/dialog
 - **dark-mode-go** — MIT — Thiago Kenji Okada  

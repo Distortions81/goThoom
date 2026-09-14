@@ -23,7 +23,7 @@ const (
 	sampleRate = 44100
 	// Use a small fixed render block that aligns with common synth effect
 	// processing sizes to avoid internal ring-buffer edge cases.
-	block = 1024
+	block = 64
 
 	// tailSamples extends the rendered length to allow natural release/verb.
 	// Keep a small base tail to capture synth effect decays even without fade.

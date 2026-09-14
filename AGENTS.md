@@ -67,6 +67,12 @@ regenerate the resource archive, and re-share `gothoom_deps.tar.gz`.
 
 ## Validation
 
+When a test or benchmark needs installed runtime assets, check the user's
+normal goThoom data folder first. In particular, use the normal installed
+`soundfont.sf2` from that folder for music benchmarks unless another fixture is
+explicitly requested. Do not conclude that an asset is unavailable merely
+because it is absent from the repository.
+
 Run focused tests while working. For localized visual, layout, copy, or other
 low-risk UI changes, finish with the smallest relevant compile/test check and
 `git diff --check`; do not routinely run the full suite just to validate a few

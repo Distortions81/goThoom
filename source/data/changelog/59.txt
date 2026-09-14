@@ -13,6 +13,7 @@ Audio:
 - Improved enhanced game sounds so ambience keeps its intended character and simultaneous effects retain consistent volume.
 - Optionally spread sound effects arriving in the same game update across a short, adjustable interval so each effect remains distinct. This is enabled by default.
 - New settings start with game effects at full volume and bard music at one-third volume for a clearer initial mix.
+- Improved bard-music timing and reduced synthesis overhead with finer-grained rendering and an updated synthesizer.
 
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.
