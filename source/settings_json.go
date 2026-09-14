@@ -215,6 +215,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "PowerSaveBackground", category: settingsPerformance, name: "power_save_when_unfocused"},
 	{field: "PowerSaveAlways", category: settingsPerformance, name: "always_power_save"},
 	{field: "PowerSaveFPS", category: settingsPerformance, name: "power_save_fps"},
+	{field: "LimitFPS250", category: settingsPerformance, name: "limit_to_250_fps"},
 	{field: "PotatoGPU", category: settingsPerformance, name: "integrated_or_low_memory_gpu_mode"},
 	{field: "BatchArtworkLoading", category: settingsPerformance, name: "batch_room_artwork_loading"},
 	{field: "SpriteCacheMiB", category: settingsPerformance, name: "sprite_cache_mib"},
@@ -498,7 +499,7 @@ func parseArtworkUpscaleMode(name string) int {
 	case "ultra_smooth":
 		return artworkUpscaleUltraSmooth
 	default:
-		return artworkUpscaleUltraSmooth
+		return artworkUpscaleBalanced
 	}
 }
 
@@ -549,6 +550,6 @@ func parseBarStyle(name string) BarStyle {
 	case "hidden", "off":
 		return BarStyleHidden
 	default:
-		return BarStyleRegular
+		return BarStyleCompact
 	}
 }

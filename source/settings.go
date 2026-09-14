@@ -68,11 +68,20 @@ var defaultPrecacheSounds = precacheSoundsDefault(systemMemoryBytes(), isWASM)
 
 const gibibyte = uint64(1024 * 1024 * 1024)
 
+const (
+	minimumPowerSaveFPS = 1
+	maximumPowerSaveFPS = 250
+)
+
 func precacheSoundsDefault(totalMemory uint64, wasm bool) bool {
 	if wasm || totalMemory == 0 {
 		return false
 	}
 	return totalMemory >= 4*gibibyte
+}
+
+func clampPowerSaveFPS(value int) int {
+	return min(max(value, minimumPowerSaveFPS), maximumPowerSaveFPS)
 }
 
 // settingsLoaded reports whether settings were successfully loaded from disk.
@@ -193,6 +202,91 @@ func normalizeGamma(v, fallback float64) float64 {
 	return best
 }
 
+// normalizeLoadedNumericSettings keeps hand-edited and older settings within
+// the ranges exposed by the current UI. Valid in-range preferences are left
+// untouched; invalid values are moved to the nearest supported boundary.
+func normalizeLoadedNumericSettings(value *settings) bool {
+	if value == nil {
+		return false
+	}
+	changed := false
+	clampFloat := func(target *float64, minimum, maximum float64) {
+		normalized := math.Min(math.Max(*target, minimum), maximum)
+		if normalized != *target {
+			*target = normalized
+			changed = true
+		}
+	}
+	clampInt := func(target *int, minimum, maximum int) {
+		normalized := min(max(*target, minimum), maximum)
+		if normalized != *target {
+			*target = normalized
+			changed = true
+		}
+	}
+
+	clampFloat(&value.KBWalkSpeed, 0.1, 1)
+	clampFloat(&value.MainFontSize, 5, 48)
+	clampFloat(&value.BubbleFontSize, 4, 48)
+	clampFloat(&value.ConsoleFontSize, 4, 48)
+	clampFloat(&value.ChatFontSize, 4, 48)
+	clampFloat(&value.InventoryFontSize, 5, 48)
+	clampFloat(&value.PlayersFontSize, 5, 48)
+	clampFloat(&value.BubbleOpacity, 0, 1)
+	clampFloat(&value.BubbleBaseLife, 1, 5)
+	clampFloat(&value.BubbleLifePerWord, 0, 2)
+	clampFloat(&value.BubbleScale, 1, 8)
+	clampFloat(&value.NameBgOpacity, 0, 1)
+	clampFloat(&value.BarOpacity, 0.1, 1)
+	clampFloat(&value.ObscuringPictureOpacity, 0.25, 0.7)
+	clampInt(&value.NameHealthBarThickness, 1, 8)
+	clampInt(&value.MaxNightLevel, 0, 100)
+
+	clampFloat(&value.BlendAmount, 0.1, 1)
+	clampFloat(&value.MobileBlendAmount, 0.1, 1)
+	clampFloat(&value.DenoiseSharpness, 0, 20)
+	clampFloat(&value.DenoiseAmount, 0, 0.5)
+	clampFloat(&value.ShaderLightStrength, 0, 2)
+	clampFloat(&value.ShaderGlowStrength, 0, 2)
+	clampFloat(&value.FlameFlickerStrength, 0, 2)
+	clampFloat(&value.CharacterShadowDarkness, 0.01, 2)
+
+	clampFloat(&value.MasterVolume, 0, 1)
+	clampFloat(&value.GameVolume, 0, 1)
+	clampFloat(&value.MusicVolume, 0, 1)
+	clampFloat(&value.ChatTTSVolume, 0, 1)
+	clampFloat(&value.NotificationVolume, 0, 1)
+	clampFloat(&value.SoundEnhancementAmount, 0.1, 10)
+	clampInt(&value.SimultaneousSoundSpreadMS, 1, 100)
+	clampFloat(&value.MusicEnhancementAmount, 0.1, 2)
+	clampInt(&value.MusicBufferSeconds, 1, 10)
+	clampFloat(&value.ChatTTSSpeed, 0.5, 2)
+	clampFloat(&value.NotificationDuration, 1, 30)
+
+	clampFloat(&value.UIScale, 0.75, 4)
+	clampFloat(&value.JoystickWalkDeadzone, 0.01, 0.2)
+	clampFloat(&value.JoystickCursorDeadzone, 0.01, 0.2)
+	clampInt(&value.PowerSaveFPS, minimumPowerSaveFPS, maximumPowerSaveFPS)
+	if value.SpriteCacheMiB <= 0 {
+		value.SpriteCacheMiB = defaultSpriteCacheMiB
+		changed = true
+	} else {
+		clampInt(&value.SpriteCacheMiB, 128, 8192)
+	}
+
+	spriteGamma := normalizeGamma(value.SpriteGamma, gsdef.SpriteGamma)
+	if spriteGamma != value.SpriteGamma {
+		value.SpriteGamma = spriteGamma
+		changed = true
+	}
+	monitorGamma := normalizeGamma(value.MonitorGamma, gsdef.MonitorGamma)
+	if monitorGamma != value.MonitorGamma {
+		value.MonitorGamma = monitorGamma
+		changed = true
+	}
+	return changed
+}
+
 var gsdef settings = settings{
 	Version:            SETTINGS_VERSION,
 	SetupWizardVersion: 0,
@@ -308,6 +402,7 @@ var gsdef settings = settings{
 	PowerSaveBackground:       false,
 	PowerSaveAlways:           false,
 	PowerSaveFPS:              15,
+	LimitFPS250:               true,
 	StreamSource:              0,
 	StreamResolution:          1080,
 	StreamFPS:                 60,
@@ -573,8 +668,10 @@ type settings struct {
 	PowerSaveBackground bool
 	// PowerSaveAlways reduces FPS even when focused (e.g., laptops).
 	PowerSaveAlways bool
-	// PowerSaveFPS is the target FPS when power saving is active (1-45).
+	// PowerSaveFPS is the target FPS when power saving is active (1-250).
 	PowerSaveFPS int
+	// LimitFPS250 prevents unbounded rendering when VSync and power saving are off.
+	LimitFPS250 bool
 	// StreamSource selects the local streaming output: 0 is the game view and
 	// 1 is the entire client.
 	StreamSource     int
@@ -801,6 +898,9 @@ func loadSettings() bool {
 	if migrated {
 		settingsDirty = true
 	}
+	if normalizeLoadedNumericSettings(&gs) {
+		settingsDirty = true
+	}
 
 	if gs.ChatTTSBlocklist == nil {
 		gs.ChatTTSBlocklist = append([]string(nil), gsdef.ChatTTSBlocklist...)
@@ -811,62 +911,13 @@ func loadSettings() bool {
 		gs.JoystickBindings = make(map[string]ebiten.GamepadButton)
 	}
 
-	if gs.JoystickWalkDeadzone < 0.01 || gs.JoystickWalkDeadzone > 0.2 {
-		gs.JoystickWalkDeadzone = gsdef.JoystickWalkDeadzone
-	}
-	if gs.JoystickCursorDeadzone < 0.01 || gs.JoystickCursorDeadzone > 0.2 {
-		gs.JoystickCursorDeadzone = gsdef.JoystickCursorDeadzone
-	}
-
-	if gs.DenoiseAmount < 0 || gs.DenoiseAmount > 1 {
-		gs.DenoiseAmount = gsdef.DenoiseAmount
-	}
-	if gs.DenoiseSharpness < 0 || gs.DenoiseSharpness > 20 {
-		gs.DenoiseSharpness = gsdef.DenoiseSharpness
-	}
 	setArtworkUpscaleMode(artworkUpscaleMode())
-	gs.SpriteGamma = normalizeGamma(gs.SpriteGamma, gsdef.SpriteGamma)
-	gs.MonitorGamma = normalizeGamma(gs.MonitorGamma, gsdef.MonitorGamma)
-
-	if gs.ChatTTSSpeed <= 0 {
-		gs.ChatTTSSpeed = gsdef.ChatTTSSpeed
-	}
 	if gs.ChatTTSVoice == "" {
 		gs.ChatTTSVoice = gsdef.ChatTTSVoice
 	}
 
 	applyServerAddressSetting()
-
-	if gs.ShaderLightStrength < 0 || gs.ShaderLightStrength > 2 {
-		gs.ShaderLightStrength = gsdef.ShaderLightStrength
-	}
-	if gs.ShaderGlowStrength < 0 || gs.ShaderGlowStrength > 2 {
-		gs.ShaderGlowStrength = gsdef.ShaderGlowStrength
-	}
-	if gs.FlameFlickerStrength < 0 || gs.FlameFlickerStrength > 2 {
-		gs.FlameFlickerStrength = gsdef.FlameFlickerStrength
-	}
-	if gs.CharacterShadowDarkness < 0.01 || gs.CharacterShadowDarkness > 2 {
-		gs.CharacterShadowDarkness = gsdef.CharacterShadowDarkness
-	}
-	if gs.NameHealthBarThickness < 1 || gs.NameHealthBarThickness > 8 {
-		gs.NameHealthBarThickness = gsdef.NameHealthBarThickness
-	}
-
-	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
-	gs.SimultaneousSoundSpreadMS = clampSimultaneousSoundSpreadMS(gs.SimultaneousSoundSpreadMS)
-	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
-	if gs.MusicBufferSeconds == 0 {
-		gs.MusicBufferSeconds = gsdef.MusicBufferSeconds
-	}
-	gs.MusicBufferSeconds = clampMusicBufferSeconds(gs.MusicBufferSeconds)
-	gs.UIScale = clampUIScalePreference(gs.UIScale)
 	clampTiledLayoutSettings()
-
-	// Clamp BubbleScale to 1.0–8.0
-	if gs.BubbleScale < 1.0 || gs.BubbleScale > 8.0 {
-		gs.BubbleScale = gsdef.BubbleScale
-	}
 	gs.BubbleLifetimeMode = normalizeBubbleLifetimeMode(gs.BubbleLifetimeMode)
 
 	gs.SpriteUpscale = spriteUpscaleFactor()
@@ -889,13 +940,6 @@ func loadSettings() bool {
 	}
 
 	clampWindowSettings()
-	// Clamp power-save FPS and set sane defaults when out-of-range or zero
-	if gs.PowerSaveFPS < 1 {
-		gs.PowerSaveFPS = 1
-	}
-	if gs.PowerSaveFPS > 45 {
-		gs.PowerSaveFPS = 45
-	}
 	if gs.StreamSource < 0 || gs.StreamSource > 1 {
 		gs.StreamSource = gsdef.StreamSource
 	}

@@ -50,6 +50,12 @@ func TestBatchArtworkLoadingDefaultsOn(t *testing.T) {
 	}
 }
 
+func TestLimitFPS250DefaultsOn(t *testing.T) {
+	if !gsdef.LimitFPS250 {
+		t.Fatal("250 FPS safety limit must default on")
+	}
+}
+
 func TestAssetActivityIndicatorsDefaultOff(t *testing.T) {
 	if gsdef.AssetActivityIndicators {
 		t.Fatal("asset activity indicators must default off")
@@ -123,6 +129,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"music_enhancement_amount": 1.73`,
 		`"music_buffer_seconds": 2`,
 		`"batch_room_artwork_loading": false`,
+		`"limit_to_250_fps": true`,
 		`"interpolate_small_moving_pictures": true`,
 		`"show_asset_activity_indicators": true`,
 		`"mobile_light_cone_shadows": true`,
@@ -311,5 +318,14 @@ func TestSettingsV4OldTiledLayoutKeyDefaultsToTiled(t *testing.T) {
 	}
 	if !got.TiledWindows {
 		t.Fatal("old tiled_layout setting should use the tiled default")
+	}
+}
+
+func TestUnknownReadableSettingsUseNormalDefaults(t *testing.T) {
+	if got := parseArtworkUpscaleMode("future-mode"); got != artworkUpscaleBalanced {
+		t.Fatalf("unknown artwork upscale mode = %d, want Balanced", got)
+	}
+	if got := parseBarStyle("future-style"); got != BarStyleCompact {
+		t.Fatalf("unknown status bar style = %d, want Modern -- thin", got)
 	}
 }

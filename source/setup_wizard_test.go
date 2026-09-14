@@ -34,31 +34,33 @@ func TestShouldShowSetupWizard(t *testing.T) {
 }
 
 func TestRecommendedSettingsPromptOnlyAppearsForUpgradeMismatch(t *testing.T) {
+	environment := recommendedSettingsEnvironment{totalMemory: 8 * gibibyte, maxImageSize: 8192}
 	recommended := gsdef
 	recommended.PrecacheSounds = true
 	recommended.HighQualityResampling = false
 	recommended.BubbleBaseLife = 4
 
-	if shouldPromptForRecommendedSettings(false, 35, 36, recommended) {
+	if shouldPromptForRecommendedSettings(false, 35, 36, recommended, environment) {
 		t.Fatal("first run prompted for upgrade recommendations")
 	}
-	if shouldPromptForRecommendedSettings(true, 36, 36, recommended) {
+	if shouldPromptForRecommendedSettings(true, 36, 36, recommended, environment) {
 		t.Fatal("current release prompted for upgrade recommendations")
 	}
-	if shouldPromptForRecommendedSettings(true, 37, 36, recommended) {
+	if shouldPromptForRecommendedSettings(true, 37, 36, recommended, environment) {
 		t.Fatal("downgrade prompted for upgrade recommendations")
 	}
-	if shouldPromptForRecommendedSettings(true, 35, 36, recommended) {
+	if shouldPromptForRecommendedSettings(true, 35, 36, recommended, environment) {
 		t.Fatal("matching settings prompted for upgrade recommendations")
 	}
 
 	recommended.ShaderLighting = false
-	if !shouldPromptForRecommendedSettings(true, 35, 36, recommended) {
+	if !shouldPromptForRecommendedSettings(true, 35, 36, recommended, environment) {
 		t.Fatal("upgrade with a mismatch did not prompt for recommendations")
 	}
 }
 
 func TestApplyRecommendedSettingsChangesOnlyRecommendedValues(t *testing.T) {
+	environment := recommendedSettingsEnvironment{totalMemory: 4 * gibibyte, maxImageSize: 8192}
 	value := gsdef
 	value.FloatingPointSpriteCoords = false
 	value.InterpolateSmallMovingPictures = false
@@ -68,36 +70,85 @@ func TestApplyRecommendedSettingsChangesOnlyRecommendedValues(t *testing.T) {
 	value.SpriteGammaCorrection = false
 	value.FlameLightFlicker = false
 	value.ObjectPinning = false
+	value.CharacterShadows = false
 	value.ThrottleSounds = false
 	value.StaggerSimultaneousSounds = false
 	value.BatchArtworkLoading = false
 	value.PrecacheSounds = false
+	value.PromptDisableShaders = false
 	value.PixelArtScaling = true
 	value.HighQualityResampling = true
 	value.PowerSaveAlways = true
 	value.AnimatedChatBubbles = true
+	value.MobileLightConeShadows = true
+	value.ReplacementEffects = true
+	value.PotatoGPU = true
+	value.SpriteCacheMiB = 2048
+	value.GameScale = 4
 	value.BubbleBaseLife = 2
 	value.ClickToToggle = true
+	value.MotionSmoothing = false
+	value.BlendMobiles = true
+	value.DenoiseImages = true
+	value.FadeObscuringPictures = false
 
-	changes := recommendedSettingsChanges(value)
-	if len(changes) != 17 {
-		t.Fatalf("recommended setting changes = %d, want 17: %v", len(changes), changes)
+	changes := recommendedSettingsChanges(value, environment)
+	if len(changes) != 23 {
+		t.Fatalf("recommended setting changes = %d, want 23: %v", len(changes), changes)
 	}
-	applyRecommendedSettingsTo(&value)
-	if changes := recommendedSettingsChanges(value); len(changes) != 0 {
+	applyRecommendedSettingsTo(&value, environment)
+	if changes := recommendedSettingsChanges(value, environment); len(changes) != 0 {
 		t.Fatalf("recommended settings still differ after applying: %v", changes)
 	}
-	if !value.ClickToToggle {
-		t.Fatal("applying recommendations changed an unrelated setting")
+	if !value.ClickToToggle || value.MotionSmoothing || !value.BlendMobiles || !value.DenoiseImages || value.FadeObscuringPictures {
+		t.Fatal("applying recommendations changed an excluded or unrelated setting")
+	}
+	if value.GameScale != 4 {
+		t.Fatalf("artwork scale changed to %v, want preserved 4x", value.GameScale)
+	}
+	if value.SpriteCacheMiB != 256 {
+		t.Fatalf("memory-aware sprite cache = %d MiB, want 256", value.SpriteCacheMiB)
 	}
 	if value.BubbleBaseLife != 3 {
 		t.Fatalf("bubble base lifetime = %v, want 3", value.BubbleBaseLife)
 	}
 
 	value.BubbleBaseLife = 5
-	applyRecommendedSettingsTo(&value)
+	applyRecommendedSettingsTo(&value, environment)
 	if value.BubbleBaseLife != 5 {
 		t.Fatalf("bubble base lifetime above minimum was reduced to %v", value.BubbleBaseLife)
+	}
+}
+
+func TestRecommendedSettingsFollowMemoryAndTextureLimits(t *testing.T) {
+	value := gsdef
+	value.GameScale = 4
+	value.SpriteCacheMiB = 1024
+	value.PrecacheSounds = true
+	value.PotatoGPU = false
+
+	lowMemory := recommendedSettingsEnvironment{totalMemory: 2 * gibibyte, maxImageSize: 4096}
+	applyRecommendedSettingsTo(&value, lowMemory)
+	if value.PrecacheSounds {
+		t.Fatal("sound precaching remained enabled below 4 GiB")
+	}
+	if value.SpriteCacheMiB != 128 {
+		t.Fatalf("low-memory sprite cache = %d MiB, want 128", value.SpriteCacheMiB)
+	}
+	if !value.PotatoGPU {
+		t.Fatal("4096px GPU limit did not enable compatibility mode")
+	}
+
+	value = gsdef
+	value.PrecacheSounds = false
+	value.PotatoGPU = true
+	ampleMemory := recommendedSettingsEnvironment{totalMemory: 8 * gibibyte, maxImageSize: 8192}
+	applyRecommendedSettingsTo(&value, ampleMemory)
+	if !value.PrecacheSounds {
+		t.Fatal("sound precaching was not enabled with ample memory")
+	}
+	if value.PotatoGPU {
+		t.Fatal("normal GPU retained 4096px compatibility mode")
 	}
 }
 

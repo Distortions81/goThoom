@@ -8,6 +8,7 @@ import (
 
 	"gothoom/eui"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
@@ -66,8 +67,46 @@ func shouldShowSetupWizard(configLoaded bool, completedVersion, currentVersion i
 	return !configLoaded || completedVersion < currentVersion
 }
 
-func recommendedSettingsChanges(value settings) []string {
-	changes := make([]string, 0, 17)
+type recommendedSettingsEnvironment struct {
+	totalMemory  uint64
+	wasm         bool
+	maxImageSize int
+}
+
+func currentRecommendedSettingsEnvironment() recommendedSettingsEnvironment {
+	return recommendedSettingsEnvironment{
+		totalMemory:  systemMemoryBytes(),
+		wasm:         isWASM,
+		maxImageSize: ebiten.MaxImageSize(),
+	}
+}
+
+func recommendedSpriteCacheBaseMiB(value settings, totalMemory uint64) (int, bool) {
+	if totalMemory == 0 {
+		return 0, false
+	}
+	current := spriteCacheMiB(value.SpriteCacheMiB)
+	factor := spriteUpscaleFactorFromScale(value.GameScale)
+	budgetMiB := totalMemory / (4 * 1024 * 1024)
+	if uint64(scaledSpriteCacheMiB(current, factor)) <= budgetMiB {
+		return 0, false
+	}
+	for _, candidate := range []int{2048, 1024, 512, 256, 128} {
+		if candidate >= current {
+			continue
+		}
+		if uint64(scaledSpriteCacheMiB(candidate, factor)) <= budgetMiB {
+			return candidate, true
+		}
+	}
+	if current > 128 {
+		return 128, true
+	}
+	return 0, false
+}
+
+func recommendedSettingsChanges(value settings, environment recommendedSettingsEnvironment) []string {
+	changes := make([]string, 0, 24)
 	addBool := func(label string, current, recommended bool) {
 		if current == recommended {
 			return
@@ -87,25 +126,36 @@ func recommendedSettingsChanges(value settings) []string {
 	addBool("Artwork gamma correction", value.SpriteGammaCorrection, true)
 	addBool("Flame light flicker", value.FlameLightFlicker, true)
 	addBool("Pin world objects", value.ObjectPinning, true)
+	addBool("Character shadows", value.CharacterShadows, true)
 	addBool("Limit repeated sounds", value.ThrottleSounds, true)
 	addBool("Stagger simultaneous sounds", value.StaggerSimultaneousSounds, true)
 	addBool("Batch room artwork loading", value.BatchArtworkLoading, true)
-	addBool("Precache sounds", value.PrecacheSounds, true)
+	addBool("Precache sounds", value.PrecacheSounds, precacheSoundsDefault(environment.totalMemory, environment.wasm))
+	addBool("Prompt when shaders are slow", value.PromptDisableShaders, true)
 	addBool("Pixel-perfect scaling", value.PixelArtScaling, false)
 	addBool("High-quality resampling", value.HighQualityResampling, false)
 	addBool("Always power save", value.PowerSaveAlways, false)
 	addBool("Animated chat bubbles", value.AnimatedChatBubbles, false)
+	addBool("Mobile light-cone shadows", value.MobileLightConeShadows, false)
+	addBool("Replacement effects", value.ReplacementEffects, false)
+	if environment.maxImageSize > 0 {
+		addBool("4096px GPU compatibility mode", value.PotatoGPU, environment.maxImageSize <= 4096)
+	}
+	if cacheMiB, ok := recommendedSpriteCacheBaseMiB(value, environment.totalMemory); ok {
+		factor := spriteUpscaleFactorFromScale(value.GameScale)
+		changes = append(changes, fmt.Sprintf("- Sprite cache: %d MiB base (%d MiB at %dx)", cacheMiB, scaledSpriteCacheMiB(cacheMiB, factor), factor))
+	}
 	if value.BubbleBaseLife < 3 {
 		changes = append(changes, "- Bubble base lifetime: At least 3 seconds")
 	}
 	return changes
 }
 
-func shouldPromptForRecommendedSettings(configLoaded bool, completedVersion, currentVersion int, value settings) bool {
-	return configLoaded && completedVersion < currentVersion && len(recommendedSettingsChanges(value)) > 0
+func shouldPromptForRecommendedSettings(configLoaded bool, completedVersion, currentVersion int, value settings, environment recommendedSettingsEnvironment) bool {
+	return configLoaded && completedVersion < currentVersion && len(recommendedSettingsChanges(value, environment)) > 0
 }
 
-func applyRecommendedSettingsTo(value *settings) {
+func applyRecommendedSettingsTo(value *settings, environment recommendedSettingsEnvironment) {
 	value.FloatingPointSpriteCoords = true
 	value.InterpolateSmallMovingPictures = true
 	value.MobilesReceiveSunShadows = true
@@ -114,22 +164,32 @@ func applyRecommendedSettingsTo(value *settings) {
 	value.SpriteGammaCorrection = true
 	value.FlameLightFlicker = true
 	value.ObjectPinning = true
+	value.CharacterShadows = true
 	value.ThrottleSounds = true
 	value.StaggerSimultaneousSounds = true
 	value.BatchArtworkLoading = true
-	value.PrecacheSounds = true
+	value.PrecacheSounds = precacheSoundsDefault(environment.totalMemory, environment.wasm)
+	value.PromptDisableShaders = true
 	value.PixelArtScaling = false
 	value.HighQualityResampling = false
 	value.PowerSaveAlways = false
 	value.AnimatedChatBubbles = false
+	value.MobileLightConeShadows = false
+	value.ReplacementEffects = false
+	if environment.maxImageSize > 0 {
+		value.PotatoGPU = environment.maxImageSize <= 4096
+	}
+	if cacheMiB, ok := recommendedSpriteCacheBaseMiB(*value, environment.totalMemory); ok {
+		value.SpriteCacheMiB = cacheMiB
+	}
 	if value.BubbleBaseLife < 3 {
 		value.BubbleBaseLife = 3
 	}
 }
 
-func applyRecommendedSettings() {
-	startSoundPrecache := !gs.PrecacheSounds
-	applyRecommendedSettingsTo(&gs)
+func applyRecommendedSettings(environment recommendedSettingsEnvironment) {
+	startSoundPrecache := !gs.PrecacheSounds && precacheSoundsDefault(environment.totalMemory, environment.wasm)
+	applyRecommendedSettingsTo(&gs, environment)
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 	applySettings()
 	clearCaches()
@@ -148,9 +208,10 @@ func openSetupWizard(force bool) {
 		return
 	}
 	if !force && !setupWizardRecommendationHandled {
-		if shouldPromptForRecommendedSettings(settingsLoaded, gs.SetupWizardVersion, appVersion, gs) {
+		environment := currentRecommendedSettingsEnvironment()
+		if shouldPromptForRecommendedSettings(settingsLoaded, gs.SetupWizardVersion, appVersion, gs, environment) {
 			setupWizardRecommendationOpen = true
-			changes := recommendedSettingsChanges(gs)
+			changes := recommendedSettingsChanges(gs, environment)
 			message := "Some of your settings differ from goThoom's current recommendations:\n\n" +
 				strings.Join(changes, "\n") +
 				"\n\nOnly the settings listed here will change. You can adjust them later in Settings or Quality."
@@ -166,7 +227,7 @@ func openSetupWizard(force bool) {
 					{Text: "Use Recommended Settings", Width: 210, Action: func() {
 						setupWizardRecommendationOpen = false
 						setupWizardRecommendationHandled = true
-						applyRecommendedSettings()
+						applyRecommendedSettings(environment)
 						openSetupWizardWindow()
 					}},
 				},

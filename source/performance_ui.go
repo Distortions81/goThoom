@@ -50,29 +50,35 @@ func addPerformanceSettings(cacheSection, powerSection *eui.ItemData, columnWidt
 	}
 	powerSection.AddItem(psAlwaysCB)
 
+	limitFPS250CB, limitFPS250Events := eui.NewCheckbox()
+	limitFPS250CB.Text = "Limit to 250 FPS"
+	limitFPS250CB.Size = eui.Point{X: columnWidth, Y: 24}
+	limitFPS250CB.Checked = gs.LimitFPS250
+	limitFPS250CB.SetTooltip("When VSync is off and power saving is not active, cap the client at 250 FPS.")
+	limitFPS250Events.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.LimitFPS250 = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	powerSection.AddItem(limitFPS250CB)
+
 	psFPSSlider, psFPSEvents := eui.NewSlider()
 	psFPSSlider.Label = "Power-save FPS"
-	psFPSSlider.MinValue = 1
-	psFPSSlider.MaxValue = 60
+	psFPSSlider.MinValue = minimumPowerSaveFPS
+	psFPSSlider.MaxValue = maximumPowerSaveFPS
 	psFPSSlider.IntOnly = true
-	if gs.PowerSaveFPS < 1 {
-		gs.PowerSaveFPS = 1
-	}
-	if gs.PowerSaveFPS > 60 {
-		gs.PowerSaveFPS = 60
-	}
+	gs.PowerSaveFPS = clampPowerSaveFPS(gs.PowerSaveFPS)
 	psFPSSlider.Value = float32(gs.PowerSaveFPS)
 	psFPSSlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
+	psFPSSlider.SetTooltip("When power saving is active, sleep only enough to keep the frame rate near this limit.")
 	psFPSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
 			v := int(ev.Value)
-			if v < 1 {
-				v = 1
-			}
-			if v > 60 {
-				v = 60
-			}
+			v = clampPowerSaveFPS(v)
 			gs.PowerSaveFPS = v
 			SettingsLock.Unlock()
 			psFPSSlider.Value = float32(v)

@@ -811,6 +811,43 @@ type Game struct {
 	drawSnapshot       drawSnapshot
 	lastWorldRenderKey worldRenderKey
 	worldRenderValid   bool
+	frameRatePacer     frameRatePacer
+}
+
+type frameRatePacer struct {
+	lastFrame time.Time
+}
+
+func framePacingTargetFPS(value settings, focused bool) (int, bool) {
+	if value.PowerSaveAlways || (!focused && value.PowerSaveBackground) {
+		return clampPowerSaveFPS(value.PowerSaveFPS), true
+	}
+	if !value.VSync && value.LimitFPS250 {
+		return maximumPowerSaveFPS, true
+	}
+	return 0, false
+}
+
+func (p *frameRatePacer) delay(now time.Time, active bool, fps int) time.Duration {
+	if !active {
+		p.lastFrame = time.Time{}
+		return 0
+	}
+	if p.lastFrame.IsZero() {
+		p.lastFrame = now
+		return 0
+	}
+	target := time.Second / time.Duration(clampPowerSaveFPS(fps))
+	// Draw is called after the engine's display wait, so measuring from the
+	// previous frame start credits rendering and VSync toward this interval.
+	elapsed := now.Sub(p.lastFrame)
+	if elapsed >= target {
+		p.lastFrame = now
+		return 0
+	}
+	delay := target - elapsed
+	p.lastFrame = now.Add(delay)
+	return delay
 }
 
 func init() {
@@ -1999,15 +2036,16 @@ func renderSessionViewport(target *ebiten.Image, session *Session, state *viewpo
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	targetFPS, frameRateLimited := framePacingTargetFPS(gs, windowIsFocused())
+	if delay := g.frameRatePacer.delay(time.Now(), frameRateLimited, targetFPS); delay > 0 {
+		time.Sleep(delay)
+	}
 	drawStarted := time.Now()
 	traceFramePacingDrawStarted()
-	drawWorkRecorded := false
 	defer func() {
 		elapsed := time.Since(drawStarted)
 		traceFramePacingDrawFinished(elapsed)
-		if !drawWorkRecorded {
-			recordGameLoopWork(elapsed)
-		}
+		recordGameLoopWork(elapsed)
 		if pgoRenderFrameInterval > 0 && elapsed < pgoRenderFrameInterval {
 			time.Sleep(pgoRenderFrameInterval - elapsed)
 		}
@@ -2021,27 +2059,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawStartupLoadingScreen(screen, startupLoadingLabel())
 		captureStreamOutput(screen, false)
 		return
-	}
-	// Power-save throttling: measure draw duration and sleep remaining time
-	// to achieve the requested FPS when active.
-	if gs.PowerSaveAlways || (!windowIsFocused() && gs.PowerSaveBackground) {
-		frameStart := now
-		fps := gs.PowerSaveFPS
-		if fps < 1 {
-			fps = 1
-		}
-		if fps > 45 {
-			fps = 45
-		}
-		target := time.Second / time.Duration(fps)
-		defer func() {
-			elapsed := time.Since(frameStart)
-			recordGameLoopWork(elapsed)
-			drawWorkRecorded = true
-			if elapsed < target {
-				time.Sleep(target - elapsed)
-			}
-		}()
 	}
 	assetTrace := beginAssetLoadFrameTrace(drawStarted)
 	if assetTrace != nil {
@@ -2109,8 +2126,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		eui.Draw(screen)
 	}
 	refreshViewportRectsFromDrawRects()
-
-	// Old fixed background sleep replaced by deferred power-save throttle above.
 
 	//if gs.ShowFPS {
 	//}

@@ -5437,8 +5437,8 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	sLS, shaderLightEvents := eui.NewSlider()
 	shaderLightSlider = sLS
 	shaderLightSlider.Label = "Light Strength"
-	shaderLightSlider.MinValue = 0.01
-	shaderLightSlider.MaxValue = 5000
+	shaderLightSlider.MinValue = 0
+	shaderLightSlider.MaxValue = 200
 	shaderLightSlider.IntOnly = true
 	shaderLightSlider.Value = float32(gs.ShaderLightStrength * 100)
 	shaderLightSlider.Size = eui.Point{X: width - 10, Y: 24}
@@ -5456,8 +5456,8 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	sGS, shaderGlowEvents := eui.NewSlider()
 	shaderGlowSlider = sGS
 	shaderGlowSlider.Label = "Glow Strength"
-	shaderGlowSlider.MinValue = 0.01
-	shaderGlowSlider.MaxValue = 500
+	shaderGlowSlider.MinValue = 0
+	shaderGlowSlider.MaxValue = 200
 	shaderGlowSlider.IntOnly = true
 	shaderGlowSlider.Value = float32(gs.ShaderGlowStrength * 100)
 	shaderGlowSlider.Size = eui.Point{X: width - 10, Y: 24}

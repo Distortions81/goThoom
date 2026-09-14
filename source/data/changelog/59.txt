@@ -17,6 +17,12 @@ Audio:
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.
 - Upgrades now offer to apply the current recommended graphics, loading, sound, power-saving, and speech-bubble settings when your choices differ; settings outside that list remain unchanged.
+- Hand-edited and older numeric settings are kept within the ranges supported by the current controls instead of producing unusable layouts, rendering, audio, or timing values.
+
+Performance:
+- Power saving now accounts for time already spent rendering or waiting for the display before sleeping, and its target can be set from 1 to 250 FPS.
+- A separate, default-on 250 FPS limit prevents unbounded rendering when VSync is off; active power saving uses its chosen power-save limit instead.
+- Upgrade recommendations account for available system memory and the GPU texture-size limit when suggesting sound precaching, sprite-cache size, and GPU compatibility mode.
 
 Desktop:
 - Restored compatibility with macOS 13 Ventura by updating Ebitengine to v2.10.2.
