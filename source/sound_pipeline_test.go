@@ -40,6 +40,44 @@ func TestMixLoadedSoundPlaybackPCMCombinesEverySound(t *testing.T) {
 	}
 }
 
+func TestMixLoadedSoundPlaybackPCMAppliesPeakLimitAfterMixGain(t *testing.T) {
+	sound := monoPCM(30000)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, false, 0)
+	for channel := range 2 {
+		if got := int16(binary.LittleEndian.Uint16(mixed[channel*2:])); got != 30000 {
+			t.Errorf("mixed channel %d = %d, want 30000", channel, got)
+		}
+	}
+}
+
+func TestMixLoadedSoundPlaybackPCMAppliesEnhancementAfterMixGain(t *testing.T) {
+	samples := make([]int16, 512)
+	for index := range samples {
+		samples[index] = 30000
+	}
+	sound := monoPCM(samples...)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, true, 2)
+
+	want := make([]int32, len(samples))
+	for index := range want {
+		want[index] = 30000
+	}
+	applyGameSoundReverb(want, 2)
+	for index, sample := range want {
+		if sample > 32767 {
+			sample = 32767
+		} else if sample < -32768 {
+			sample = -32768
+		}
+		for channel := range 2 {
+			offset := (index*2 + channel) * 2
+			if got := int16(binary.LittleEndian.Uint16(mixed[offset:])); got != int16(sample) {
+				t.Fatalf("sample %d channel %d = %d, want %d", index, channel, got, sample)
+			}
+		}
+	}
+}
+
 func TestSoundWorkerCountsRemainBounded(t *testing.T) {
 	for _, test := range []struct {
 		numCPU   int

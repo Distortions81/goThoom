@@ -1,0 +1,20 @@
+goThoom 59 changes since test58.
+
+Movie playback:
+- Movies open in their own labeled session tab, keeping their scene, messages, lighting, and bard music separate while you switch among live character tabs.
+- Closing Movie Controls or the movie tab ends playback, removes the temporary tab, and returns to the previously selected session.
+
+Graphics:
+- Removed thin background-colored seams between adjacent ground tiles when artwork upscaling is disabled.
+
+Audio:
+- Improved enhanced game sounds so ambience keeps its intended character and simultaneous effects retain consistent volume.
+
+Interface:
+- Improved tab highlights throughout the client, with a clearer selected-tab indicator.
+
+Desktop:
+- Restored compatibility with macOS 13 Ventura by updating Ebitengine to v2.10.2.
+
+Documentation:
+- Refreshed the built-in guide and online manual to match the current interface, with updated screenshots and task-focused guidance for session tabs, gamepads, local streaming, file locations, hotkeys, scripts, and performance settings.

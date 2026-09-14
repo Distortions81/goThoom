@@ -545,46 +545,30 @@ func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount
 		}
 	}
 
-	left := mixed
-	var right []int32
-	if enhanced {
-		applyGameSoundReverb(mixed, enhancementAmount)
-		right = append([]int32(nil), mixed...)
-		maxVal = 0
-		for _, value := range mixed {
-			if value < 0 {
-				value = -value
-			}
-			if value > maxVal {
-				maxVal = value
-			}
-		}
+	scale := 1 / float64(len(sounds))
+	if maxVal > 0 && float64(maxVal)*scale > 32767 {
+		scale = 32767.0 / float64(maxVal)
+	}
+	for i := range mixed {
+		mixed[i] = int32(float64(mixed[i]) * scale)
 	}
 
-	scale := 1 / float64(len(sounds))
-	if maxVal > 0 {
-		scale *= math.Min(1, 32767.0/float64(maxVal))
+	// Enhancement is the final signal-processing step. In particular, do not
+	// peak-normalize its ambience away after it has been added.
+	if enhanced {
+		applyGameSoundReverb(mixed, enhancementAmount)
 	}
-	out := make([]byte, len(left)*4)
-	for i := range left {
-		lv := int32(float64(left[i]) * scale)
+	out := make([]byte, len(mixed)*4)
+	for i, sample := range mixed {
+		lv := sample
 		if lv > 32767 {
 			lv = 32767
 		} else if lv < -32768 {
 			lv = -32768
 		}
-		rv := lv
-		if right != nil {
-			rv = int32(float64(right[i]) * scale)
-			if rv > 32767 {
-				rv = 32767
-			} else if rv < -32768 {
-				rv = -32768
-			}
-		}
 		offset := i * 4
 		binary.LittleEndian.PutUint16(out[offset:], uint16(int16(lv)))
-		binary.LittleEndian.PutUint16(out[offset+2:], uint16(int16(rv)))
+		binary.LittleEndian.PutUint16(out[offset+2:], uint16(int16(lv)))
 	}
 	return out
 }
