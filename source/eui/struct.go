@@ -83,6 +83,14 @@ type windowData struct {
 	Render *ebiten.Image
 	Dirty  bool
 
+	// titleRender keeps stable window chrome separate from the content cache.
+	// Frequently refreshed panes can redraw their contents without rebuilding
+	// title text, buttons, and dragbar marks every time.
+	titleRender      *ebiten.Image
+	titleRenderKey   windowTitleRenderKey
+	titleRenderValid bool
+	titleRenderCount uint64
+
 	// DeferRepaint lets large background panes share a per-frame repaint
 	// budget. Interaction, resizing and initial painting remain immediate.
 	DeferRepaint     bool

@@ -13,7 +13,7 @@ Audio:
 - Improved enhanced game sounds so ambience keeps its intended character and simultaneous effects retain consistent volume.
 - Optionally spread sound effects arriving in the same game update across a short, adjustable interval so each effect remains distinct. This is enabled by default.
 - New settings start with game effects at full volume and bard music at one-third volume for a clearer initial mix.
-- Improved bard-music timing and reduced synthesis overhead with finer-grained rendering and an updated synthesizer.
+- Improved bard-music timing and performance, especially for multi-instrument songs, with finer-grained rendering and an updated synthesizer.
 
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.
@@ -21,6 +21,7 @@ Interface:
 - Hand-edited and older numeric settings are kept within the ranges supported by the current controls instead of producing unusable layouts, rendering, audio, or timing values.
 
 Performance:
+- Reused unchanged window titles and controls when frequently updated panes repaint, reducing idle and high-frame-rate CPU use.
 - Power saving now accounts for time already spent rendering or waiting for the display before sleeping, and its target can be set from 1 to 250 FPS.
 - A separate, default-on 250 FPS limit prevents unbounded rendering when VSync is off; active power saving uses its chosen power-save limit instead.
 - Slow-shader detection measures only focused, unthrottled frames above 1 FPS, avoiding warnings caused by background scheduling or display sleep.

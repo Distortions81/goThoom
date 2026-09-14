@@ -408,7 +408,102 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 	})
 }
 
+type windowTitleRenderKey struct {
+	title, searchText string
+	width, height     float32
+	windowScale       float32
+	globalScale       float32
+	fillet            float32
+	border            float32
+	dragbarSpacing    float32
+
+	closable, movable, maximizable, searchable bool
+	hoverClose, hoverDragbar, hoverMax         bool
+	hoverSearch, searchOpen, showDragbar       bool
+
+	titleBackground    Color
+	rawTitleBackground Color
+	searchBackground   Color
+	titleText          Color
+	titleColor         Color
+	closeBackground    Color
+	activeColor        Color
+	hoverTitle         Color
+	dragbarColor       Color
+
+	fontSource *text.GoTextFaceSource
+}
+
+func (win *windowData) currentTitleRenderKey() windowTitleRenderKey {
+	theme := win.Theme
+	if theme == nil {
+		theme = currentTheme
+	}
+	if theme == nil {
+		theme = baseTheme
+	}
+	titleBackground := win.titleBackgroundColor()
+	return windowTitleRenderKey{
+		title: win.Title, searchText: win.SearchText,
+		width: win.GetSize().X, height: win.GetTitleSize(),
+		windowScale: win.scale(), globalScale: uiScale,
+		fillet: win.Fillet, border: win.Border, dragbarSpacing: win.DragbarSpacing,
+		closable: win.Closable, movable: win.Movable, maximizable: win.Maximizable, searchable: win.Searchable,
+		hoverClose: win.HoverClose, hoverDragbar: win.HoverDragbar, hoverMax: win.HoverMax,
+		hoverSearch: win.HoverSearch, searchOpen: win.searchOpen, showDragbar: win.ShowDragbar,
+		titleBackground: win.backgroundTint(titleBackground), rawTitleBackground: titleBackground,
+		searchBackground: win.backgroundColor(), titleText: theme.Window.TitleTextColor,
+		titleColor: theme.Window.TitleColor, closeBackground: theme.Window.CloseBGColor,
+		activeColor: theme.Window.ActiveColor, hoverTitle: theme.Window.HoverTitleColor,
+		dragbarColor: theme.Window.DragbarColor,
+		fontSource:   mplusFaceSource,
+	}
+}
+
+func (win *windowData) titleRenderNeedsRefresh(key windowTitleRenderKey, width, height int) bool {
+	return !win.titleRenderValid || win.titleRender == nil ||
+		win.titleRender.Bounds().Dx() != width || win.titleRender.Bounds().Dy() != height ||
+		win.titleRenderKey != key
+}
+
 func (win *windowData) drawWinTitle(screen *ebiten.Image) {
+	if win.TitleHeight <= 0 {
+		return
+	}
+	key := win.currentTitleRenderKey()
+	width, height := renderImageSize(point{X: key.width, Y: key.height})
+	if win.titleRenderNeedsRefresh(key, width, height) {
+		if win.titleRender != nil && (win.titleRender.Bounds().Dx() != width || win.titleRender.Bounds().Dy() != height) {
+			releaseUIRenderTarget(win.titleRender)
+			win.titleRender = nil
+		}
+		if win.titleRender == nil {
+			win.titleRender = uiRenderTargets.Acquire(width, height, potatoMode)
+		} else {
+			win.titleRender.Clear()
+		}
+		position := win.Position
+		win.Position = point{}
+		win.drawWinTitleUncached(win.titleRender)
+		win.Position = position
+		win.titleRenderKey = key
+		win.titleRenderValid = true
+		win.titleRenderCount++
+	}
+
+	op := acquireDrawImageOptions()
+	position := win.getPosition()
+	op.GeoM.Translate(float64(position.X), float64(position.Y))
+	screen.DrawImage(win.titleRender, op)
+
+	// These hover flags are transient input state. The former direct renderer
+	// consumed them on every draw; preserve that behavior on cache hits.
+	win.HoverMax = false
+	win.HoverSearch = false
+	win.HoverDragbar = false
+}
+
+func (win *windowData) drawWinTitleUncached(screen *ebiten.Image) {
 	// Window Title
 	if win.TitleHeight > 0 {
 		tr := win.getTitleRect()

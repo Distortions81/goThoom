@@ -4,9 +4,8 @@ go 1.27.1
 
 replace gt2 => ./gt2
 
-replace github.com/sinshu/go-meltysynth => github.com/Distortions81/go-meltysynth v0.1.2
-
 require (
+	github.com/Distortions81/go-meltysynth v0.1.4
 	github.com/chewxy/math32 v1.11.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/f1monkey/spellchecker v1.3.0
@@ -17,7 +16,6 @@ require (
 	github.com/hugolgst/rich-go v0.0.0-20240715122152-74618cc1ace2
 	github.com/ncruces/zenity v0.10.15
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	github.com/sinshu/go-meltysynth v0.1.2
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/tphakala/simd v1.10.0
 	github.com/traefik/yaegi v0.16.1

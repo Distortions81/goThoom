@@ -52,6 +52,11 @@ func (target *windowData) deallocate() {
 		releaseUIRenderTarget(target.Render)
 		target.Render = nil
 	}
+	if target.titleRender != nil {
+		releaseUIRenderTarget(target.titleRender)
+		target.titleRender = nil
+		target.titleRenderValid = false
+	}
 	for _, item := range target.Contents {
 		item.deallocate()
 	}

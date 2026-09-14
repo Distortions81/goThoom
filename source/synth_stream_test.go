@@ -6,13 +6,14 @@ import (
 	"io"
 	"math"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	meltysynth "github.com/sinshu/go-meltysynth/meltysynth"
+	meltysynth "github.com/Distortions81/go-meltysynth/meltysynth"
 )
 
 func TestMusicReverbCarriesAcrossChunks(t *testing.T) {
@@ -100,6 +101,25 @@ func (s *constantStreamSynth) Render(left, right []float32) {
 	}
 }
 
+type blockingStreamSynth struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (*blockingStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
+func (*blockingStreamSynth) NoteOn(int32, int32, int32)                    {}
+func (*blockingStreamSynth) NoteOff(int32, int32)                          {}
+func (s *blockingStreamSynth) Render(left, right []float32) {
+	s.once.Do(func() {
+		close(s.started)
+		<-s.release
+	})
+	for i := range left {
+		left[i], right[i] = 0.1, 0.1
+	}
+}
+
 type recordedMIDIMessage struct {
 	channel, command, data1, data2 int32
 }
@@ -124,7 +144,7 @@ func (s *multiChannelStreamSynth) Render(left, right []float32) {
 	}
 }
 
-func TestMusicGroupUsesOneSynthWithSeparateInstrumentChannels(t *testing.T) {
+func TestMusicGroupUsesOneSynthPerInstrument(t *testing.T) {
 	originalSynth := newSynthesizer
 	originalFont, originalSettings := sfntCached, synthSettings
 	originalMeasure := measureProgramGainForCache
@@ -153,12 +173,10 @@ func TestMusicGroupUsesOneSynthWithSeparateInstrumentChannels(t *testing.T) {
 		return 2
 	}
 
-	syn := &multiChannelStreamSynth{}
-	created := 0
-	var maximumPolyphony int32
-	newSynthesizer = func(_ *meltysynth.SoundFont, settings *meltysynth.SynthesizerSettings) (synthesizer, error) {
-		created++
-		maximumPolyphony = settings.MaximumPolyphony
+	var synths []*multiChannelStreamSynth
+	newSynthesizer = func(_ *meltysynth.SoundFont, _ *meltysynth.SynthesizerSettings) (synthesizer, error) {
+		syn := &multiChannelStreamSynth{}
+		synths = append(synths, syn)
 		return syn, nil
 	}
 	renderer, err := newMusicGroupRenderer([]musicPart{
@@ -168,47 +186,99 @@ func TestMusicGroupUsesOneSynthWithSeparateInstrumentChannels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created != 1 {
-		t.Fatalf("created %d synthesizers, want 1", created)
+	if len(synths) != 2 {
+		t.Fatalf("created %d synthesizers, want one per instrument", len(synths))
 	}
-	if maximumPolyphony != 128 {
-		t.Fatalf("maximum polyphony = %d, want 128", maximumPolyphony)
-	}
-	wantMessages := []recordedMIDIMessage{
-		{0, 0xC0, 24, 0},
-		{0, 0xB0, 0x0B, 64},
-		{0, 0xB0, 0x2B, 0},
-		{1, 0xC0, 46, 0},
-		{1, 0xB0, 0x0B, 127},
-		{1, 0xB0, 0x2B, 127},
-	}
-	if !slices.Equal(syn.messages, wantMessages) {
-		t.Fatalf("MIDI setup = %#v, want %#v", syn.messages, wantMessages)
+	for index, wantProgram := range []int32{24, 46} {
+		wantMessages := []recordedMIDIMessage{{0, 0xC0, wantProgram, 0}}
+		if !slices.Equal(synths[index].messages, wantMessages) {
+			t.Fatalf("synth %d MIDI setup = %#v, want %#v", index, synths[index].messages, wantMessages)
+		}
 	}
 	left, right, err := renderer.render(block)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if syn.renderCalls != 1 {
-		t.Fatalf("render calls = %d, want one shared render", syn.renderCalls)
+	for index, syn := range synths {
+		if syn.renderCalls != 1 {
+			t.Fatalf("synth %d render calls = %d, want 1", index, syn.renderCalls)
+		}
+		if !slices.Equal(syn.noteOn, []int32{0}) {
+			t.Fatalf("synth %d note-on channels = %v, want [0]", index, syn.noteOn)
+		}
 	}
-	if !slices.Equal(syn.noteOn, []int32{0, 1}) {
-		t.Fatalf("note-on channels = %v, want [0 1]", syn.noteOn)
-	}
-	if math.Abs(float64(left[0]-0.2)) > 1e-6 || math.Abs(float64(right[0]-0.2)) > 1e-6 {
-		t.Fatalf("normalized group samples = %v, %v; want 0.2", left[0], right[0])
+	if math.Abs(float64(left[0]-0.25)) > 1e-6 || math.Abs(float64(right[0]-0.25)) > 1e-6 {
+		t.Fatalf("normalized group samples = %v, %v; want 0.25", left[0], right[0])
 	}
 }
 
-func TestMusicGroupSkipsPercussionChannel(t *testing.T) {
-	if got := melodicMusicChannel(8); got != 8 {
-		t.Fatalf("part 9 channel = %d, want 8", got)
+func TestMusicRenderWorkerCountUsesCPUWithEightWorkerCap(t *testing.T) {
+	want := runtime.NumCPU()
+	if want > maxMusicRenderWorkers {
+		want = maxMusicRenderWorkers
 	}
-	if got := melodicMusicChannel(9); got != 10 {
-		t.Fatalf("part 10 channel = %d, want 10", got)
+	if want < 1 {
+		want = 1
 	}
-	if got := melodicMusicChannel(14); got != 15 {
-		t.Fatalf("part 15 channel = %d, want 15", got)
+	if got := musicRenderWorkerCount(); got != want {
+		t.Fatalf("music render workers = %d, want %d", got, want)
+	}
+}
+
+func TestMusicGroupBatches1024FramesInto64FrameSynthRenders(t *testing.T) {
+	if musicRenderBatchFrames%block != 0 {
+		t.Fatalf("music render batch %d is not aligned to synth block %d", musicRenderBatchFrames, block)
+	}
+	renderers := []*songRenderer{
+		{syn: &multiChannelStreamSynth{}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+		{syn: &multiChannelStreamSynth{}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+	}
+	group := &musicGroupRenderer{parts: renderers, totalSamples: musicRenderBatchFrames}
+	left, right, err := group.render(musicRenderBatchFrames)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(left) != musicRenderBatchFrames || len(right) != musicRenderBatchFrames {
+		t.Fatalf("rendered frames = %d, %d; want %d", len(left), len(right), musicRenderBatchFrames)
+	}
+	wantCalls := musicRenderBatchFrames / block
+	for index, renderer := range renderers {
+		syn := renderer.syn.(*multiChannelStreamSynth)
+		if syn.renderCalls != wantCalls {
+			t.Fatalf("synth %d render calls = %d, want %d", index, syn.renderCalls, wantCalls)
+		}
+	}
+}
+
+func TestMusicGroupWaitsForEveryInstrumentBatch(t *testing.T) {
+	blocked := &blockingStreamSynth{started: make(chan struct{}), release: make(chan struct{})}
+	group := &musicGroupRenderer{
+		parts: []*songRenderer{
+			{syn: blocked, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+			{syn: &constantStreamSynth{value: 0.2}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+		},
+		totalSamples: musicRenderBatchFrames,
+	}
+	rendered := make(chan error, 1)
+	go func() {
+		_, _, err := group.render(musicRenderBatchFrames)
+		rendered <- err
+	}()
+
+	<-blocked.started
+	select {
+	case err := <-rendered:
+		t.Fatalf("group render returned before one instrument completed: %v", err)
+	default:
+	}
+	close(blocked.release)
+	select {
+	case err := <-rendered:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("group render did not finish after every instrument completed")
 	}
 }
 

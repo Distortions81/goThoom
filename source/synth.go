@@ -10,13 +10,14 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
-	meltysynth "github.com/sinshu/go-meltysynth/meltysynth"
+	meltysynth "github.com/Distortions81/go-meltysynth/meltysynth"
 )
 
 const (
@@ -560,16 +561,24 @@ func (r *songRenderer) remaining() int { return r.totalSamples - r.pos }
 
 // render returns exactly count frames (or the remaining frames, if fewer).
 func (r *songRenderer) render(count int) ([]float32, []float32, error) {
-	if count > r.remaining() {
-		count = r.remaining()
+	count = min(count, r.remaining())
+	leftAll := make([]float32, count)
+	rightAll := make([]float32, count)
+	if err := r.renderInto(leftAll, rightAll); err != nil {
+		return nil, nil, err
 	}
-	leftAll := make([]float32, 0, count)
-	rightAll := make([]float32, 0, count)
-	for count > 0 {
-		n := block
-		if n > count {
-			n = count
-		}
+	return leftAll, rightAll, nil
+}
+
+// renderInto advances the synth in 64-frame blocks while filling a larger
+// caller-owned buffer, allowing the worker pool to reuse its 1024-frame
+// per-instrument scratch buffers.
+func (r *songRenderer) renderInto(leftAll, rightAll []float32) error {
+	count := min(min(len(leftAll), len(rightAll)), r.remaining())
+	leftAll = leftAll[:count]
+	rightAll = rightAll[:count]
+	for offset := 0; offset < count; {
+		n := min(block, count-offset)
 		start := r.pos
 		end := start + n
 		// First process all note-offs that land in this block so that a
@@ -589,10 +598,18 @@ func (r *songRenderer) render(count int) ([]float32, []float32, error) {
 		}
 		// Always ask the synth to render a full block, then trim to the
 		// number of remaining samples we actually need to keep timing exact.
-		left := make([]float32, block)
-		right := make([]float32, block)
-		if err := safeRender(r.syn, left, right); err != nil {
-			return nil, nil, fmt.Errorf("synth render: %v", err)
+		left, right := leftAll[offset:offset+n], rightAll[offset:offset+n]
+		if n == block {
+			if err := safeRender(r.syn, left, right); err != nil {
+				return fmt.Errorf("synth render: %v", err)
+			}
+		} else {
+			blockLeft, blockRight := make([]float32, block), make([]float32, block)
+			if err := safeRender(r.syn, blockLeft, blockRight); err != nil {
+				return fmt.Errorf("synth render: %v", err)
+			}
+			copy(left, blockLeft[:n])
+			copy(right, blockRight[:n])
 		}
 		if r.gain != 0 && r.gain != 1 {
 			for i := range left {
@@ -600,12 +617,10 @@ func (r *songRenderer) render(count int) ([]float32, []float32, error) {
 				right[i] *= r.gain
 			}
 		}
-		leftAll = append(leftAll, left[:n]...)
-		rightAll = append(rightAll, right[:n]...)
 		r.pos += n
-		count -= n
+		offset += n
 	}
-	return leftAll, rightAll, nil
+	return nil
 }
 
 // safeRender calls the synthesizer Render method while protecting against
@@ -835,98 +850,124 @@ type musicPart struct {
 	notes   []Note
 }
 
-const musicMelodicChannelCount = 15
+const (
+	maxMusicGroupParts     = 15
+	maxMusicRenderWorkers  = 8
+	musicRenderBatchFrames = 1024
+)
 
-type musicGroupPartRenderer struct {
-	channel int32
-	events  []songEvent
-	active  map[int]bool
+type musicRenderResult struct {
+	left  []float32
+	right []float32
+	err   error
 }
 
-// musicGroupRenderer assigns each bard part to a MIDI channel on one
-// synthesizer. MeltySynth then mixes all voices directly into one stereo
-// buffer instead of requiring a separate stereo buffer and synth per part.
+type musicRenderJob struct {
+	renderer *songRenderer
+	result   *musicRenderResult
+	done     *sync.WaitGroup
+}
+
+var (
+	musicRenderPoolOnce sync.Once
+	musicRenderJobs     chan musicRenderJob
+)
+
+func musicRenderWorkerCount() int {
+	workers := runtime.NumCPU()
+	if workers > maxMusicRenderWorkers {
+		workers = maxMusicRenderWorkers
+	}
+	return max(workers, 1)
+}
+
+func startMusicRenderPool() {
+	workers := musicRenderWorkerCount()
+	musicRenderJobs = make(chan musicRenderJob, workers)
+	for range workers {
+		go func() {
+			for job := range musicRenderJobs {
+				func() {
+					defer job.done.Done()
+					defer func() {
+						if recovered := recover(); recovered != nil {
+							job.result.err = fmt.Errorf("music render worker panic: %v", recovered)
+						}
+					}()
+					job.result.err = job.renderer.renderInto(job.result.left, job.result.right)
+				}()
+			}
+		}()
+	}
+}
+
+func renderMusicParts(renderers []*songRenderer, results []musicRenderResult, frames int) {
+	musicRenderPoolOnce.Do(startMusicRenderPool)
+	var rendered sync.WaitGroup
+	active := 0
+	for _, renderer := range renderers {
+		if renderer.remaining() > 0 {
+			active++
+		}
+	}
+	rendered.Add(active)
+	for index, renderer := range renderers {
+		result := &results[index]
+		partFrames := min(frames, renderer.remaining())
+		if partFrames <= 0 {
+			result.left = result.left[:0]
+			result.right = result.right[:0]
+			result.err = nil
+			continue
+		}
+		if cap(result.left) < partFrames || cap(result.right) < partFrames {
+			result.left = make([]float32, partFrames)
+			result.right = make([]float32, partFrames)
+		} else {
+			result.left = result.left[:partFrames]
+			result.right = result.right[:partFrames]
+			clear(result.left)
+			clear(result.right)
+		}
+		result.err = nil
+		musicRenderJobs <- musicRenderJob{
+			renderer: renderer,
+			result:   result,
+			done:     &rendered,
+		}
+	}
+	rendered.Wait()
+}
+
+// musicGroupRenderer gives each bard part an independent synthesizer. A
+// process-wide worker pool renders the parts concurrently in synchronized
+// batches, then this renderer mixes each completed batch into one stream.
 type musicGroupRenderer struct {
-	syn          synthesizer
-	gain         float32
-	parts        []musicGroupPartRenderer
+	parts        []*songRenderer
+	results      []musicRenderResult
 	pos          int
 	totalSamples int
-}
-
-func melodicMusicChannel(index int) int32 {
-	channel := int32(index)
-	if channel >= 9 {
-		channel++ // General MIDI channel 10 is reserved for percussion.
-	}
-	return channel
 }
 
 func newMusicGroupRenderer(parts []musicPart) (*musicGroupRenderer, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("empty music group")
 	}
-	if len(parts) > musicMelodicChannelCount {
-		return nil, fmt.Errorf("music group has %d parts; at most %d melodic parts are supported", len(parts), musicMelodicChannelCount)
+	if len(parts) > maxMusicGroupParts {
+		return nil, fmt.Errorf("music group has %d parts; at most %d melodic parts are supported", len(parts), maxMusicGroupParts)
 	}
 
-	setupSynthOnce.Do(setupSynth)
-	synthCacheMu.RLock()
-	font, settings, generation := sfntCached, synthSettings, synthGeneration
-	synthCacheMu.RUnlock()
-	if font == nil || settings == nil {
-		return nil, errors.New("synth not initialized")
-	}
-
-	gains := make([]float32, len(parts))
-	var groupGain float32
-	for index, part := range parts {
-		if !soundFontSupportsProgram(font, part.program) {
-			return nil, errors.New(reportMissingSoundFontProgram(generation, part.program))
-		}
-		gains[index] = soundFontProgramGain(font, generation, part.program)
-		groupGain = max(groupGain, gains[index])
-	}
-	if groupGain <= 0 {
-		groupGain = 1
-	}
-
-	groupSettings := *settings
-	groupSettings.MaximumPolyphony = settings.MaximumPolyphony * int32(len(parts))
-	if groupSettings.MaximumPolyphony > 256 {
-		groupSettings.MaximumPolyphony = 256
-	}
-	syn, err := newSynthesizer(font, &groupSettings)
-	if err != nil {
-		return nil, err
-	}
 	renderer := &musicGroupRenderer{
-		syn:   syn,
-		gain:  groupGain,
-		parts: make([]musicGroupPartRenderer, len(parts)),
+		parts:   make([]*songRenderer, len(parts)),
+		results: make([]musicRenderResult, len(parts)),
 	}
 	for index, part := range parts {
-		channel := melodicMusicChannel(index)
-		syn.ProcessMidiMessage(channel, 0xC0, int32(part.program), 0)
-
-		// MeltySynth squares channel volume multiplied by expression. Express
-		// each program's relative normalization here, then apply the group's
-		// largest gain once to the completed stereo buffer.
-		ratio := max(float64(gains[index]/groupGain), 0)
-		expression := int32(math.Round(math.Sqrt(ratio) * 16383))
-		if expression > 16383 {
-			expression = 16383
+		partRenderer, err := newSongRenderer(part.program, part.notes)
+		if err != nil {
+			return nil, err
 		}
-		syn.ProcessMidiMessage(channel, 0xB0, 0x0B, expression>>7)
-		syn.ProcessMidiMessage(channel, 0xB0, 0x2B, expression&0x7F)
-
-		events, maxEnd := buildSongEvents(part.program, part.notes)
-		renderer.parts[index] = musicGroupPartRenderer{
-			channel: channel,
-			events:  events,
-			active:  make(map[int]bool),
-		}
-		renderer.totalSamples = max(renderer.totalSamples, maxEnd+tailSamples)
+		renderer.parts[index] = partRenderer
+		renderer.totalSamples = max(renderer.totalSamples, partRenderer.totalSamples)
 	}
 	return renderer, nil
 }
@@ -937,49 +978,22 @@ func (r *musicGroupRenderer) render(count int) ([]float32, []float32, error) {
 	count = min(count, r.remaining())
 	leftAll := make([]float32, count)
 	rightAll := make([]float32, count)
-	for offset := 0; offset < count; {
-		n := min(block, count-offset)
-		start, end := r.pos, r.pos+n
-		for partIndex := range r.parts {
-			part := &r.parts[partIndex]
-			for _, event := range part.events {
-				if event.end >= start && event.end < end && part.active[event.key] {
-					r.syn.NoteOff(part.channel, int32(event.key))
-					part.active[event.key] = false
-				}
+	if len(r.results) != len(r.parts) {
+		r.results = make([]musicRenderResult, len(r.parts))
+	}
+	for offset := 0; offset < count; offset += musicRenderBatchFrames {
+		frames := min(musicRenderBatchFrames, count-offset)
+		renderMusicParts(r.parts, r.results, frames)
+		for partIndex, result := range r.results {
+			if result.err != nil {
+				return nil, nil, fmt.Errorf("render music part %d: %w", partIndex, result.err)
+			}
+			for sample := range result.left {
+				leftAll[offset+sample] += result.left[sample]
+				rightAll[offset+sample] += result.right[sample]
 			}
 		}
-		for partIndex := range r.parts {
-			part := &r.parts[partIndex]
-			for _, event := range part.events {
-				if event.start >= start && event.start < end && !part.active[event.key] {
-					r.syn.NoteOn(part.channel, int32(event.key), int32(event.vel))
-					part.active[event.key] = true
-				}
-			}
-		}
-
-		left, right := leftAll[offset:offset+n], rightAll[offset:offset+n]
-		if n == block {
-			if err := safeRender(r.syn, left, right); err != nil {
-				return nil, nil, fmt.Errorf("synth render: %v", err)
-			}
-		} else {
-			blockLeft, blockRight := make([]float32, block), make([]float32, block)
-			if err := safeRender(r.syn, blockLeft, blockRight); err != nil {
-				return nil, nil, fmt.Errorf("synth render: %v", err)
-			}
-			copy(left, blockLeft[:n])
-			copy(right, blockRight[:n])
-		}
-		if r.gain != 0 && r.gain != 1 {
-			for index := range left {
-				left[index] *= r.gain
-				right[index] *= r.gain
-			}
-		}
-		r.pos += n
-		offset += n
+		r.pos += frames
 	}
 	return leftAll, rightAll, nil
 }

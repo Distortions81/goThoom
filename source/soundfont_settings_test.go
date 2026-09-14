@@ -8,7 +8,7 @@ import (
 
 	"gothoom/eui"
 
-	"github.com/sinshu/go-meltysynth/meltysynth"
+	"github.com/Distortions81/go-meltysynth/meltysynth"
 )
 
 func TestConfiguredSoundFontFileFallsBackToDefault(t *testing.T) {

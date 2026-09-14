@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
-	meltysynth "github.com/sinshu/go-meltysynth/meltysynth"
+	meltysynth "github.com/Distortions81/go-meltysynth/meltysynth"
 )
 
 type noteAction struct {
