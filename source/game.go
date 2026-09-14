@@ -1782,12 +1782,12 @@ func (g *Game) Update() error {
 		queueSessionInput(inputSession, inputState{mouseX: x, mouseY: y, mouseDown: walk})
 	}
 
-	// Warn about poor performance and suggest disabling shaders.
-	// Suppress this while intentionally lowering FPS due to power saving
-	// (background/unfocused or always-on power save).
+	// Warn about poor performance and suggest disabling shaders. Only measure
+	// focused, unthrottled frames so background scheduling and power saving do
+	// not look like slow shader rendering.
 	if primarySession.transport.connected() && perFrameShaderEffectsEnabled() && gs.PromptDisableShaders && !shaderWarnShown {
 		powerSaving := gs.PowerSaveAlways || (!focused && gs.PowerSaveBackground)
-		if !powerSaving && ebiten.ActualFPS() < 50 {
+		if shouldTrackLowShaderFPS(focused, powerSaving, ebiten.ActualFPS()) {
 			if lowFPSSince.IsZero() {
 				lowFPSSince = now
 			} else if now.Sub(lowFPSSince) >= 30*time.Second {
@@ -1800,6 +1800,10 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func shouldTrackLowShaderFPS(focused, powerSaving bool, actualFPS float64) bool {
+	return focused && !powerSaving && actualFPS > 1 && actualFPS < 45
 }
 
 // dispatchSubmittedCommand routes shared message-bar input through the owning

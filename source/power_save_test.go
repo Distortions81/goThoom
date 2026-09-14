@@ -58,6 +58,24 @@ func TestFramePacingTargetFPSPriority(t *testing.T) {
 	}
 }
 
+func TestSlowShaderDetectionRequiresFocusedUnthrottledFrames(t *testing.T) {
+	if !shouldTrackLowShaderFPS(true, false, 44) {
+		t.Fatal("focused low FPS was not tracked")
+	}
+	if shouldTrackLowShaderFPS(false, false, 20) {
+		t.Fatal("unfocused low FPS was tracked")
+	}
+	if shouldTrackLowShaderFPS(true, false, 1) {
+		t.Fatal("display-sleep FPS was tracked")
+	}
+	if shouldTrackLowShaderFPS(true, true, 20) {
+		t.Fatal("power-saved low FPS was tracked")
+	}
+	if shouldTrackLowShaderFPS(true, false, 45) {
+		t.Fatal("acceptable focused FPS was tracked")
+	}
+}
+
 func TestFrameRatePacerUsesExistingFrameInterval(t *testing.T) {
 	start := time.Unix(1000, 0)
 	var pacer frameRatePacer

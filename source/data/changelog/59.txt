@@ -22,6 +22,7 @@ Interface:
 Performance:
 - Power saving now accounts for time already spent rendering or waiting for the display before sleeping, and its target can be set from 1 to 250 FPS.
 - A separate, default-on 250 FPS limit prevents unbounded rendering when VSync is off; active power saving uses its chosen power-save limit instead.
+- Slow-shader detection measures only focused, unthrottled frames above 1 FPS, avoiding warnings caused by background scheduling or display sleep.
 - Upgrade recommendations account for available system memory and the GPU texture-size limit when suggesting sound precaching, sprite-cache size, and GPU compatibility mode.
 
 Desktop:
