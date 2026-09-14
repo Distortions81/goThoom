@@ -70,6 +70,25 @@ func TestScaledSpriteSpanKeepsSharedTileEdgesClosed(t *testing.T) {
 	}
 }
 
+func TestTiledPictureSpanSnapsSharedEdgesTogether(t *testing.T) {
+	for _, scale := range []float64{0.73, 1, 1.1, 4.0 / 3.0, 1.75, 2.5} {
+		for _, offset := range []float64{-127.4, 0, 0.37, 91.8} {
+			const edge = 100.0
+			const leftSize, rightSize = 24, 40
+			leftCenter := (edge - float64(leftSize)/2 + offset) * scale
+			rightCenter := (edge + float64(rightSize)/2 + offset) * scale
+			_, leftRight := tiledPictureSpan(leftCenter, leftSize, scale)
+			rightLeft, _ := tiledPictureSpan(rightCenter, rightSize, scale)
+			if leftRight != rightLeft {
+				t.Fatalf("scale %.3f offset %.2f produced a tile gap: left right=%v, right left=%v", scale, offset, leftRight, rightLeft)
+			}
+			if leftRight != math.Floor((edge+offset)*scale) {
+				t.Fatalf("scale %.3f offset %.2f shared edge=%v, want %v", scale, offset, leftRight, math.Floor((edge+offset)*scale))
+			}
+		}
+	}
+}
+
 func TestSpriteScreenCoordinateCanPreserveOrFloorFractions(t *testing.T) {
 	original := gs.FloatingPointSpriteCoords
 	t.Cleanup(func() { gs.FloatingPointSpriteCoords = original })

@@ -3045,11 +3045,16 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-	fx, fy := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h, selfIndex)
+	rawX, rawY := pictureScreenPositionRawFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h, selfIndex)
+	fx, fy := spriteScreenCoordinate(rawX), spriteScreenCoordinate(rawY)
 	x, y := roundToInt(fx), roundToInt(fy)
 	filter := worldArtworkFilter()
 	left, right := filteredSpriteSpan(fx, w, gs.GameScale, filter)
 	top, bottom := filteredSpriteSpan(fy, h, gs.GameScale, filter)
+	if p.Background && !artworkUpscaleEnabled() {
+		left, right = tiledPictureSpan(rawX, w, gs.GameScale)
+		top, bottom = tiledPictureSpan(rawY, h, gs.GameScale)
+	}
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
 	addPictureLightSourceForViewport(viewport, p, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
@@ -3266,6 +3271,11 @@ func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []
 }
 
 func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int, selfIndexes ...uint8) (float64, float64) {
+	x, y := pictureScreenPositionRawFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, width, height, selfIndexes...)
+	return spriteScreenCoordinate(x), spriteScreenCoordinate(y)
+}
+
+func pictureScreenPositionRawFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int, selfIndexes ...uint8) (float64, float64) {
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 	if p.Moving && !pictureMotionInterpolationEnabled(p) {
@@ -3288,7 +3298,7 @@ func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobil
 
 	x := ((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale
 	y := ((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale
-	return spriteScreenCoordinate(x + float64(ox)), spriteScreenCoordinate(y + float64(oy))
+	return x + float64(ox), y + float64(oy)
 }
 
 func spriteScreenCoordinate(coordinate float64) float64 {
@@ -3309,6 +3319,14 @@ func filteredSpriteSpan(center float64, size int, scale float64, filter ebiten.F
 		return start - 0.5, end + 0.5
 	}
 	return start, end
+}
+
+// tiledPictureSpan snaps both boundaries instead of the picture center. Tiles
+// that share a world-space edge therefore share the same display-space edge,
+// including while a fractional camera shift is being interpolated.
+func tiledPictureSpan(center float64, size int, scale float64) (float64, float64) {
+	start, end := scaledSpriteSpan(center, size, scale)
+	return math.Floor(start), math.Floor(end)
 }
 
 func pictureAnimationInstanceKey(h, v int16) uint64 {
