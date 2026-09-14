@@ -41,6 +41,9 @@ func TestChatWindowDefersClosedUpdatesUntilOpen(t *testing.T) {
 	if err := makeChatWindow(); err != nil {
 		t.Fatalf("make chat window: %v", err)
 	}
+	if chatWin.Closable {
+		t.Fatal("Chat window exposes an accidental title-bar close button")
+	}
 	chatLog.Add("Bob says, hello")
 	updateChatWindow()
 	if len(chatList.Contents) != 0 {
@@ -107,6 +110,9 @@ func TestMessageWindowsBindToSelectedSession(t *testing.T) {
 		t.Fatalf("make chat window: %v", err)
 	}
 	makeConsoleWindow()
+	if consoleWin.Closable {
+		t.Fatal("Console window exposes an accidental title-bar close button")
+	}
 	chatWin.MarkOpen()
 	consoleWin.MarkOpen()
 	updateChatWindow()

@@ -278,14 +278,8 @@ func Update() error {
 					}
 				}
 				win.clampToScreen()
-				if dragPart == PART_BAR && windowSnapping && win.zone == nil {
-					snapped := false
-					if !win.snapAnchorActive {
-						snapped = snapToCorner(win)
-					}
-					if !snapped && snapToWindow(win) {
-						win.clampToScreen()
-					}
+				if dragPart == PART_BAR {
+					snapMovedWindow(win)
 				}
 				break
 			}
@@ -1428,14 +1422,30 @@ func dragWindowMove(win *windowData, delta point) {
 	if win.zone != nil && win.Movable {
 		win.ClearZone()
 	}
+	win.resizeSnapAnchorX = false
+	win.resizeSnapAnchorY = false
 	if win.zone == nil {
-		win.Position = pointAdd(win.Position, delta)
 		if windowSnapping && win.snapAnchorActive {
-			dx := float32(math.Abs(float64(win.Position.X - win.snapAnchor.X)))
-			dy := float32(math.Abs(float64(win.Position.Y - win.snapAnchor.Y)))
-			if dx > UnsnapThreshold || dy > UnsnapThreshold {
-				win.snapAnchorActive = false
+			win.snapDragPosition = pointAdd(win.snapDragPosition, delta)
+			if win.snapAnchorX && math.Abs(float64(win.snapDragPosition.X-win.snapAnchor.X)) > float64(UnsnapThreshold) {
+				win.snapAnchorX = false
 			}
+			if win.snapAnchorY && math.Abs(float64(win.snapDragPosition.Y-win.snapAnchor.Y)) > float64(UnsnapThreshold) {
+				win.snapAnchorY = false
+			}
+			if win.snapAnchorX {
+				win.Position.X = win.snapAnchor.X
+			} else {
+				win.Position.X = win.snapDragPosition.X
+			}
+			if win.snapAnchorY {
+				win.Position.Y = win.snapAnchor.Y
+			} else {
+				win.Position.Y = win.snapDragPosition.Y
+			}
+			win.snapAnchorActive = win.snapAnchorX || win.snapAnchorY
+		} else {
+			win.Position = pointAdd(win.Position, delta)
 		}
 	}
 }
@@ -1446,6 +1456,10 @@ func dragWindowMove(win *windowData, delta point) {
 func dragWindowResize(win *windowData, part dragType, delta point) bool {
 	if win == nil || win.Docked || !win.Resizable {
 		return false
+	}
+	if win.resizeSnapAnchorPart != part {
+		win.resizeSnapAnchorX = false
+		win.resizeSnapAnchorY = false
 	}
 	left, top := win.Position.X, win.Position.Y
 	right, bottom := left+win.Size.X, top+win.Size.Y
@@ -1469,8 +1483,33 @@ func dragWindowResize(win *windowData, part dragType, delta point) bool {
 	// Explicit resizing takes ownership of placement, just like dragging.
 	win.ClearZone()
 	win.snapAnchorActive = false
+	win.snapAnchorX = false
+	win.snapAnchorY = false
 	win.Position = pos
-	return win.setSize(size)
+	changed := win.setSize(size)
+	if win.resizeSnapAnchorX {
+		current, anchor := win.Position.X, win.resizeSnapAnchorPosition.X
+		switch part {
+		case PART_RIGHT, PART_TOP_RIGHT, PART_BOTTOM_RIGHT:
+			current = win.Position.X + win.Size.X
+			anchor = win.resizeSnapAnchorPosition.X + win.resizeSnapAnchorSize.X
+		}
+		if math.Abs(float64(current-anchor)) > float64(resizeUnsnapThreshold) {
+			win.resizeSnapAnchorX = false
+		}
+	}
+	if win.resizeSnapAnchorY {
+		current, anchor := win.Position.Y, win.resizeSnapAnchorPosition.Y
+		switch part {
+		case PART_BOTTOM, PART_BOTTOM_LEFT, PART_BOTTOM_RIGHT:
+			current = win.Position.Y + win.Size.Y
+			anchor = win.resizeSnapAnchorPosition.Y + win.resizeSnapAnchorSize.Y
+		}
+		if math.Abs(float64(current-anchor)) > float64(resizeUnsnapThreshold) {
+			win.resizeSnapAnchorY = false
+		}
+	}
+	return changed
 }
 
 func dragWindowScroll(win *windowData, mpos point, vert bool) {

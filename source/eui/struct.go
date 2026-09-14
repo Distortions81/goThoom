@@ -32,7 +32,16 @@ type windowData struct {
 	zone *windowZone
 
 	snapAnchor       point
+	snapDragPosition point
 	snapAnchorActive bool
+	snapAnchorX      bool
+	snapAnchorY      bool
+
+	resizeSnapAnchorPosition point
+	resizeSnapAnchorSize     point
+	resizeSnapAnchorPart     dragType
+	resizeSnapAnchorX        bool
+	resizeSnapAnchorY        bool
 
 	Padding   float32
 	Margin    float32

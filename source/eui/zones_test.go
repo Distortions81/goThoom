@@ -107,8 +107,8 @@ func TestSnapResizeToWindow(t *testing.T) {
 	screenHeight = 200
 	uiScale = 1
 
-	base := &windowData{Position: point{100, 50}, Size: point{20, 20}, Open: true}
-	win := &windowData{Position: point{50, 50}, Size: point{48, 20}, Open: true}
+	base := &windowData{Position: point{120, 50}, Size: point{20, 20}, Open: true}
+	win := &windowData{Position: point{50, 50}, Size: point{68, 20}, Open: true, Resizable: true}
 	windows = []*windowData{base, win}
 
 	snapResize(win, PART_RIGHT)
@@ -125,7 +125,7 @@ func TestSnapResizeToScreen(t *testing.T) {
 	screenHeight = 200
 	uiScale = 1
 
-	win := &windowData{Position: point{50, 50}, Size: point{20, 141}, Open: true}
+	win := &windowData{Position: point{50, 50}, Size: point{20, 141}, Open: true, Resizable: true}
 
 	snapResize(win, PART_BOTTOM)
 
@@ -140,7 +140,7 @@ func TestSnapResizeToScreenScaled(t *testing.T) {
 	screenHeight = 200
 	uiScale = 2
 
-	win := &windowData{Position: point{50, 50}, Size: point{20, 45}, Open: true}
+	win := &windowData{Position: point{50, 50}, Size: point{20, 45}, Open: true, Resizable: true}
 
 	snapResize(win, PART_BOTTOM)
 

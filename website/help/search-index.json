@@ -82,7 +82,7 @@
   {
     "title": "The toolbar",
     "url": "./#the-toolbar",
-    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, Snap captures, and local Stream output. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Help Opens the online user manual."
+    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, Snap captures, and local Stream output. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Windows Opens or closes the Chat, Console, Inventory, and Players panes in floating mode. These panes omit title-bar close buttons to prevent accidental closure. Tiled mode manages them automatically."
   },
   {
     "title": "Use more than one character session",
@@ -117,7 +117,7 @@
   {
     "title": "Text, scale, and fullscreen",
     "url": "./#text-scale-and-fullscreen",
-    "text": "Settings → Display controls UI scale, fullscreen, themes, window layout, and the optional FPS display. Automatic HiDPI scaling follows the monitor scale; the manual UI scale lets you tune it further. Settings → Text contains separate size controls for Chat, Console, Inventory, Players, names, and bubbles. 04 · Chat and messages"
+    "text": "Settings → Display controls UI scale, fullscreen, themes, window layout, and the optional FPS display. The manual UI scale uses stable 0.1 steps, with automatic HiDPI scaling applied on top. Settings → Text contains separate size controls for Chat, Console, Inventory, Players, names, and bubbles. 04 · Chat and messages"
   },
   {
     "title": "Speak, review, copy, and notice",

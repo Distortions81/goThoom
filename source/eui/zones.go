@@ -2,13 +2,18 @@ package eui
 
 import "math"
 
-// CornerSnapThreshold defines how close a window edge or corner must be to
-// snap to a screen corner or another window.
-const CornerSnapThreshold float32 = 10
+// CornerSnapThreshold defines how close a moving window edge or corner must be
+// to snap to a screen edge or another window.
+const CornerSnapThreshold float32 = 18
 
-// UnsnapThreshold defines how far a window must move from its snapped
-// position before corner snapping is re-enabled.
-const UnsnapThreshold float32 = 12
+// UnsnapThreshold defines how far the pointer-relative window position must
+// move from a magnetic anchor before that axis releases.
+const UnsnapThreshold float32 = 22
+
+const (
+	resizeSnapThreshold   float32 = 10
+	resizeUnsnapThreshold float32 = 12
+)
 
 // HZone defines the horizontal zone positions.
 type HZone int
@@ -145,93 +150,141 @@ func snapToCorner(win *windowData) bool {
 	if !windowSnapping {
 		return false
 	}
-	pos := win.getPosition()
-	size := win.Size
-
-	sw := float32(screenWidth) / uiScale
-	sh := float32(screenHeight) / uiScale
+	pos, size := win.Position, win.Size
+	s := win.scale()
+	sw := float32(screenWidth) / s
+	sh := float32(screenHeight) / s
+	near := func(a, b float32) bool {
+		return math.Abs(float64(a-b)) <= float64(CornerSnapThreshold)
+	}
 
 	// Top-left
-	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
+	if near(pos.X, 0) && near(pos.Y, 0) {
+		before := win.Position
 		win.SetZone(HZoneLeft, VZoneTop)
-		win.snapAnchor = win.Position
-		win.snapAnchorActive = true
+		setSnapAnchor(win, before, true, true)
 		return true
 	}
 	// Top-right
-	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
+	if near(pos.X+size.X, sw) && near(pos.Y, 0) {
+		before := win.Position
 		win.SetZone(HZoneRight, VZoneTop)
-		win.snapAnchor = win.Position
-		win.snapAnchorActive = true
+		setSnapAnchor(win, before, true, true)
 		return true
 	}
 	// Bottom-left
-	if pos.X <= CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
+	if near(pos.X, 0) && near(pos.Y+size.Y, sh) {
+		before := win.Position
 		win.SetZone(HZoneLeft, VZoneBottom)
-		win.snapAnchor = win.Position
-		win.snapAnchorActive = true
+		setSnapAnchor(win, before, true, true)
 		return true
 	}
 	// Bottom-right
-	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
+	if near(pos.X+size.X, sw) && near(pos.Y+size.Y, sh) {
+		before := win.Position
 		win.SetZone(HZoneRight, VZoneBottom)
-		win.snapAnchor = win.Position
-		win.snapAnchorActive = true
+		setSnapAnchor(win, before, true, true)
 		return true
 	}
 	return false
 }
 
-// snapToWindow snaps a window's edges to nearby windows within the threshold.
-// It returns true if the window position was adjusted.
+func setSnapAnchor(win *windowData, dragPosition point, snapX, snapY bool) {
+	if !win.snapAnchorActive {
+		win.snapDragPosition = dragPosition
+	}
+	if snapX && !win.snapAnchorX {
+		win.snapDragPosition.X = dragPosition.X
+	}
+	if snapY && !win.snapAnchorY {
+		win.snapDragPosition.Y = dragPosition.Y
+	}
+	win.snapAnchor = win.Position
+	win.snapAnchorX = win.snapAnchorX || snapX
+	win.snapAnchorY = win.snapAnchorY || snapY
+	win.snapAnchorActive = win.snapAnchorX || win.snapAnchorY
+}
+
+// snapToWindow snaps a window to nearby screen or window edges. Comparisons
+// use the dragged window's coordinate system so scaled and unscaled windows
+// can align. The closest candidate wins independently on each axis.
 func snapToWindow(win *windowData) bool {
 	if !windowSnapping {
 		return false
 	}
-	pos := win.getPosition()
-	size := win.Size
-	snapped := false
+	s := win.scale()
+	pos, size := win.Position, win.Size
+	sw, sh := float32(screenWidth)/s, float32(screenHeight)/s
+	bestX, bestY := CornerSnapThreshold+1, CornerSnapThreshold+1
+	delta := point{}
+	snapX, snapY := false, false
+	considerX := func(candidate float32) {
+		distance := float32(math.Abs(float64(candidate)))
+		if !win.snapAnchorX && distance <= CornerSnapThreshold && distance < bestX {
+			bestX, delta.X, snapX = distance, candidate, true
+		}
+	}
+	considerY := func(candidate float32) {
+		distance := float32(math.Abs(float64(candidate)))
+		if !win.snapAnchorY && distance <= CornerSnapThreshold && distance < bestY {
+			bestY, delta.Y, snapY = distance, candidate, true
+		}
+	}
+
+	considerX(-pos.X)
+	considerX(sw - pos.X - size.X)
+	considerY(-pos.Y)
+	considerY(sh - pos.Y - size.Y)
+	rangesNear := func(a0, a1, b0, b1 float32) bool {
+		return a0 <= b1+CornerSnapThreshold && a1 >= b0-CornerSnapThreshold
+	}
 
 	for _, other := range windows {
 		if other == win || !other.Open {
 			continue
 		}
-		opos := other.getPosition()
-		osize := other.Size
+		// Other windows may opt out of UI scaling. Convert their physical
+		// bounds to this window's units before comparing edges.
+		op, os := other.GetPos(), other.GetSize()
+		opos := point{X: op.X / s, Y: op.Y / s}
+		osize := point{X: os.X / s, Y: os.Y / s}
 
 		// Horizontal snapping
-		if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
-			// Snap left edge to other's right edge
-			if math.Abs(float64(pos.X-(opos.X+osize.X))) <= float64(CornerSnapThreshold) {
-				win.Position.X = opos.X + osize.X
-				snapped = true
-				pos.X = win.Position.X
-			}
-			// Snap right edge to other's left edge
-			if math.Abs(float64((pos.X+size.X)-opos.X)) <= float64(CornerSnapThreshold) {
-				win.Position.X = opos.X - size.X
-				snapped = true
-				pos.X = win.Position.X
-			}
+		if rangesNear(pos.Y, pos.Y+size.Y, opos.Y, opos.Y+osize.Y) {
+			considerX(opos.X + osize.X - pos.X)
+			considerX(opos.X - pos.X - size.X)
+			considerX(opos.X - pos.X)
+			considerX(opos.X + osize.X - pos.X - size.X)
 		}
 
 		// Vertical snapping
-		if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
-			// Snap top edge to other's bottom edge
-			if math.Abs(float64(pos.Y-(opos.Y+osize.Y))) <= float64(CornerSnapThreshold) {
-				win.Position.Y = opos.Y + osize.Y
-				snapped = true
-				pos.Y = win.Position.Y
-			}
-			// Snap bottom edge to other's top edge
-			if math.Abs(float64((pos.Y+size.Y)-opos.Y)) <= float64(CornerSnapThreshold) {
-				win.Position.Y = opos.Y - size.Y
-				snapped = true
-				pos.Y = win.Position.Y
-			}
+		if rangesNear(pos.X, pos.X+size.X, opos.X, opos.X+osize.X) {
+			considerY(opos.Y + osize.Y - pos.Y)
+			considerY(opos.Y - pos.Y - size.Y)
+			considerY(opos.Y - pos.Y)
+			considerY(opos.Y + osize.Y - pos.Y - size.Y)
 		}
 	}
-	return snapped
+	if !snapX && !snapY {
+		return false
+	}
+	before := win.Position
+	win.Position = pointAdd(win.Position, delta)
+	win.clampToScreen()
+	setSnapAnchor(win, before, snapX, snapY)
+	return true
+}
+
+// snapMovedWindow applies move snapping after a drag update. A snapped window
+// must first leave its anchor threshold before it can acquire another target.
+func snapMovedWindow(win *windowData) bool {
+	if !windowSnapping || win == nil || win.zone != nil {
+		return false
+	}
+	if !win.snapAnchorActive && snapToCorner(win) {
+		return true
+	}
+	return snapToWindow(win)
 }
 
 // snapResize adjusts a window's size and position when resizing so edges
@@ -249,19 +302,32 @@ func snapResize(win *windowData, part dragType) bool {
 	includesTop := part == PART_TOP || part == PART_TOP_LEFT || part == PART_TOP_RIGHT
 	includesBottom := part == PART_BOTTOM || part == PART_BOTTOM_LEFT || part == PART_BOTTOM_RIGHT
 
-	var delta point
-	near := func(a, b float32) bool { return math.Abs(float64(a-b)) <= float64(CornerSnapThreshold) }
-	if includesLeft && near(pos.X, 0) {
-		delta.X = -pos.X
+	bestX, bestY := resizeSnapThreshold+1, resizeSnapThreshold+1
+	delta := point{}
+	snapX, snapY := false, false
+	considerX := func(candidate float32) {
+		distance := float32(math.Abs(float64(candidate)))
+		if !win.resizeSnapAnchorX && distance <= resizeSnapThreshold && distance < bestX {
+			bestX, delta.X, snapX = distance, candidate, true
+		}
 	}
-	if includesRight && near(pos.X+size.X, sw) {
-		delta.X = sw - pos.X - size.X
+	considerY := func(candidate float32) {
+		distance := float32(math.Abs(float64(candidate)))
+		if !win.resizeSnapAnchorY && distance <= resizeSnapThreshold && distance < bestY {
+			bestY, delta.Y, snapY = distance, candidate, true
+		}
 	}
-	if includesTop && near(pos.Y, 0) {
-		delta.Y = -pos.Y
+	if includesLeft {
+		considerX(-pos.X)
 	}
-	if includesBottom && near(pos.Y+size.Y, sh) {
-		delta.Y = sh - pos.Y - size.Y
+	if includesRight {
+		considerX(sw - pos.X - size.X)
+	}
+	if includesTop {
+		considerY(-pos.Y)
+	}
+	if includesBottom {
+		considerY(sh - pos.Y - size.Y)
 	}
 	for _, other := range windows {
 		if other == win || !other.Open {
@@ -271,24 +337,32 @@ func snapResize(win *windowData, part dragType) bool {
 		op, os := other.GetPos(), other.GetSize()
 		opos, osize := point{X: op.X / s, Y: op.Y / s}, point{X: os.X / s, Y: os.Y / s}
 		if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
-			if includesLeft && near(pos.X, opos.X+osize.X) {
-				delta.X = opos.X + osize.X - pos.X
+			if includesLeft {
+				considerX(opos.X + osize.X - pos.X)
 			}
-			if includesRight && near(pos.X+size.X, opos.X) {
-				delta.X = opos.X - pos.X - size.X
+			if includesRight {
+				considerX(opos.X - pos.X - size.X)
 			}
 		}
 		if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
-			if includesTop && near(pos.Y, opos.Y+osize.Y) {
-				delta.Y = opos.Y + osize.Y - pos.Y
+			if includesTop {
+				considerY(opos.Y + osize.Y - pos.Y)
 			}
-			if includesBottom && near(pos.Y+size.Y, opos.Y) {
-				delta.Y = opos.Y - pos.Y - size.Y
+			if includesBottom {
+				considerY(opos.Y - pos.Y - size.Y)
 			}
 		}
 	}
-	if delta == (point{}) {
+	if !snapX && !snapY {
 		return false
 	}
-	return dragWindowResize(win, part, delta)
+	if delta != (point{}) {
+		dragWindowResize(win, part, delta)
+	}
+	win.resizeSnapAnchorPosition = win.Position
+	win.resizeSnapAnchorSize = win.Size
+	win.resizeSnapAnchorPart = part
+	win.resizeSnapAnchorX = win.resizeSnapAnchorX || snapX
+	win.resizeSnapAnchorY = win.resizeSnapAnchorY || snapY
+	return true
 }

@@ -46,8 +46,9 @@ var loginWin *eui.WindowData
 var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var tileLayoutWin *eui.WindowData
+var windowsWin *eui.WindowData
 var settingsToolbarPlacementDD *eui.ItemData
-var tileCombineMessagesCB, wizardCombineMessagesCB, tileTiledModeCB *eui.ItemData
+var tileCombineMessagesCB, wizardCombineMessagesCB, tileTiledModeCB, tileWindowSnappingCB *eui.ItemData
 var tileKeepGameLargeCB, wizardKeepGameLargeCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
@@ -177,6 +178,7 @@ var scriptDebugList *eui.ItemData
 
 var hudWin *eui.WindowData
 var toolbarRoot *eui.ItemData
+var toolbarWindowsBtn *eui.ItemData
 var toolbarStatsText *eui.ItemData
 var toolbarStatsOnce sync.Once
 var shaderWarnWin *eui.WindowData
@@ -354,6 +356,7 @@ func initUI() {
 	makeDebugWindow()
 	initHelpUI()
 	initAboutUI()
+	makeWindowsWindow()
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeShortcutsWindow()
@@ -516,20 +519,21 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(recordBtn)
 
-	helpBtn, helpEvents := eui.NewButton()
-	helpBtn.Text = "Help"
-	setMaterialButtonIcon(helpBtn, "help")
-	helpBtn.SetTooltip("Open the online user manual.")
-	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	helpBtn.FontSize = toolFontSize
-	helpEvents.Handle = func(ev eui.UIEvent) {
+	windowsBtn, windowsEvents := eui.NewButton()
+	windowsBtn.Text = "Windows"
+	setMaterialButtonIcon(windowsBtn, "window")
+	windowsBtn.SetTooltip("Show or hide standalone windows. Turn off tiled window layout to use this control.")
+	windowsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	windowsBtn.FontSize = toolFontSize
+	windowsBtn.Disabled = gs.TiledWindows
+	windowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if err := open.Run(userManualURL); err != nil {
-				consoleMessage("open user manual: " + err.Error())
-			}
+			makeWindowsWindow()
+			windowsWin.ToggleNear(ev.Item)
 		}
 	}
-	row2.AddItem(helpBtn)
+	toolbarWindowsBtn = windowsBtn
+	row2.AddItem(windowsBtn)
 
 	/*
 	   stopBtn, stopEvents := eui.NewButton()
@@ -5787,6 +5791,45 @@ func restoreSeparateMessageWindows() {
 	}
 }
 
+func makeWindowsWindow() {
+	if windowsWin != nil {
+		return
+	}
+	const width float32 = 160
+	windowsWin = eui.NewWindow()
+	windowsWin.ShowTooltipIndicators = true
+	windowsWin.Title = "Windows"
+	windowsWin.Closable = true
+	windowsWin.Resizable = false
+	windowsWin.AutoSize = true
+	windowsWin.Movable = true
+
+	flow := eui.NewColumn()
+	windowsPlayersCB = newWindowVisibilityCheckbox("Players", width, func() *eui.WindowData { return playersWin })
+	windowsInventoryCB = newWindowVisibilityCheckbox("Inventory", width, func() *eui.WindowData { return inventoryWin })
+	windowsChatCB = newWindowVisibilityCheckbox("Chat", width, func() *eui.WindowData { return chatWin })
+	windowsConsoleCB = newWindowVisibilityCheckbox("Console", width, func() *eui.WindowData { return consoleWin })
+	flow.AddItem(windowsPlayersCB)
+	flow.AddItem(windowsInventoryCB)
+	flow.AddItem(windowsChatCB)
+	flow.AddItem(windowsConsoleCB)
+
+	resetBtn, resetEvents := eui.NewButton()
+	resetBtn.Text = "Reset Windows"
+	setMaterialButtonIcon(resetBtn, "restart_alt")
+	resetBtn.Size = eui.Point{X: width, Y: settingsControlHeight}
+	resetBtn.SetTooltip("Restore the default window layout.")
+	resetEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmResetWindows()
+		}
+	}
+	flow.AddItem(resetBtn)
+
+	windowsWin.AddItem(flow)
+	windowsWin.AddWindow(false)
+}
+
 func makeTileLayoutWindow() {
 	if tileLayoutWin != nil {
 		return
@@ -5819,6 +5862,21 @@ func makeTileLayoutWindow() {
 	}
 	tileTiledModeCB = tiledCB
 	workspace.AddItem(tiledCB)
+
+	snappingCB, snappingEvents := eui.NewCheckbox()
+	snappingCB.Text = "Snap floating windows"
+	snappingCB.Size = eui.Point{X: width, Y: 24}
+	snappingCB.Checked = gs.WindowSnapping
+	snappingCB.SetTooltip("Align floating windows with nearby screen and window edges while moving or resizing them.")
+	snappingEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowSnapping = ev.Checked
+			eui.SetWindowSnapping(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	tileWindowSnappingCB = snappingCB
+	workspace.AddItem(snappingCB)
 
 	tileCombineMessagesCB = newCombineMessagesCheckbox(width)
 	workspace.AddItem(tileCombineMessagesCB)
@@ -6265,6 +6323,7 @@ func makePlayersWindow() {
 	// Use the common text window scaffold to get an inner scrollable list
 	// and consistent padding/behavior with Inventory/Chat windows.
 	playersWin, playersList, _ = eui.NewTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
+	playersWin.Closable = false
 	playersWin.Searchable = true
 	playersWin.OnSearch = searchPlayersWindow
 	playersWin.OnOpen = updatePlayersWindow

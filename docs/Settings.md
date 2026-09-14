@@ -32,8 +32,12 @@ The Settings window replaces the former Advanced window with eleven topic tabs:
 
 Settings uses a fixed 730 × 700 logical-pixel window (scaled with the UI and
 clamped to smaller screens). Switching tabs or Performance subtabs keeps the
-window size stable. Main Settings tabs and Performance subtabs each use a single row.
+window size stable. Main Settings tabs wrap into balanced rows, while Performance
+subtabs use a single row.
 Detailed editors such as File Paths still open separately.
+
+**UI Scale** uses 0.1 steps, with 0.75 retained as the minimum compact setting.
+Automatic Retina and HiDPI display scaling is applied on top of that preference.
 
 Toolbar controls have one home: **Settings → Display → Show / Hide Windows** for window
 visibility and reset, **Actions** for Hotkeys/Keybindings, **Audio** for
@@ -50,6 +54,10 @@ actions, ponders, monster speech, and whether the current character's own
 messages or in-game notifications are read aloud. Settings omits other duplicate launchers
 and controls. The command palette continues
 to provide searchable access to settings and actions.
+
+Chat, Console, Inventory, and Players omit title-bar close buttons. In floating
+mode, open or close them with the **Windows** toolbar selector or the matching
+**Show / Hide Windows** controls in Settings.
 
 **Display → Windows & Toolbar → Window Layout** starts with the tiled workspace
 used by default and shows clickable arrangements for the game, Inventory, Players,
@@ -164,6 +172,12 @@ hand slots at the same width as those slots.
 The saved settings are `interface.status_bar_style`, with values `regular`,
 `compact`, or `hidden`, and `interface.status_bars_below_toolbar_hands`.
 
+### Window layout
+
+Window snapping is available under **Settings → Display → Window Layout**.
+It aligns floating windows with nearby window and screen edges while they are
+moved or resized, and is saved as `windows.snapping`.
+
 ## Persistent options without a dedicated control
 
 These options are saved in `settings.json` and available through `/setting`,
@@ -173,7 +187,6 @@ window.
 | JSON setting | Default | Purpose and use |
 | --- | --- | --- |
 | `rendering.pin_world_objects` | `true` | Lets smooth movement recognize small moving pictures attached to a mobile, such as chains and effects, and interpolate them with that mobile. It only has an effect while `rendering.smooth_movement` is enabled. |
-| `windows.snapping` | `false` | Makes independently positioned windows snap to nearby window and screen edges. Change it with `/setting set windows.snapping true` or `false`. |
 | `windows.auto_resize` | `true` | Reapplies the managed window layout after the application size changes. Tiled mode always manages its layout regardless of this value. |
 | `chat.text_to_speech_blocklist` | `[]` | Names whose messages should not be spoken. Prefer `/notts add <name>`, `/notts remove <name>`, and `/notts list`; those commands update the active list immediately. |
 | `interface.show_clan_lord_splash` | `true` | Shows the classic Clan Lord splash artwork when it is available. |

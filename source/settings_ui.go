@@ -74,7 +74,7 @@ func makeSettingsWindow() {
 	const panelWidth = settingsPanelWidth
 	outer := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL,
-		ActiveOutline: true,
+		ActiveOutline: true, TabColumns: 6, TabRowOffset: 16,
 	}
 	displayPage := newSettingsPage("Display", panelWidth)
 	worldPage := newSettingsPage("World", panelWidth)
@@ -98,6 +98,7 @@ func makeSettingsWindow() {
 	displayPage.AddItem(displayColumns)
 	windowSection := addSettingsSection(displayWindowPage, "Window & Display", displayColumnWidth)
 	layoutSection := addSettingsSection(displayLayoutPage, "Windows & Toolbar", displayColumnWidth)
+	windowsSection := addSettingsSection(displayLayoutPage, "Show / Hide Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
 	textColumns := eui.NewRow()
@@ -189,12 +190,14 @@ func makeSettingsWindow() {
 	uiScaleLabel.Size = eui.Point{X: displayColumnWidth, Y: 20}
 	uiScaleSlider.MinValue = 0.75
 	uiScaleSlider.MaxValue = 4
-	uiScaleSlider.Value = float32(gs.UIScale)
-	uiScaleLabel.SetTooltip("Base UI size. Retina and other HiDPI displays are scaled automatically.")
-	pendingUIScale := gs.UIScale
+	uiScaleSlider.Value = float32(clampUIScalePreference(gs.UIScale))
+	uiScaleLabel.SetTooltip("Base UI size in 0.1 steps. Retina and other HiDPI displays are scaled automatically.")
+	pendingUIScale := clampUIScalePreference(gs.UIScale)
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			pendingUIScale = float64(ev.Value)
+			pendingUIScale = clampUIScalePreference(float64(ev.Value))
+			ev.Item.Value = float32(pendingUIScale)
+			ev.Item.Dirty = true
 		}
 	}
 
@@ -204,7 +207,7 @@ func makeSettingsWindow() {
 	uiScaleApplyBtn.Size = eui.Point{X: 80, Y: settingsControlHeight}
 	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			gs.UIScale = pendingUIScale
+			gs.UIScale = clampUIScalePreference(pendingUIScale)
 			eui.SetUserUIScale(float32(gs.UIScale))
 			updateGameWindowSize()
 			settingsDirty = true
@@ -1093,7 +1096,7 @@ func makeSettingsWindow() {
 	textSizeSection.AddItem(chatFontSlider)
 
 	addDisplaySettings(windowSection, displayColumnWidth)
-	addWindowSettings(layoutSection, displayColumnWidth)
+	addWindowSettings(windowsSection, displayColumnWidth)
 	addControlSettings(controlsSection, panelWidth)
 	addTextSettings(chatSection, inputSection, displayColumnWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
@@ -1111,9 +1114,60 @@ func makeSettingsWindow() {
 
 var settingsWindowShadowsCB *eui.ItemData
 
-var settingsPNACheckbox *eui.ItemData
+var (
+	settingsPlayersCB   *eui.ItemData
+	settingsInventoryCB *eui.ItemData
+	settingsChatCB      *eui.ItemData
+	settingsConsoleCB   *eui.ItemData
+	windowsPlayersCB    *eui.ItemData
+	windowsInventoryCB  *eui.ItemData
+	windowsChatCB       *eui.ItemData
+	windowsConsoleCB    *eui.ItemData
+	settingsPNACheckbox *eui.ItemData
+)
+
+func newWindowVisibilityCheckbox(label string, width float32, target func() *eui.WindowData) *eui.ItemData {
+	checkbox, events := eui.NewCheckbox()
+	checkbox.Text = label
+	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
+	checkbox.Checked = target() != nil && target().IsOpen()
+	checkbox.Disabled = gs.TiledWindows
+	checkbox.SetTooltip("Show or hide this standalone window. Tiled mode manages the main window visibility automatically.")
+	events.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		if gs.TiledWindows {
+			refreshWindowSettingsControls()
+			return
+		}
+		if win := target(); win != nil {
+			if ev.Checked {
+				win.MarkOpenNear(ev.Item)
+			} else {
+				win.Close()
+			}
+		}
+	}
+	return checkbox
+}
 
 func addWindowSettings(section *eui.ItemData, width float32) {
+	const gap float32 = 8
+	checkboxWidth := (width - gap) / 2
+	firstRow := eui.NewRow()
+	secondRow := eui.NewRow()
+	settingsPlayersCB = newWindowVisibilityCheckbox("Players", checkboxWidth, func() *eui.WindowData { return playersWin })
+	settingsInventoryCB = newWindowVisibilityCheckbox("Inventory", checkboxWidth, func() *eui.WindowData { return inventoryWin })
+	settingsChatCB = newWindowVisibilityCheckbox("Chat", checkboxWidth, func() *eui.WindowData { return chatWin })
+	settingsConsoleCB = newWindowVisibilityCheckbox("Console", checkboxWidth, func() *eui.WindowData { return consoleWin })
+	firstRow.AddItem(settingsPlayersCB)
+	firstRow.AddItem(settingsInventoryCB)
+	secondRow.AddItem(settingsChatCB)
+	secondRow.AddItem(settingsConsoleCB)
+	section.AddItem(firstRow)
+	section.AddItem(secondRow)
+
 	resetBtn, resetEvents := eui.NewButton()
 	resetBtn.Text = "Reset Windows"
 	setMaterialButtonIcon(resetBtn, "restart_alt")
@@ -1129,8 +1183,34 @@ func addWindowSettings(section *eui.ItemData, width float32) {
 
 func refreshWindowSettingsControls() {
 	refreshTiledLayoutPreviews()
+	for _, control := range []struct {
+		checkbox *eui.ItemData
+		window   *eui.WindowData
+	}{
+		{settingsPlayersCB, playersWin},
+		{settingsInventoryCB, inventoryWin},
+		{settingsChatCB, chatWin},
+		{settingsConsoleCB, consoleWin},
+		{windowsPlayersCB, playersWin},
+		{windowsInventoryCB, inventoryWin},
+		{windowsChatCB, chatWin},
+		{windowsConsoleCB, consoleWin},
+	} {
+		if control.checkbox != nil {
+			control.checkbox.Checked = control.window != nil && control.window.IsOpen()
+			control.checkbox.Disabled = gs.TiledWindows
+			control.checkbox.Dirty = true
+		}
+	}
+	if toolbarWindowsBtn != nil {
+		toolbarWindowsBtn.Disabled = gs.TiledWindows
+		toolbarWindowsBtn.Dirty = true
+	}
 	if tileTiledModeCB != nil {
 		tileTiledModeCB.Checked, tileTiledModeCB.Dirty = gs.TiledWindows, true
+	}
+	if tileWindowSnappingCB != nil {
+		tileWindowSnappingCB.Checked, tileWindowSnappingCB.Dirty = gs.WindowSnapping, true
 	}
 	for _, item := range []*eui.ItemData{tileKeepGameLargeCB, wizardKeepGameLargeCB} {
 		if item != nil {
@@ -1149,6 +1229,9 @@ func refreshWindowSettingsControls() {
 	}
 	if tileLayoutWin != nil {
 		tileLayoutWin.Refresh()
+	}
+	if windowsWin != nil {
+		windowsWin.Refresh()
 	}
 	if setupWizardWin != nil {
 		refreshTiledArrangementControls(setupWizardWin.Contents)

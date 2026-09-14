@@ -157,7 +157,10 @@ func clampUIScalePreference(v float64) float64 {
 	if v > 4 {
 		return 4
 	}
-	return v
+	if v == 0.75 {
+		return v
+	}
+	return math.Round(v*10) / 10
 }
 
 func clampTiledPaneFraction(v float64) float64 {
@@ -202,9 +205,9 @@ func normalizeGamma(v, fallback float64) float64 {
 	return best
 }
 
-// normalizeLoadedNumericSettings keeps hand-edited and older settings within
-// the ranges exposed by the current UI. Valid in-range preferences are left
-// untouched; invalid values are moved to the nearest supported boundary.
+// normalizeLoadedNumericSettings keeps hand-edited and older settings on the
+// values exposed by the current UI. Values between supported steps are moved
+// to the nearest one, and out-of-range values move to the nearest boundary.
 func normalizeLoadedNumericSettings(value *settings) bool {
 	if value == nil {
 		return false
@@ -263,7 +266,11 @@ func normalizeLoadedNumericSettings(value *settings) bool {
 	clampFloat(&value.ChatTTSSpeed, 0.5, 2)
 	clampFloat(&value.NotificationDuration, 1, 30)
 
-	clampFloat(&value.UIScale, 0.75, 4)
+	normalizedUIScale := clampUIScalePreference(value.UIScale)
+	if normalizedUIScale != value.UIScale {
+		value.UIScale = normalizedUIScale
+		changed = true
+	}
 	clampFloat(&value.JoystickWalkDeadzone, 0.01, 0.2)
 	clampFloat(&value.JoystickCursorDeadzone, 0.01, 0.2)
 	clampInt(&value.PowerSaveFPS, minimumPowerSaveFPS, maximumPowerSaveFPS)
@@ -1381,7 +1388,7 @@ func prepareTiledWorkspaceWindowChrome() {
 			item.win.Margin = gameWindowFreeformMargin
 		}
 		item.win.Resizable = true
-		item.win.Closable = !item.game
+		item.win.Closable = false
 		item.win.Movable = true
 		if item.game {
 			item.win.Maximizable = true

@@ -658,10 +658,12 @@ func setupWizardUIScaleControl() *eui.ItemData {
 	slider.MaxValue = 4
 	slider.Value = float32(pendingScale)
 	slider.Size = eui.Point{X: 510, Y: 24}
-	slider.SetTooltip("Base UI size; automatic Retina and HiDPI scaling is applied on top.")
+	slider.SetTooltip("Base UI size in 0.1 steps; automatic Retina and HiDPI scaling is applied on top.")
 	sliderEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			pendingScale = clampUIScalePreference(float64(ev.Value))
+			ev.Item.Value = float32(pendingScale)
+			ev.Item.Dirty = true
 		}
 	}
 
@@ -674,7 +676,7 @@ func setupWizardUIScaleControl() *eui.ItemData {
 		if ev.Type != eui.EventClick {
 			return
 		}
-		gs.UIScale = pendingScale
+		gs.UIScale = clampUIScalePreference(pendingScale)
 		eui.SetUserUIScale(float32(gs.UIScale))
 		updateGameWindowSize()
 		settingsDirty = true

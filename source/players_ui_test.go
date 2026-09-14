@@ -48,6 +48,9 @@ func TestPlayersWindowDefersClosedUpdatesAndReusesRows(t *testing.T) {
 	playerName = "Hero"
 	gs.PlayerShareIcons = false
 	makePlayersWindow()
+	if playersWin.Closable {
+		t.Fatal("Players window exposes an accidental title-bar close button")
+	}
 
 	if len(playersList.Contents) != 0 {
 		t.Fatalf("closed Players window built %d items", len(playersList.Contents))

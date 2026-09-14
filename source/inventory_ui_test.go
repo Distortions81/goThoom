@@ -32,6 +32,9 @@ func TestInventoryWindowIncrementalUpdates(t *testing.T) {
 	selectedInvIdx = -1
 
 	makeInventoryWindow()
+	if inventoryWin.Closable {
+		t.Fatal("Inventory window exposes an accidental title-bar close button")
+	}
 	inventoryWin.MarkOpen()
 
 	addInventoryItem(100, -1, "shadow bell", false)

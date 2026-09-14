@@ -17,11 +17,15 @@ Audio:
 
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.
+- Added a Window Layout option for magnetic floating-window snapping to nearby screen and window edges, with aligned movement and smooth resize detachment.
+- Restored the Windows controls in Settings and the toolbar for showing or hiding standalone panes; Chat, Console, Inventory, and Players now omit accidental title-bar close buttons and remain managed by tiled layout when enabled.
+- UI scale now uses stable 0.1 steps and Settings tabs wrap cleanly instead of clipping Tools or adding a horizontal scrollbar at fractional display scales.
 - Upgrades now offer to apply the current recommended graphics, loading, sound, power-saving, and speech-bubble settings when your choices differ; settings outside that list remain unchanged.
 - Hand-edited and older numeric settings are kept within the ranges supported by the current controls instead of producing unusable layouts, rendering, audio, or timing values.
 
 Performance:
 - Reused unchanged window titles and controls when frequently updated panes repaint, reducing idle and high-frame-rate CPU use.
+- Prevented paused movies from repeatedly rebuilding already-cached recolor data, substantially reducing CPU use in affected scenes.
 - Power saving now accounts for time already spent rendering or waiting for the display before sleeping, and its target can be set from 1 to 250 FPS.
 - A separate, default-on 250 FPS limit prevents unbounded rendering when VSync is off; active power saving uses its chosen power-save limit instead.
 - Slow-shader detection measures only focused, unthrottled frames above 1 FPS, avoiding warnings caused by background scheduling or display sleep.

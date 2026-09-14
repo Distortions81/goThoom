@@ -99,6 +99,7 @@ func makeConsoleWindow() {
 		return
 	}
 	consoleWin, messagesFlow, inputFlow = newTextWindow("Console", eui.HZoneLeft, eui.VZoneBottom, true, updateConsoleWindow)
+	consoleWin.Closable = false
 	consoleWin.Searchable = true
 	consoleWin.OnSearch = func(s string) { searchTextWindow(consoleWin, messagesFlow, s) }
 	consoleWin.OnOpen = updateConsoleWindow

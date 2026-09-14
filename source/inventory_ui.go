@@ -142,6 +142,7 @@ func makeInventoryWindow() {
 		return
 	}
 	inventoryWin, inventoryList, _ = eui.NewTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
+	inventoryWin.Closable = false
 	inventoryWin.Searchable = true
 	inventoryWin.OnSearch = searchInventoryWindow
 	inventoryWin.OnOpen = updateInventoryWindow

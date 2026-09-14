@@ -108,6 +108,7 @@ func makeChatWindow() error {
 		return nil
 	}
 	chatWin, chatList, chatInputFlow = newTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, true, updateChatWindow)
+	chatWin.Closable = false
 	chatWin.Searchable = true
 	chatWin.OnSearch = func(s string) { searchTextWindow(chatWin, chatList, s) }
 	chatWin.OnOpen = updateChatWindow

@@ -80,3 +80,16 @@ func TestMissingArtworkSheetIsNotRetriedEveryFrame(t *testing.T) {
 		t.Fatalf("cached missing-sheet lookup reported activity %d", activity)
 	}
 }
+
+func TestArtworkInfluenceScaleStaysUpscaledWhenBaseBatchIsCached(t *testing.T) {
+	// Whether the base batch needs work in this call is independent of the
+	// resolution required by a newly eligible recolor influence mask.
+	factor, mode := artworkInfluenceScale(true, 4, artworkUpscaleBalanced)
+	if factor != 4 || mode != artworkUpscaleBalanced {
+		t.Fatalf("cached-base influence scale = (%d, %d), want (4, %d)", factor, mode, artworkUpscaleBalanced)
+	}
+	factor, mode = artworkInfluenceScale(false, 4, artworkUpscaleBalanced)
+	if factor != 1 || mode != artworkUpscaleOff {
+		t.Fatalf("unscaled influence scale = (%d, %d), want (1, %d)", factor, mode, artworkUpscaleOff)
+	}
+}

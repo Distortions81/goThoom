@@ -27,7 +27,19 @@ func PointerCursorClaimed() bool { return cursorShape != ebiten.CursorShapeDefau
 func WindowSnapping() bool { return windowSnapping }
 
 // SetWindowSnapping enables or disables window snapping.
-func SetWindowSnapping(enabled bool) { windowSnapping = enabled }
+func SetWindowSnapping(enabled bool) {
+	windowSnapping = enabled
+	if enabled {
+		return
+	}
+	for _, win := range windows {
+		win.snapAnchorActive = false
+		win.snapAnchorX = false
+		win.snapAnchorY = false
+		win.resizeSnapAnchorX = false
+		win.resizeSnapAnchorY = false
+	}
+}
 
 // MiddleClickMove reports whether middle-click window dragging is enabled.
 func MiddleClickMove() bool { return middleClickMove }

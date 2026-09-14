@@ -198,7 +198,9 @@ func TestUIScalePreferenceClamp(t *testing.T) {
 		want  float64
 	}{
 		{value: 0, want: 0.75},
-		{value: 1.25, want: 1.25},
+		{value: 0.75, want: 0.75},
+		{value: 1.007408618927002, want: 1},
+		{value: 1.25, want: 1.3},
 		{value: 5, want: 4},
 	} {
 		if got := clampUIScalePreference(test.value); got != test.want {

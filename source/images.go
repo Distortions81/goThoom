@@ -221,6 +221,13 @@ func mobileRecolorBatchKey(id uint16, factor, mode int) scaledMobileBatchKey {
 	}
 }
 
+func artworkInfluenceScale(upscale bool, factor, mode int) (int, int) {
+	if !upscale {
+		return 1, artworkUpscaleOff
+	}
+	return factor, mode
+}
+
 func sheetKeyColors(key *sheetKey) []byte {
 	if key.colorsLen == 0 {
 		return nil
@@ -482,10 +489,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 		base, haveBase := sheetCache[key]
 		knownMissing := haveBase && base == nil
 		haveScale := !needUpscale || knownMissing || artworkSheetBatchCompleteLocked(key, factor, mode)
-		influenceFactor, influenceMode := factor, mode
-		if !needUpscale {
-			influenceFactor, influenceMode = 1, artworkUpscaleOff
-		}
+		influenceFactor, influenceMode := artworkInfluenceScale(needUpscale, factor, mode)
 		needInfluence := !baseOnly && mobileRecolorSourceEligible(key)
 		_, haveInfluence := mobileRecolorMaskBatches[mobileRecolorBatchKey(key.id, influenceFactor, influenceMode)]
 		if !needInfluence || knownMissing {
@@ -576,7 +580,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 				if work[sheetIndex].needScale || work[sheetIndex].needInfluence {
 					factor, mode := work[sheetIndex].factor, work[sheetIndex].mode
 					if !work[sheetIndex].needScale {
-						factor, mode = 1, artworkUpscaleOff
+						factor, mode = artworkInfluenceScale(needUpscale, factor, mode)
 					}
 					var slotRegion image.Rectangle
 					if work[sheetIndex].slots != nil {
@@ -701,10 +705,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 				}
 			}
 			if region.influence != nil {
-				influenceFactor, influenceMode := prepared.factor, prepared.mode
-				if !prepared.needScale {
-					influenceFactor, influenceMode = 1, artworkUpscaleOff
-				}
+				influenceFactor, influenceMode := artworkInfluenceScale(needUpscale, prepared.factor, prepared.mode)
 				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), nil)
 				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(influenceFactor), mode: uint8(influenceMode)}
 				if _, exists := mobileRecolorMaskCache[key]; !exists {
@@ -722,10 +723,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 			markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
 		}
 		if prepared.needInfluence {
-			influenceFactor, influenceMode := prepared.factor, prepared.mode
-			if !prepared.needScale {
-				influenceFactor, influenceMode = 1, artworkUpscaleOff
-			}
+			influenceFactor, influenceMode := artworkInfluenceScale(needUpscale, prepared.factor, prepared.mode)
 			mobileRecolorMaskBatches[mobileRecolorBatchKey(prepared.key.id, influenceFactor, influenceMode)] = struct{}{}
 		}
 		imageMu.Unlock()

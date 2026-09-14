@@ -32,7 +32,7 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 		width, height int
 		scale         float32
 	}{
-		{1920, 951, 1}, {1920, 951, 1.25}, {1920, 951, 1.3}, {3840, 2160, 2},
+		{1920, 951, 1}, {1920, 951, 1.0074086}, {1920, 951, 1.25}, {1920, 951, 1.3}, {3840, 2160, 2},
 	} {
 		eui.SetScreenSize(screen.width, screen.height)
 		eui.SetUIScale(screen.scale)
@@ -65,9 +65,23 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 	initFont()
 	originalSettingsWin := settingsWin
 	originalTileLayoutWin := tileLayoutWin
+	originalWindowsWin := windowsWin
 	originalTileCombine := tileCombineMessagesCB
+	originalTileSnapping := tileWindowSnappingCB
+	originalSettingsPlayers := settingsPlayersCB
+	originalSettingsInventory := settingsInventoryCB
+	originalSettingsChat := settingsChatCB
+	originalSettingsConsole := settingsConsoleCB
+	originalWindowsPlayers := windowsPlayersCB
+	originalWindowsInventory := windowsInventoryCB
+	originalWindowsChat := windowsChatCB
+	originalWindowsConsole := windowsConsoleCB
+	originalSettings := gs
+	originalDirty := settingsDirty
+	originalSnapping := eui.WindowSnapping()
 	settingsWin = nil
 	tileLayoutWin = nil
+	windowsWin = nil
 	t.Cleanup(func() {
 		if settingsWin != nil {
 			settingsWin.RemoveWindow()
@@ -75,13 +89,30 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 		if tileLayoutWin != nil {
 			tileLayoutWin.RemoveWindow()
 		}
+		if windowsWin != nil {
+			windowsWin.RemoveWindow()
+		}
 		settingsWin = originalSettingsWin
 		tileLayoutWin = originalTileLayoutWin
+		windowsWin = originalWindowsWin
 		tileCombineMessagesCB = originalTileCombine
+		tileWindowSnappingCB = originalTileSnapping
+		settingsPlayersCB = originalSettingsPlayers
+		settingsInventoryCB = originalSettingsInventory
+		settingsChatCB = originalSettingsChat
+		settingsConsoleCB = originalSettingsConsole
+		windowsPlayersCB = originalWindowsPlayers
+		windowsInventoryCB = originalWindowsInventory
+		windowsChatCB = originalWindowsChat
+		windowsConsoleCB = originalWindowsConsole
+		gs = originalSettings
+		settingsDirty = originalDirty
+		eui.SetWindowSnapping(originalSnapping)
 	})
 
 	makeSettingsWindow()
 	makeTileLayoutWindow()
+	makeWindowsWindow()
 
 	containsText := func(root *eui.WindowData, want string) bool {
 		var visit func(items []*eui.ItemData) bool
@@ -101,7 +132,7 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 		return visit(root.Contents)
 	}
 
-	if containsText(settingsWin, "Combine chat + console") || containsText(settingsWin, "Tiled window mode") {
+	if containsText(settingsWin, "Combine chat + console") || containsText(settingsWin, "Tiled window mode") || containsText(settingsWin, "Snap floating windows") {
 		t.Fatal("Settings contains an obsolete workspace toggle")
 	}
 	if !containsText(tileLayoutWin, "Combine chat + console") {
@@ -110,8 +141,40 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 	if !containsText(tileLayoutWin, "Use tiled window layout") {
 		t.Fatal("window layout is missing the tiled-mode control")
 	}
-	originalSettings := gs
-	t.Cleanup(func() { gs = originalSettings })
+	if !containsText(tileLayoutWin, "Snap floating windows") || tileWindowSnappingCB == nil {
+		t.Fatal("window layout is missing the window-snapping control")
+	}
+	for label, checkbox := range map[string]*eui.ItemData{
+		"Players": settingsPlayersCB, "Inventory": settingsInventoryCB,
+		"Chat": settingsChatCB, "Console": settingsConsoleCB,
+	} {
+		if checkbox == nil || !containsText(settingsWin, label) {
+			t.Fatalf("Settings is missing the %s window visibility control", label)
+		}
+	}
+	if windowsWin.Title != "Windows" {
+		t.Fatal("toolbar Windows manager was not restored")
+	}
+	gs.TiledWindows = true
+	refreshWindowSettingsControls()
+	for _, checkbox := range []*eui.ItemData{
+		settingsPlayersCB, settingsInventoryCB, settingsChatCB, settingsConsoleCB,
+		windowsPlayersCB, windowsInventoryCB, windowsChatCB, windowsConsoleCB,
+	} {
+		if !checkbox.Disabled {
+			t.Fatal("window visibility control is enabled in tiled mode")
+		}
+	}
+	gs.TiledWindows = false
+	refreshWindowSettingsControls()
+	for _, checkbox := range []*eui.ItemData{
+		settingsPlayersCB, settingsInventoryCB, settingsChatCB, settingsConsoleCB,
+		windowsPlayersCB, windowsInventoryCB, windowsChatCB, windowsConsoleCB,
+	} {
+		if checkbox.Disabled {
+			t.Fatal("window visibility control remains disabled in floating mode")
+		}
+	}
 	for _, combined := range []bool{true, false} {
 		gs.MessagesToConsole = combined
 		refreshWindowSettingsControls()
@@ -119,7 +182,23 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 			t.Fatal("combine control did not synchronize")
 		}
 	}
+	for _, snapping := range []bool{true, false} {
+		gs.WindowSnapping = snapping
+		refreshWindowSettingsControls()
+		if tileWindowSnappingCB.Checked != snapping {
+			t.Fatal("window-snapping control did not synchronize")
+		}
+	}
 
+	settingsDirty = false
+	tileWindowSnappingCB.Handler.Emit(eui.UIEvent{
+		Item:    tileWindowSnappingCB,
+		Type:    eui.EventCheckboxChanged,
+		Checked: true,
+	})
+	if !gs.WindowSnapping || !eui.WindowSnapping() || !settingsDirty {
+		t.Fatal("window-snapping control did not apply and save the setting")
+	}
 }
 
 func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
@@ -239,8 +318,8 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	})
 	makeSettingsWindow()
 	tabs := settingsWin.Contents[0].Tabs
-	if len(tabs) != 11 || settingsWin.Contents[0].TabColumns != 0 {
-		t.Fatal("settings should have eleven categories in one row")
+	if len(tabs) != 11 || settingsWin.Contents[0].TabColumns != 6 {
+		t.Fatal("settings should have eleven categories in balanced rows")
 	}
 	locations := map[string]string{}
 	var visit func([]*eui.ItemData, string)
@@ -261,7 +340,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	for control, want := range map[string]string{
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
-		"Windows & Toolbar": "Display", "Window Layout": "Display",
+		"Windows & Toolbar": "Display", "Show / Hide Windows": "Display", "Window Layout": "Display",
 		"Keep window on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
 		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",

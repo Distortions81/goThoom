@@ -36,9 +36,19 @@ func TestCenteredTiledLayoutUsesCurrentThreeColumnWorkspace(t *testing.T) {
 }
 
 func TestFloatingGameWindowRestoresWindowChrome(t *testing.T) {
-	originalGS, originalWin := gs, gameWin
-	t.Cleanup(func() { gameWin.RemoveWindow(); gameWin = originalWin; gs = originalGS })
+	originalGS := gs
+	originalGame, originalInventory, originalPlayers := gameWin, inventoryWin, playersWin
+	originalConsole, originalChat := consoleWin, chatWin
+	t.Cleanup(func() {
+		gs = originalGS
+		gameWin, inventoryWin, playersWin = originalGame, originalInventory, originalPlayers
+		consoleWin, chatWin = originalConsole, originalChat
+	})
 	gameWin = eui.NewWindow()
+	inventoryWin = eui.NewWindow()
+	playersWin = eui.NewWindow()
+	consoleWin = eui.NewWindow()
+	chatWin = eui.NewWindow()
 	titleHeight, padding, margin := gameWin.GetRawTitleSize(), gameWin.Padding, gameWin.Margin
 	gs = gsdef
 	gs.TiledWindows = false
@@ -47,6 +57,19 @@ func TestFloatingGameWindowRestoresWindowChrome(t *testing.T) {
 	finishTiledWorkspaceWindowChrome()
 	if gameWin.GetRawTitleSize() != titleHeight || gameWin.Padding != padding || gameWin.Margin != margin || !gameWin.Resizable || !gameWin.Movable || gameWin.Closable || !gameWin.Maximizable {
 		t.Fatal("floating game window did not restore its normal chrome")
+	}
+	for name, win := range map[string]*eui.WindowData{
+		"Inventory": inventoryWin,
+		"Players":   playersWin,
+		"Console":   consoleWin,
+		"Chat":      chatWin,
+	} {
+		if win.Closable {
+			t.Fatalf("floating %s pane restored an accidental close button", name)
+		}
+		if !win.Resizable || !win.Movable {
+			t.Fatalf("floating %s pane did not restore its move and resize controls", name)
+		}
 	}
 }
 

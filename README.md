@@ -68,8 +68,13 @@ and verifies that a new folder is readable and writable before saving it.
   Standard Ctrl editing shortcuts work on Windows and Linux; use Command on
   macOS for Select All, Cut, Copy, and Paste.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
-  Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
+  Players, Inventory, Chat, and Console panes. In floating mode, use the
+  **Windows** toolbar button or **Settings → Display → Show / Hide Windows** to
+  open or close individual panes; these four panes omit title-bar close buttons
+  to prevent accidental closure. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
+- **UI scale:** The base UI scale moves in 0.1 steps so window and control
+  geometry remains stable. Retina and HiDPI display scaling is applied on top.
 - **Multiple sessions:** Each character connection has a tab above the one game
   view. Use **+** to open another tab, up to ten. The tab's **X** closes it with
   confirmation and disconnects that session.

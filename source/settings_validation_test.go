@@ -75,6 +75,17 @@ func TestNormalizeLoadedNumericSettingsPreservesValidPreferences(t *testing.T) {
 	}
 }
 
+func TestNormalizeLoadedNumericSettingsSnapsLegacyUIScale(t *testing.T) {
+	value := gsdef
+	value.UIScale = 1.007408618927002
+	if !normalizeLoadedNumericSettings(&value) {
+		t.Fatal("fractional UI scale was not reported as normalized")
+	}
+	if value.UIScale != 1 {
+		t.Fatalf("UI scale = %v, want 1.0", value.UIScale)
+	}
+}
+
 func TestNormalizeLoadedNumericSettingsUsesDefaultCacheForNonPositiveValue(t *testing.T) {
 	value := gsdef
 	value.SpriteCacheMiB = 0

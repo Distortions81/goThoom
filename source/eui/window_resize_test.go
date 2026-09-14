@@ -128,3 +128,32 @@ func TestWindowResizeSnapsToOtherWindowAtUIScale(t *testing.T) {
 		t.Fatalf("scaled snap moved the fixed edge or used the wrong target: %v %v", win.Position, win.Size)
 	}
 }
+
+func TestWindowResizeDetachesWithoutFastMouseMovement(t *testing.T) {
+	setupWindowResizeTest(t, 1, false)
+	windowSnapping = true
+	win := NewWindow()
+	win.Position, win.Size = point{100, 80}, point{191, 160}
+	other := NewWindow()
+	other.Position, other.Size, other.Open = point{300, 80}, point{100, 160}, true
+	windows = []*windowData{win, other}
+
+	if !snapResize(win, PART_RIGHT) || win.Size.X != 200 {
+		t.Fatalf("right edge did not snap: position=%v size=%v", win.Position, win.Size)
+	}
+	dragWindowResize(win, PART_RIGHT, point{-5, 0})
+	if snapResize(win, PART_RIGHT) {
+		t.Fatal("slow resize immediately snapped back to the same edge")
+	}
+	if win.Size.X != 195 || !win.resizeSnapAnchorX {
+		t.Fatalf("slow resize did not begin detaching: size=%v anchored=%t", win.Size, win.resizeSnapAnchorX)
+	}
+
+	dragWindowResize(win, PART_RIGHT, point{-8, 0})
+	if win.resizeSnapAnchorX {
+		t.Fatal("resize anchor remained active beyond the release threshold")
+	}
+	if snapResize(win, PART_RIGHT) {
+		t.Fatal("resize resnapped after leaving the capture radius")
+	}
+}
