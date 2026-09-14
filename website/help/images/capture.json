@@ -3075,9 +3075,9 @@
     },
     {
       "id": "gamepad",
-      "title": "Gamepad (work in progress)",
+      "title": "Gamepad controls",
       "route": "Settings \u2192 Controls \u2192 Gamepad",
-      "width": 386,
+      "width": 536,
       "height": 764,
       "controls": [
         {
@@ -3107,7 +3107,7 @@
           "rect": [
             16,
             210,
-            128,
+            500,
             24
           ]
         },
@@ -3118,7 +3118,7 @@
           "rect": [
             16,
             236,
-            128,
+            500,
             24
           ]
         },
@@ -3202,6 +3202,123 @@
             550,
             350,
             44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "local-stream",
+      "title": "Local streaming",
+      "route": "Tools \u2192 Stream",
+      "width": 444,
+      "height": 360,
+      "controls": [
+        {
+          "label": "Stream",
+          "help": "Game render shares only the playfield. The other option\nincludes all visible client windows and UI. You can switch\nwhile streaming; output dimensions stay fixed.",
+          "kind": "Choice",
+          "value": "Game render",
+          "options": [
+            "Game render",
+            "Whole game window and UI"
+          ],
+          "rect": [
+            20,
+            44,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Resolution",
+          "help": "Output dimensions stay fixed until you restart the stream.",
+          "kind": "Choice",
+          "value": "1920 \u00d7 1080 (1080p)",
+          "options": [
+            "1280 \u00d7 720 (720p)",
+            "1920 \u00d7 1080 (1080p)",
+            "2560 \u00d7 1440 (1440p)",
+            "3840 \u00d7 2160 (4K)"
+          ],
+          "rect": [
+            24,
+            100,
+            244,
+            48
+          ]
+        },
+        {
+          "label": "Frame rate",
+          "kind": "Choice",
+          "value": "60 FPS",
+          "options": [
+            "15 FPS",
+            "30 FPS",
+            "60 FPS"
+          ],
+          "rect": [
+            276,
+            100,
+            148,
+            48
+          ]
+        },
+        {
+          "label": "Before login",
+          "help": "Choose what the stream shows before the game render is\navailable.",
+          "kind": "Choice",
+          "value": "Show splash screen",
+          "options": [
+            "Show splash screen",
+            "Black"
+          ],
+          "rect": [
+            20,
+            148,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Show cursor in stream",
+          "help": "Draws a small cursor indicator into the stream before it is\nencoded. The desktop cursor is not captured automatically.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            200,
+            400,
+            24
+          ]
+        },
+        {
+          "label": "End Stream",
+          "kind": "Button",
+          "rect": [
+            24,
+            308,
+            120,
+            32
+          ]
+        },
+        {
+          "label": "Close",
+          "kind": "Button",
+          "rect": [
+            148,
+            308,
+            120,
+            32
+          ]
+        },
+        {
+          "label": "Start",
+          "kind": "Button",
+          "rect": [
+            272,
+            308,
+            152,
+            32
           ]
         }
       ]
@@ -4497,5 +4614,5 @@
       ]
     }
   ],
-  "updated": "2026-09-13"
+  "updated": "2026-09-14"
 }

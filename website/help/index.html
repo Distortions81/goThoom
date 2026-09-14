@@ -42,7 +42,7 @@
           <a class="back-link" href="../index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
           <p class="eyebrow"><span></span> Player guide and reference</p>
           <h1 id="manual-title">goThoom<br><em>user manual.</em></h1>
-          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 58 · Clan Lord 1501 · September 13, 2026</p><!-- /help-metadata -->
+          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 58 · Clan Lord 1501 · September 14, 2026</p><!-- /help-metadata -->
           <p class="lede">Everything you need to enter the Lands, arrange the client, tune its sound and picture, automate common actions, and solve the usual problems.</p>
         </div>
         <aside class="manual-start-card" aria-labelledby="start-card-title">
@@ -79,7 +79,7 @@
           <a href="performance.html">Performance &amp; visuals</a>
           <a href="#audio">Audio &amp; notifications</a>
           <a href="#automation">Hotkeys, scripts &amp; macros</a>
-          <a href="#movies">Movies &amp; screenshots</a>
+          <a href="#movies">Movies, streaming &amp; screenshots</a>
           <a href="#commands">Palette &amp; commands</a>
           <a href="#files">Files &amp; customization</a>
           <a href="#troubleshooting">Troubleshooting</a>
@@ -99,7 +99,7 @@
           <a href="performance.html">Performance &amp; visuals</a>
           <a href="#audio">Audio &amp; notifications</a>
           <a href="#automation">Hotkeys, scripts &amp; macros</a>
-          <a href="#movies">Movies &amp; screenshots</a>
+          <a href="#movies">Movies, streaming &amp; screenshots</a>
           <a href="#commands">Palette &amp; commands</a>
           <a href="#files">Files &amp; customization</a>
           <a href="#troubleshooting">Troubleshooting</a>
@@ -166,8 +166,8 @@
             <div class="manual-grid two-up">
               <div class="manual-card">
                 <h3 id="movement">Movement</h3>
-                <p>Left-click in the game view to walk toward the pointer. Enable <strong>Click-to-Toggle Walk</strong> if you prefer a click to establish a continuing target instead of holding the button.</p>
-                <p>Keyboard movement can be configured under Controls, including its speed. The <strong>Settings → Controls → Gamepad</strong> window is marked work in progress and does not yet function; use mouse or keyboard movement.</p>
+                <p>Left-click in the game view to walk toward the pointer. Enable <strong>Click-to-toggle movement</strong> if you prefer a click to establish a continuing target instead of holding the button.</p>
+                <p>Keyboard movement, its speed, and gamepad movement can be configured under <strong>Settings → Controls</strong>. Keyboard and run bindings are under <strong>Actions → Hotkeys</strong>.</p>
               </div>
               <div class="manual-card">
                 <h3 id="chat-input">Chat input</h3>
@@ -207,7 +207,7 @@
               <li>Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it.</li>
               <li>For a continuing movement target, open <strong>Settings → Controls</strong> and enable <strong>Click-to-toggle movement</strong>. Try it in a clear area so you can get used to toggling movement.</li>
               <li>Adjust <strong>Keyboard Walk Speed</strong> for keyboard walking. Change the WASD, arrow-key, and run bindings under <strong>Actions → Hotkeys</strong>. The speed setting changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game.</li>
-              <li>The <strong>Gamepad</strong> window is currently marked “Work in progress, does not function.” Use mouse or keyboard movement. Use the input tester if a key or mouse button is not recognized as expected.</li>
+              <li>For a controller, open <strong>Gamepad</strong>, select the controller, choose the walk and cursor sticks, then enable it. Use <strong>Refresh</strong> if a newly connected controller is missing.</li>
               <li>Keep <strong>Middle-click moves windows</strong> off if you use that button for game actions. When enabled, it provides another way to reposition movable windows.</li>
             </ol>
             <!-- help-figure:settings-controls -->
@@ -219,6 +219,26 @@
   <figcaption><strong>Settings → Controls</strong>
 <ol class="help-legend"><li><b>1</b><p>With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message.</p></li></ol>
     <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-controls.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+            <h3 id="gamepad-setup">Set up a gamepad</h3>
+            <ol>
+              <li>Connect the controller, then open <strong>Settings → Controls → Gamepad</strong>. Choose it from <strong>Controller</strong>, or press <strong>Refresh</strong> if it is not listed.</li>
+              <li>Leave <strong>Use standard controller layout when available</strong> on for a recognized controller. Its South, East, and West face buttons act as primary, secondary, and middle click.</li>
+              <li>Choose a <strong>Walk Stick</strong> and <strong>Cursor Stick</strong>. Increase a deadzone only if that stick drifts when released.</li>
+              <li>For a controller without a standard layout, focus each Click button field and press the physical button you want to assign.</li>
+              <li>Watch the live stick and button display to confirm the mapping, then enable <strong>Enable Gamepad</strong>.</li>
+            </ol>
+            <!-- help-figure:gamepad -->
+<figure class="help-figure" data-screen="gamepad">
+  <div class="help-image" style="max-width:536px">
+    <img src="images/gamepad.png" width="536" height="764" loading="lazy" decoding="async" alt="Gamepad controls. Highlighted controls: Use standard controller layout when available; Walk Deadzone.">
+<div class="help-highlights"><span class="help-highlight" style="left:2.9851%;top:30.8901%;width:93.2836%;height:3.1414%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:2.9851%;top:40.5759%;width:48.5075%;height:5.7592%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Controls → Gamepad</strong>
+<ol class="help-legend"><li><b>1</b><p>Leave this on for a controller that exposes a standard layout: the South, East, and West face buttons become primary, secondary, and middle click. If the controller has no standard layout, focus each Click button field and press the physical button you want to assign.</p></li><li><b>2</b><p>Increase the deadzone if the character drifts when you release the walk stick. Use the smallest value that stops the drift so gentle movement still registers. Cursor Stick has its own deadzone.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/gamepad.png" target="_blank" rel="noopener">Open full-size image</a></div>
   </figcaption>
 </figure>
 <!-- /help-figure -->
@@ -241,13 +261,24 @@
                 <tbody>
                   <tr><td><strong>Settings</strong></td><td>Opens the main settings categories.</td></tr>
                   <tr><td><strong>Actions</strong></td><td>Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data.</td></tr>
-                  <tr><td><strong>Tools</strong></td><td>Opens live Stats, the command Palette, this online Help manual, and the Snap capture window.</td></tr>
+                  <tr><td><strong>Tools</strong></td><td>Opens live Stats, the command Palette, this online Help manual, Snap captures, and local Stream output.</td></tr>
                   <tr><td><strong>Audio</strong></td><td>Opens the live mixer for master, game, music, TTS, notification, and enhancement levels.</td></tr>
                   <tr><td><strong>Record</strong></td><td>Starts or stops a <code>.clMov</code> session recording. When disconnected, it arms recording for the next connection.</td></tr>
                   <tr><td><strong>Help</strong></td><td>Opens the online user manual.</td></tr>
                 </tbody>
               </table>
             </div>
+
+            <h3 id="multiple-sessions">Use more than one character session</h3>
+            <p>Session tabs sit above the one shared game view. Select <strong>+</strong> to open another Login tab, up to ten. Select a tab to make its character active; the game view, input, shared panels, toolbar actions, scripts, and audio follow that selection. Other connected sessions keep receiving updates and running their own automation, recordings, reconnects, and text logs in the background.</p>
+            <ul>
+              <li>The default number shortcuts are <kbd>Ctrl</kbd>+<kbd>1</kbd> through <kbd>Ctrl</kbd>+<kbd>9</kbd>, with <kbd>Ctrl</kbd>+<kbd>0</kbd> for the tenth visible tab.</li>
+              <li><kbd>Ctrl</kbd>+<kbd>Tab</kbd> selects the next tab; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> selects the previous one. Change or disable these under <strong>Actions → Hotkeys</strong>.</li>
+              <li>A music-note icon marks a tab with an active bard performance.</li>
+              <li>Select a tab’s <strong>X</strong> to close it and disconnect that session. At least one tab remains open.</li>
+              <li>Open tabs and the selected tab are restored on the next launch, but they do not reconnect automatically.</li>
+            </ul>
+            <p>Saved characters belong to numbered server slots, so editing a server address does not detach its characters. <strong>Edit Character</strong> can move a login to another slot. See the <a href="https://github.com/Distortions81/goThoom/blob/main/docs/MultiSession.md">multi-session guide</a> for background-session behavior and shortcut details.</p>
 
             <h3 id="default-tiled-layout">Default tiled layout</h3>
             <p>Tiled mode is enabled by default. Inventory occupies the upper-left, the combined Chat/Console occupies the lower-left, the Game fills the center, and Players occupies the right side. The toolbar starts inside Inventory. Separating Chat from Console adds Chat to the lower-right; the alternate layout puts the Game on one side of a shared panel.</p>
@@ -460,7 +491,7 @@
             <div class="manual-grid two-up">
               <div class="manual-card"><h3 id="appearance">Appearance</h3><p>Choose interface themes, palettes, row styling, status bars, name tags, fonts, and speech bubble behavior.</p></div>
               <div class="manual-card"><h3 id="graphics">Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing. Player illumination and procedural effects participate in the same night-lit world.</p></div>
-              <div class="manual-card"><h3 id="controls">Controls</h3><p>Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and the gamepad work-in-progress window.</p></div>
+              <div class="manual-card"><h3 id="controls">Controls</h3><p>Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and gamepad movement and pointer controls.</p></div>
               <div class="manual-card"><h3 id="performance">Performance</h3><p>Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode. Activity dots mean artwork decoding/processing (green), audio decoding (amber), and GPU artwork upload (red).</p></div>
             </div>
 
@@ -588,8 +619,8 @@
           </section>
 
           <section id="movies" class="manual-section">
-            <p class="manual-kicker">09 · Movies, recording, and screenshots</p>
-            <h2 id="capture-a-session-and-revisit-any-moment">Capture a session and revisit any moment</h2>
+            <p class="manual-kicker">09 · Movies, streaming, and screenshots</p>
+            <h2 id="capture-a-session-and-revisit-any-moment">Capture, share, and revisit a session</h2>
 
             <h3 id="record">Record</h3>
             <p>Click <strong>Record</strong> while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to <code>Movies</code> under the user data directory, with the character and timestamp in the name.</p>
@@ -614,6 +645,28 @@
               <li>Close Movie Controls or press Exit to return to Login.</li>
             </ul>
             <p>Movie artwork is prepared and cached at the scale fitted to the current game view, including in smaller laptop layouts. Missing artwork is recorded after its first failed lookup instead of being retried every frame. During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
+
+            <h3 id="local-streaming">Stream to OBS on this computer</h3>
+            <ol>
+              <li>In the desktop client, open <strong>Tools → Stream</strong>. Choose <strong>Game render</strong> for the playfield alone or <strong>Whole game window and UI</strong> for everything visible in goThoom.</li>
+              <li>Choose the output resolution, frame rate, and what appears before login. Enable <strong>Show cursor in stream</strong> if viewers need a pointer indicator.</li>
+              <li>Press <strong>Start</strong>. In OBS, add a Browser Source using the local URL shown in the window and give it the matching dimensions.</li>
+              <li>You can switch between the game render and whole-client view while streaming. Resolution and frame rate take effect when the stream starts and stay fixed until you end and restart it.</li>
+              <li>Closing the Local Stream window leaves the output running. Reopen it from Tools and choose <strong>End Stream</strong> when finished.</li>
+            </ol>
+            <p>The stream listens only on <code>127.0.0.1</code>, so the Browser Source must run on the same computer. The operating-system pointer is not captured; the optional goThoom cursor indicator is drawn into the stream.</p>
+            <!-- help-figure:local-stream -->
+<figure class="help-figure" data-screen="local-stream">
+  <div class="help-image" style="max-width:444px">
+    <img src="images/local-stream.png" width="444" height="360" loading="lazy" decoding="async" alt="Local streaming. Highlighted controls: Show cursor in stream.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5045%;top:55.5556%;width:90.0901%;height:6.6667%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Tools → Stream</strong>
+<ol class="help-legend"><li><b>1</b><p>The operating-system pointer is not captured automatically. Enable this when viewers need to follow where you are pointing; goThoom draws a small cursor indicator into the stream output.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/local-stream.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
 
             <h3 id="screenshots">Screenshots</h3>
             <p><strong>Tools → Snap</strong> can capture the visible game view or the full client window, then writes a PNG or JPEG to <code>Screenshots</code> under the user data directory. Debug Settings can temporarily hide mobiles or moving objects for specialized captures.</p>

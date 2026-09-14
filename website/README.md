@@ -24,8 +24,7 @@ version-specific routes or automatic redirects.
 The screenshots come from real client window constructors, using default
 settings, a temporary data folder, and illustrative character/script data.
 Capturing does not log in, send commands, download files, or open personal
-profiles. The Gamepad window is documented as the work in progress it currently
-is. File-path examples use generic locations.
+profiles. File-path examples use generic locations.
 
 To refresh screenshots, callouts, menu references, and search data from the
 repository root after the usual resource/development setup:

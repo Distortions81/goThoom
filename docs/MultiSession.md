@@ -14,8 +14,8 @@ new slots. Use **Edit Character** to move a character to another slot.
 Select a tab to make it active. Movement, keyboard input, chat, commands,
 hotkeys, toolbar actions, Inventory, Players, Scripts, Chat, and Console all
 target the active session. A music note appears at the left of a tab while that
-session has an active bard performance. Use the toolbar logout button to
-disconnect the active session without closing its tab.
+session has an active bard performance. Use the tab's **X** to close it and
+disconnect its active connection.
 
 The default tab shortcuts are **Ctrl-1** through **Ctrl-9**, with **Ctrl-0** for
 the tenth open tab. Use **Ctrl-Tab** for the next tab and **Ctrl-Shift-Tab** for

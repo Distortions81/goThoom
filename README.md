@@ -72,7 +72,7 @@ and verifies that a new folder is readable and writable before saving it.
   Hotkeys, Shortcuts, scripts, macros, and saved data.
 - **Multiple sessions:** Each character connection has a tab above the one game
   view. Use **+** to open another tab, up to ten. The tab's **X** closes it with
-  confirmation; the toolbar logout button disconnects the active session.
+  confirmation and disconnects that session.
   The selected tab owns rendering, input, shared panels, and audio while every
   other session stays connected and keeps processing updates. See the
   [multi-session guide](docs/MultiSession.md).

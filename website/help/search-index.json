@@ -32,12 +32,12 @@
   {
     "title": "Movement",
     "url": "./#movement",
-    "text": "Left-click in the game view to walk toward the pointer. Enable Click-to-Toggle Walk if you prefer a click to establish a continuing target instead of holding the button. Keyboard movement can be configured under Controls, including its speed. The Settings → Controls → Gamepad window is marked work in progress and does not yet function; use mouse or keyboard movement."
+    "text": "Left-click in the game view to walk toward the pointer. Enable Click-to-toggle movement if you prefer a click to establish a continuing target instead of holding the button. Keyboard movement, its speed, and gamepad movement can be configured under Settings → Controls . Keyboard and run bindings are under Actions → Hotkeys ."
   },
   {
     "title": "Chat input",
     "url": "./#chat-input",
-    "text": "The input bar is active by default: type a message and press Enter to send it. Esc cancels and closes the bar; Enter opens it again. If you turn off Input bar always open , press Enter before typing and again to send. ↑ and ↓ browse sent-message history. While typing, Ctrl + V pastes and Ctrl + C copies selected text, or the input line if there is no selection. Use Cmd on Mac."
+    "text": "The input bar is active by default: type a message and press Enter to send it. Input bar always open keeps the bar available while you use other controls and after sending. Select All, Cut, Copy, and Paste use Ctrl on Windows and Linux or Command on macOS. If you turn always-open off, Esc cancels and closes the bar, and Enter opens it again. ↑ and ↓ browse sent-message history. While typing, Ctrl + V pastes and Ctrl + C copies selected text, or the input line if there is no selection. Use Cmd on Mac."
   },
   {
     "title": "Scrolling and windows",
@@ -57,7 +57,12 @@
   {
     "title": "Choose how to walk",
     "url": "./#movement-options",
-    "text": "Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it. For a continuing movement target, open Settings → Controls and enable Click-to-toggle movement . Try it in a clear area so you can get used to toggling movement. Adjust Keyboard Walk Speed for keyboard walking. Change the WASD, arrow-key, and run bindings under Actions → Hotkeys . The speed setting changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game. The Gamepad window is currently marked “Work in progress, does not function.” Use mouse or keyboard movement. Use the input tester if a key or mouse button is not recognized as expected. Keep Middle-click moves windows off if you use that button for game actions. When enabled, it provides another way to reposition movable windows. 1 Settings → Controls 1 With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message. Hide highlights Open full-size image"
+    "text": "Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it. For a continuing movement target, open Settings → Controls and enable Click-to-toggle movement . Try it in a clear area so you can get used to toggling movement. Adjust Keyboard Walk Speed for keyboard walking. Change the WASD, arrow-key, and run bindings under Actions → Hotkeys . The speed setting changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game. For a controller, open Gamepad , select the controller, choose the walk and cursor sticks, then enable it. Use Refresh if a newly connected controller is missing. Keep Middle-click moves windows off if you use that button for game actions. When enabled, it provides another way to reposition movable windows. 1 Settings → Controls 1 With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Set up a gamepad",
+    "url": "./#gamepad-setup",
+    "text": "Connect the controller, then open Settings → Controls → Gamepad . Choose it from Controller , or press Refresh if it is not listed. Leave Use standard controller layout when available on for a recognized controller. Its South, East, and West face buttons act as primary, secondary, and middle click. Choose a Walk Stick and Cursor Stick . Increase a deadzone only if that stick drifts when released. For a controller without a standard layout, focus each Click button field and press the physical button you want to assign. Watch the live stick and button display to confirm the mapping, then enable Enable Gamepad . 1 2 Settings → Controls → Gamepad 1 Leave this on for a controller that exposes a standard layout: the South, East, and West face buttons become primary, secondary, and middle click. If the controller has no standard layout, focus each Click button field and press the physical button you want to assign. 2 Increase the deadzone if the character drifts when you release the walk stick. Use the smallest value that stops the drift so gentle movement still registers. Cursor Stick has its own deadzone. Hide highlights Open full-size image"
   },
   {
     "title": "Mac shortcuts and dictation",
@@ -77,7 +82,12 @@
   {
     "title": "The toolbar",
     "url": "./#the-toolbar",
-    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, and the Snap capture window. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Help Opens the online user manual."
+    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, Snap captures, and local Stream output. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Help Opens the online user manual."
+  },
+  {
+    "title": "Use more than one character session",
+    "url": "./#multiple-sessions",
+    "text": "Session tabs sit above the one shared game view. Select + to open another Login tab, up to ten. Select a tab to make its character active; the game view, input, shared panels, toolbar actions, scripts, and audio follow that selection. Other connected sessions keep receiving updates and running their own automation, recordings, reconnects, and text logs in the background. The default number shortcuts are Ctrl + 1 through Ctrl + 9 , with Ctrl + 0 for the tenth visible tab. Ctrl + Tab selects the next tab; Ctrl + Shift + Tab selects the previous one. Change or disable these under Actions → Hotkeys . A music-note icon marks a tab with an active bard performance. Select a tab’s X to close it and disconnect that session. At least one tab remains open. Open tabs and the selected tab are restored on the next launch, but they do not reconnect automatically. Saved characters belong to numbered server slots, so editing a server address does not detach its characters. Edit Character can move a login to another slot. See the multi-session guide for background-session behavior and shortcut details."
   },
   {
     "title": "Default tiled layout",
@@ -177,7 +187,7 @@
   {
     "title": "Controls",
     "url": "./#controls",
-    "text": "Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and the gamepad work-in-progress window."
+    "text": "Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and gamepad movement and pointer controls."
   },
   {
     "title": "Performance",
@@ -242,10 +252,10 @@
   {
     "title": "Macros, scripts & hotkeys",
     "url": "./#macros-scripts-hotkeys",
-    "text": "Choose a simple key binding, a text shortcut, a legacy macro, or a Go script. The dedicated guide explains how to install, configure, write, and troubleshoot each kind of automation. Open the automation manual → Automate at the level you need Hotkeys Create a hotkey for the selected player Text shortcuts Create a shortcut for a longer command Go scripts Enable a script and review its permissions Understand when scripts run and stop Recover from a script error Legacy macros 09 · Movies, recording, and screenshots"
+    "text": "Choose a simple key binding, a text shortcut, a legacy macro, or a Go script. The dedicated guide explains how to install, configure, write, and troubleshoot each kind of automation. Open the automation manual → Automate at the level you need Hotkeys Create a hotkey for the selected player Text shortcuts Create a shortcut for a longer command Go scripts Enable a script and review its permissions Understand when scripts run and stop Recover from a script error Legacy macros 09 · Movies, streaming, and screenshots"
   },
   {
-    "title": "Capture a session and revisit any moment",
+    "title": "Capture, share, and revisit a session",
     "url": "./#capture-a-session-and-revisit-any-moment",
     "text": ""
   },
@@ -263,6 +273,11 @@
     "title": "Play and seek",
     "url": "./#play-and-seek",
     "text": "Disconnect first, return to Login, and choose Play movie file . goThoom accepts .clMov files and ZIP packages containing one. Movie playback never begins while a server connection or connection attempt is active. Drag the time slider to seek. Skip backward or forward by 5 or 30 seconds. Pause, resume, halve, double, or fine-tune playback speed. Use Stop Seek to cancel a long rebuild. Close Movie Controls or press Exit to return to Login. Movie artwork is prepared and cached at the scale fitted to the current game view, including in smaller laptop layouts. Missing artwork is recorded after its first failed lookup instead of being retried every frame. During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output."
+  },
+  {
+    "title": "Stream to OBS on this computer",
+    "url": "./#local-streaming",
+    "text": "In the desktop client, open Tools → Stream . Choose Game render for the playfield alone or Whole game window and UI for everything visible in goThoom. Choose the output resolution, frame rate, and what appears before login. Enable Show cursor in stream if viewers need a pointer indicator. Press Start . In OBS, add a Browser Source using the local URL shown in the window and give it the matching dimensions. You can switch between the game render and whole-client view while streaming. Resolution and frame rate take effect when the stream starts and stay fixed until you end and restart it. Closing the Local Stream window leaves the output running. Reopen it from Tools and choose End Stream when finished. The stream listens only on 127.0.0.1 , so the Browser Source must run on the same computer. The operating-system pointer is not captured; the optional goThoom cursor indicator is drawn into the stream. 1 Tools → Stream 1 The operating-system pointer is not captured automatically. Enable this when viewers need to follow where you are pointing; goThoom draws a small cursor indicator into the stream output. Hide highlights Open full-size image"
   },
   {
     "title": "Screenshots",
@@ -620,9 +635,14 @@
     "text": "Actions → Shortcuts → Add For All Shortcut Expansion OK Cancel Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident."
   },
   {
-    "title": "Gamepad (work in progress)",
+    "title": "Gamepad controls",
     "url": "reference.html#gamepad",
-    "text": "Settings → Controls → Gamepad Controller Refresh Enable Gamepad Use standard controller layout when available Walk Stick Walk Deadzone Cursor Stick Cursor Deadzone Click1 Button Click2 Button Click3 Button"
+    "text": "Settings → Controls → Gamepad Controller Refresh Enable Gamepad Use standard controller layout when available Walk Stick Walk Deadzone Cursor Stick Cursor Deadzone Click1 Button Click2 Button Click3 Button Leave this on for a controller that exposes a standard layout: the South, East, and West face buttons become primary, secondary, and middle click. If the controller has no standard layout, focus each Click button field and press the physical button you want to assign. Increase the deadzone if the character drifts when you release the walk stick. Use the smallest value that stops the drift so gentle movement still registers. Cursor Stick has its own deadzone."
+  },
+  {
+    "title": "Local streaming",
+    "url": "reference.html#local-stream",
+    "text": "Tools → Stream Stream Game render shares only the playfield. The other option includes all visible client windows and UI. You can switch while streaming; output dimensions stay fixed. Resolution Output dimensions stay fixed until you restart the stream. Frame rate Before login Choose what the stream shows before the game render is available. Show cursor in stream Draws a small cursor indicator into the stream before it is encoded. The desktop cursor is not captured automatically. End Stream Close Start The operating-system pointer is not captured automatically. Enable this when viewers need to follow where you are pointing; goThoom draws a small cursor indicator into the stream output."
   },
   {
     "title": "Legacy macro library",

@@ -195,10 +195,30 @@ func (g *helpCaptureGame) Draw(screen *ebiten.Image) {
 	}
 	shortcutEditWin.Close()
 	makeJoystickWindow()
-	if !g.capture(screen, joystickWin, "gamepad", "Gamepad (work in progress)", "Settings → Controls → Gamepad") {
+	if len(joystickWin.Contents) > 0 {
+		// Show the resizable window wide enough for its long controller labels in
+		// documentation; the normal window can be resized the same way by a user.
+		root := joystickWin.Contents[0]
+		root.Size.X = 500
+		if len(root.Contents) > 0 {
+			root.Contents[0].Size.X = 500
+			root.Contents[0].SetWrappedText(root.Contents[0].Text)
+		}
+		for _, item := range root.Contents {
+			if item.Text == "Enable Gamepad" || item.Text == "Use standard controller layout when available" {
+				item.Size.X = 500
+			}
+		}
+	}
+	if !g.capture(screen, joystickWin, "gamepad", "Gamepad controls", "Settings → Controls → Gamepad") {
 		return
 	}
 	joystickWin.Close()
+	makeStreamWindow()
+	if !g.capture(screen, streamWin, "local-stream", "Local streaming", "Tools → Stream") {
+		return
+	}
+	streamWin.Close()
 
 	macroPath := filepath.Join(legacyMacroLibraryPath(), "basic-commands.mac")
 	if err := os.MkdirAll(filepath.Dir(macroPath), 0755); err != nil {

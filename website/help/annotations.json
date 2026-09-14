@@ -67,6 +67,22 @@
       "explanation": "With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message."
     }
   ],
+  "gamepad": [
+    {
+      "control": "Use standard controller layout when available",
+      "explanation": "Leave this on for a controller that exposes a standard layout: the South, East, and West face buttons become primary, secondary, and middle click. If the controller has no standard layout, focus each Click button field and press the physical button you want to assign."
+    },
+    {
+      "control": "Walk Deadzone",
+      "explanation": "Increase the deadzone if the character drifts when you release the walk stick. Use the smallest value that stops the drift so gentle movement still registers. Cursor Stick has its own deadzone."
+    }
+  ],
+  "local-stream": [
+    {
+      "control": "Show cursor in stream",
+      "explanation": "The operating-system pointer is not captured automatically. Enable this when viewers need to follow where you are pointing; goThoom draws a small cursor indicator into the stream output."
+    }
+  ],
   "settings-network": [
     {
       "control": "NLSPT safety (%)",

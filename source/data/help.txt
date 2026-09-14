@@ -1,6 +1,8 @@
 Movement
 --------
-- Left-click to walk toward the cursor. With "Click-to-Toggle Walk" enabled, one click sets a walk target.
+- Left-click to walk toward the cursor. With "Click-to-toggle movement" enabled, one click sets a continuing walk target.
+- Keyboard movement speed is under Settings → Controls. Rebind keyboard movement and running under Actions → Hotkeys.
+- Open Settings → Controls → Gamepad to select a controller, choose walk and cursor sticks, map click buttons, and adjust stick deadzones.
 
 Communication
 -------------
@@ -9,40 +11,50 @@ Communication
 - With "Show :smile: as emoji" enabled, the emoji button on the right of the input bar opens a picker. Choose a group on the left or search by name; selecting an emoji inserts its shortcode into your draft.
 - Press Esc to close the input bar; press Enter to open it again. If "Input bar always open" is disabled, press Enter before typing and Enter again to send.
 - Up/Down browse previous messages.
-- While typing: Ctrl-V pastes, Ctrl-C copies the whole line, Ctrl-Left/Right moves one word, and Ctrl-Backspace deletes the previous word.
+- While typing: Ctrl-V pastes, Ctrl-C copies selected text or the whole line, Ctrl-Left/Right moves one word, and Ctrl-Backspace deletes the previous word. Use Command and Option for the corresponding shortcuts on macOS.
 - Right-click the input bar for Paste, Copy Line, or Clear Line. Paste and Clear return you to typing mode.
 - Right-click a chat or console line to copy it; the line briefly highlights.
 
 UI Navigation
 -------------
-- Click the "Windows" button on the toolbar to open or close UI windows.
-- Click the "Actions" button on the toolbar for hotkeys, shortcuts, or scripts.
+- Use Settings → Display to show or hide the Inventory, Chat, Console, and Players panes.
+- Click the "Actions" button on the toolbar for hotkeys, shortcuts, keybindings, scripts, macros, and saved script data.
+- Click "Tools" for live Stats, the command Palette, the online manual, Snap captures, and local Stream output.
 - Click the "Audio" button to open the Mixer.
-- Click "Palette" or press Ctrl-Shift-P to search settings, windows, scripts, player actions, and commands. Type to filter, use Up/Down to select, and press Enter to run.
+- Click Tools → Palette or press Ctrl-Shift-P to search settings, windows, scripts, player actions, and commands. Type to filter, use Up/Down to select, and press Enter to run.
+- Click the toolbar "Help" button to open the online user manual. The palette's "Window: Help" action opens this compact built-in guide.
 - Mouse wheel scrolls lists and text windows.
 - Window positions, sizes, and open/closed state persist between runs.
 - Sliders: hold Shift to snap to integers; hold Ctrl for fine adjustment at 1/8 speed.
-- UI Scale is available under Settings → Window & Display. Automatic HiDPI scaling follows the display scale.
+- UI Scale is available under Settings → Display. Automatic HiDPI scaling follows the display scale.
+
+Session Tabs
+------------
+- Session tabs share one game view. Click + to open another login, up to ten tabs; select a tab to make its character active.
+- The game view, input, shared panes, toolbar actions, scripts, and audio follow the selected tab. Other connected sessions keep processing network updates, automation, recordings, reconnects, and text logs in the background.
+- Ctrl-1 through Ctrl-9 select visible tabs; Ctrl-0 selects the tenth. Ctrl-Tab and Ctrl-Shift-Tab cycle through tabs. Rebind or disable them under Actions → Hotkeys.
+- A music note marks a tab with an active bard performance. A tab's X closes it with confirmation and disconnects that session. At least one tab remains open.
+- Open tabs and the selected tab are restored on the next launch without reconnecting automatically.
 
 Tiled Window Mode
 -----------------
 - Tiled window mode is enabled by default. The Game fills the center, Inventory is on the left, and Players is on the right.
 - Chat and Console output are combined in the Console by default. The Console uses the lower-left tile; if separated, Chat uses the lower-right tile.
-- Drag a visible divider to resize adjacent tiles. With "Keep game window large" enabled, dragging either side of the Game moves the fixed-size Game pane and both dividers together.
-- Open Settings → Window & Display → Tiled Layout to choose the layout, swap Inventory and Players, swap Console and Chat, combine their output, or choose which side holds the Game in the alternate layout.
+- Drag a visible divider to resize adjacent tiles. With "Auto-size side panels" enabled, dragging either side of the Game moves the Game pane and both dividers together.
+- Open Settings → Display → Window Layout to choose the layout, swap Inventory and Players, swap Console and Chat, combine their output, or choose which side holds the Game in the alternate layout.
 - The toolbar stays inside Inventory or Players in tiled mode. Utility windows outside the main tile set remain normal movable windows.
-- Turn off "Tiled window mode" in Settings to return the main windows to freeform movement and resizing.
+- Turn off "Use tiled window layout" in Window Layout to return the main windows to freeform movement and resizing.
 
 Chat & Console
 --------------
-- Chat and Console are combined by default. Change "Combine chat + console" in the Tiled Layout window to show separate tiles.
+- Chat and Console are combined by default. Change "Combine chat + console" in Window Layout to show separate panes.
 - The input bar auto-expands as you type. Use the right-click menu for paste, copy, or clear.
 - Messages with `@<your name>` or `@<profession>` highlight in blue and play a tink sound.
 
 Players
 -------
 - The Players window lists nearby or known exiles. The header shows an Online count and share status summary when relevant.
-- Tags: ">" means sharing, "<" means sharee, "*" marks same clan.
+- An underlined name means you share with that player, bold means they share with you, and bold plus underline means mutual sharing. Italics mark a clanmate.
 - Single-click selects a player.
 - Right-click a player for actions: Thank, Curse, Anon Thank…, Anon Curse…, Share, Unshare, Info, Pull, or Push.
 
@@ -55,12 +67,18 @@ Inventory
 
 Other Windows
 -------------
-- Help: this guide (Windows → Help).
-- Hotkeys: configure built-in and script hotkeys.
-- Shortcuts: define text expansions for the input bar.
-- Triggers: view script trigger phrases.
+- Hotkeys: rebind or disable built-in actions and configure personal or script hotkeys.
+- Shortcuts: define first-word text expansions for the input bar.
+- Keybindings: inspect active script and legacy-macro bindings and their owners.
 - Audio/Mixer: adjust overall, game, music, TTS, and notification volumes; toggle channels and audio enhancement.
-- Settings/Quality: tweak the window layout, UI scale, visuals, sound, notifications, and presets.
+- Settings/Performance: adjust the window layout, UI scale, visuals, sound, notifications, and quality presets.
+
+Local Streaming
+---------------
+- In the desktop client, open Tools → Stream to create a local Browser Source for OBS.
+- Choose the game render or the whole goThoom window, plus a resolution, frame rate, and before-login image. The shown 127.0.0.1 URL is available only on the same computer.
+- The operating-system pointer is not captured automatically. Enable "Show cursor in stream" when viewers need a pointer indicator.
+- Closing the Local Stream window leaves the output running. Reopen it and choose End Stream when finished.
 
 Extras
 ------
@@ -71,4 +89,4 @@ Extras
 
 Low-end Hardware
 ----------------
-For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (Low VRAM)" under Settings → Performance → Caching can use unmanaged textures. It defaults off; enable it only if needed.
+For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (4096px Limit)" under Settings → Performance → Caching can use unmanaged textures. It defaults off; enable it only if needed.
