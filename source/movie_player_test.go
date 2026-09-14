@@ -91,7 +91,7 @@ func TestMovieTimelineAlwaysUsesFiveUPS(t *testing.T) {
 		movieMusicPaused.Store(originalPaused)
 	})
 
-	p := newMoviePlayer(nil, 10, nil)
+	p := newMoviePlayer(primarySession, nil, 10, nil)
 	t.Cleanup(p.ticker.Stop)
 	if p.baseFPS != movieRecordedUPS {
 		t.Fatalf("movie timeline UPS = %d, want %d", p.baseFPS, movieRecordedUPS)
@@ -190,7 +190,7 @@ func TestMovieMusicIndexCapturesCompletedStarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := indexMovieMusic(frames)
+	events := indexMovieMusic(primarySession, frames)
 	for _, event := range events {
 		if !event.stop && len(event.jobs) > 0 {
 			if event.frame <= 0 || event.frame > len(frames) {
@@ -292,7 +292,7 @@ func TestConcertSeekAtFortySixFiftyThreeUsesOneMusicKeyframe(t *testing.T) {
 		t.Fatal(err)
 	}
 	const target = (46*60 + 53) * 5
-	active := activeMovieMusicAt(indexMovieMusic(frames), target, 5)
+	active := activeMovieMusicAt(indexMovieMusic(primarySession, frames), target, 5)
 	if len(active) != 1 {
 		t.Fatalf("active concert music at 46:53 = %d tracks, want 1", len(active))
 	}
@@ -307,7 +307,7 @@ func TestConcertSeekAtTwentyNineFortySevenUsesOneMusicKeyframe(t *testing.T) {
 		t.Fatal(err)
 	}
 	const target = (29*60 + 47) * movieRecordedUPS
-	events := indexMovieMusic(frames)
+	events := indexMovieMusic(primarySession, frames)
 	active := activeMovieMusicAt(events, target, movieRecordedUPS)
 	if len(active) != 1 {
 		t.Fatalf("active concert music at 29:47 = %d tracks, want 1", len(active))
@@ -414,6 +414,171 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 	}
 	if clmov != "offline.clMov" {
 		t.Fatalf("reserved movie path = %q, want offline.clMov", clmov)
+	}
+}
+
+func TestMoviePlaybackUsesTemporarySessionTab(t *testing.T) {
+	originalSessions, originalViewports := appSessions, appViewports
+	originalGameWin := gameWin
+	originalMovieSession, originalPrevious := moviePlaybackSession, moviePreviousSession
+	originalWorkspace := multiSessionWorkspace
+	originalWorkspaceUsed, originalWorkspaceDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
+	t.Cleanup(func() {
+		appSessions, appViewports = originalSessions, originalViewports
+		gameWin = originalGameWin
+		moviePlaybackSession, moviePreviousSession = originalMovieSession, originalPrevious
+		multiSessionWorkspace = originalWorkspace
+		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = originalWorkspaceUsed, originalWorkspaceDirty
+	})
+
+	manager := newSessionManager(primarySession)
+	previous, ok := manager.addSession()
+	if !ok {
+		t.Fatal("could not add the previously selected session")
+	}
+	appSessions = manager
+	appViewports = nil
+	gameWin = nil
+
+	movie, ok := beginMoviePlaybackSession("Recorded Hero")
+	if !ok || movie == nil {
+		t.Fatal("could not add the movie playback session")
+	}
+	if movie == primarySession || appSessions.selectedSession() != movie {
+		t.Fatal("movie playback did not select its own session")
+	}
+	if got := sessionTabLabel(movie, 200); got != "Movie: Recorded Hero" {
+		t.Fatalf("movie tab label = %q", got)
+	}
+	primaryFrame := primarySession.draw.frame
+	movie.draw.frame = primaryFrame + 1
+	if primarySession.draw.frame != primaryFrame {
+		t.Fatal("movie draw state changed the primary session")
+	}
+	syncMultiSessionWorkspace()
+	movieSlot, _ := movie.ID().Slot()
+	if multiSessionWorkspace.OpenTabs[movieSlot] {
+		t.Fatal("temporary movie session was included in the persisted workspace")
+	}
+	if multiSessionWorkspace.Selected != previous.ID() {
+		t.Fatal("temporary movie selection replaced the persisted session selection")
+	}
+
+	movieID := movie.ID()
+	endMoviePlaybackSession(movie)
+	if _, open := appSessions.session(movieID); open {
+		t.Fatal("movie session tab remained open after playback")
+	}
+	if appSessions.selectedSession() != previous {
+		t.Fatal("closing movie playback did not restore the previous session")
+	}
+}
+
+func TestMoviePlayerDrawFramesStayInPlaybackSession(t *testing.T) {
+	frames, err := parseMovie(movieFixturePath(t, "test.clMov"), baseVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var drawFrame movieFrame
+	found := false
+	for _, frame := range frames {
+		if len(frame.data) >= 2 && frame.data[0] == 0 && frame.data[1] == 2 {
+			drawFrame = frame
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("movie fixture contains no draw frame")
+	}
+
+	movie := mustNewSession(2)
+	movie.setCharacterName(extractMoviePlayerName(frames))
+	originalMovieMode, originalPlaying := movieMode, playingMovie
+	originalEncrypted, originalDropped := drawStateEncrypted, movieDropped
+	t.Cleanup(func() {
+		movieMode, playingMovie = originalMovieMode, originalPlaying
+		drawStateEncrypted, movieDropped = originalEncrypted, originalDropped
+	})
+	movieMode, playingMovie, drawStateEncrypted = true, true, false
+	primaryGeneration := primarySession.draw.generation.Load()
+	p := &moviePlayer{session: movie, frames: []movieFrame{drawFrame}, playing: true}
+	p.step()
+
+	if movie.draw.generation.Load() == 0 {
+		t.Fatal("movie draw frame did not update the playback session")
+	}
+	if got := primarySession.draw.generation.Load(); got != primaryGeneration {
+		t.Fatalf("movie draw frame changed primary generation from %d to %d", primaryGeneration, got)
+	}
+}
+
+func TestMoviePlaybackSessionReceivesParsedInitialState(t *testing.T) {
+	primarySession.draw.mu.Lock()
+	originalCurrent := cloneDrawState(primarySession.draw.current)
+	originalInitial := cloneDrawState(primarySession.draw.initial)
+	primarySession.draw.initial = emptyDrawState()
+	primarySession.draw.initial.pictures = []framePicture{{PictID: 42, H: 10, V: 20}}
+	primarySession.draw.initial.descriptors[7] = frameDescriptor{Index: 7, PictID: 99, Name: "Recorded Hero"}
+	primarySession.draw.mu.Unlock()
+	t.Cleanup(func() {
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current = originalCurrent
+		primarySession.draw.initial = originalInitial
+		primarySession.draw.mu.Unlock()
+	})
+
+	movie := mustNewSession(2)
+	seedMoviePlaybackSession(movie)
+
+	movie.draw.mu.Lock()
+	defer movie.draw.mu.Unlock()
+	if len(movie.draw.initial.pictures) != 1 || movie.draw.initial.pictures[0].PictID != 42 {
+		t.Fatalf("movie initial pictures = %+v, want parsed picture 42", movie.draw.initial.pictures)
+	}
+	if descriptor, ok := movie.draw.initial.descriptors[7]; !ok || descriptor.PictID != 99 {
+		t.Fatalf("movie initial descriptor = %+v, present %t, want parsed descriptor 99", descriptor, ok)
+	}
+	if len(movie.draw.current.picsZero) != 1 || movie.draw.current.picsZero[0].PictID != 42 {
+		t.Fatalf("movie render cache pictures = %+v, want parsed picture 42", movie.draw.current.picsZero)
+	}
+}
+
+func TestMovieMusicRestoresWhenItsTabIsReselected(t *testing.T) {
+	originalSessions := appSessions
+	originalMovieSession, originalMoviePlayer := moviePlaybackSession, moviePlaybackPlayer
+	originalStop := stopMusicSourcePlayback
+	appMusicSource.mu.Lock()
+	originalSource, originalGeneration := appMusicSource.source, appMusicSource.generation
+	appMusicSource.mu.Unlock()
+	t.Cleanup(func() {
+		appSessions = originalSessions
+		moviePlaybackSession, moviePlaybackPlayer = originalMovieSession, originalMoviePlayer
+		stopMusicSourcePlayback = originalStop
+		appMusicSource.mu.Lock()
+		appMusicSource.source, appMusicSource.generation = originalSource, originalGeneration
+		appMusicSource.mu.Unlock()
+	})
+
+	manager := newSessionManager(primarySession)
+	movie, ok := manager.addSession()
+	if !ok {
+		t.Fatal("could not add movie session")
+	}
+	appSessions = manager
+	moviePlaybackSession = movie
+	p := &moviePlayer{session: movie, playing: true, baseFPS: movieRecordedUPS}
+	moviePlaybackPlayer = p
+	appMusicSource.mu.Lock()
+	appMusicSource.source = movie.ID()
+	appMusicSource.mu.Unlock()
+	stopMusicSourcePlayback = func() {}
+
+	if !selectMusicSource(primarySessionID) || !p.musicNeedsRestore {
+		t.Fatal("leaving the movie tab did not invalidate its music stream")
+	}
+	if !selectMusicSource(movie.ID()) || p.musicNeedsRestore {
+		t.Fatal("reselecting the movie tab did not restore its indexed music")
 	}
 }
 

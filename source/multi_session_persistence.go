@@ -90,12 +90,16 @@ func syncMultiSessionWorkspace() bool {
 	}
 	changed := false
 	sessions := appSessions.snapshot()
-	if selected := appSessions.selectedID(); selected.Valid() && multiSessionWorkspace.Selected != selected {
+	selected := appSessions.selectedID()
+	if session, ok := appSessions.session(selected); ok && session == moviePlaybackSession {
+		selected = moviePreviousSession
+	}
+	if selected.Valid() && multiSessionWorkspace.Selected != selected {
 		multiSessionWorkspace.Selected = selected
 		changed = true
 	}
 	for slot, session := range sessions {
-		open := session != nil
+		open := session != nil && session != moviePlaybackSession
 		if multiSessionWorkspace.OpenTabs[slot] != open {
 			multiSessionWorkspace.OpenTabs[slot] = open
 			changed = true

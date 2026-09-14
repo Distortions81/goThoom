@@ -32,7 +32,7 @@ func init() {
 }
 
 func sessionTabsVisible() bool {
-	return !fake && clmov == "" && pcapPath == "" && !setupWizardPreviewActive
+	return !fake && pcapPath == "" && !setupWizardPreviewActive
 }
 
 func sessionTabBarPixelHeight() int {
@@ -66,6 +66,13 @@ func sessionTabWidths(available float32, count int) (tab, closeButton, addButton
 func sessionTabLabel(session *Session, available float32) string {
 	if session == nil {
 		return ""
+	}
+	if session == moviePlaybackSession {
+		name := session.characterName()
+		if name == "" || available < 100 {
+			return "Movie"
+		}
+		return "Movie: " + name
 	}
 	if available < 56 {
 		return fmt.Sprintf("%d", session.ID())
@@ -132,6 +139,10 @@ func selectAdjacentSessionTab(direction int) bool {
 
 func confirmCloseSessionTab(session *Session) {
 	if session == nil || appSessions == nil {
+		return
+	}
+	if session == moviePlaybackSession && movieWin != nil {
+		movieWin.Close()
 		return
 	}
 	name := session.characterName()

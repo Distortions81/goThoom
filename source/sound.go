@@ -25,7 +25,7 @@ const (
 	maxCachedSoundPlayers = 64
 	maxSoundPlaybackCache = 128
 	soundEffectQueueSize  = 128
-	dbPad                 = -3
+	dbPad                 = -5
 )
 
 type soundPlaybackKey struct {
@@ -34,6 +34,8 @@ type soundPlaybackKey struct {
 	sourceGeneration  uint64
 	enhancementAmount uint64
 	enhanced          bool
+	staggered         bool
+	staggerMS         int
 	highQuality       bool
 }
 
@@ -52,6 +54,8 @@ type soundPlaybackRequest struct {
 	enhancementAmount float64
 	volume            float64
 	enhanced          bool
+	staggered         bool
+	staggerMS         int
 	highQuality       bool
 	restartActive     bool
 }
@@ -438,6 +442,7 @@ func queueSound(ids []uint16, sourceSession SessionID, enhanced bool, enhancemen
 	request := soundPlaybackRequest{
 		ids: append([]uint16(nil), ids...), sourceSession: sourceSession, context: context, generation: generation,
 		sourceGeneration: sourceGeneration, enhanced: enhanced, enhancementAmount: amount,
+		staggered: gs.StaggerSimultaneousSounds, staggerMS: clampSimultaneousSoundSpreadMS(gs.SimultaneousSoundSpreadMS),
 		highQuality: highQuality, volume: effectiveAudioVolume(gs.MasterVolume * gs.GameVolume),
 		restartActive: enhanced && gs.ThrottleSounds,
 	}
@@ -462,6 +467,8 @@ func processSoundPlayback(request soundPlaybackRequest) {
 	}
 	key := soundPlaybackCacheKey(request.ids, request.context, request.enhanced, request.enhancementAmount, request.highQuality)
 	key.sourceGeneration = request.sourceGeneration
+	key.staggered = request.staggered
+	key.staggerMS = request.staggerMS
 	if player, found := acquireSoundPlaybackPlayer(key, nil, request.generation, request.sourceGeneration, request.restartActive); found {
 		playGameSoundPlayer(player, request.generation, request.sourceGeneration, request.volume)
 		return
@@ -495,7 +502,7 @@ func renderSoundPlaybackPCM(key soundPlaybackKey, request soundPlaybackRequest) 
 	soundRenderCalls[key] = call
 	soundMu.Unlock()
 
-	call.pcm = mixSoundPlaybackPCM(request.ids, request.context.SampleRate(), request.enhanced, request.enhancementAmount, request.highQuality)
+	call.pcm = mixSoundPlaybackPCM(request.ids, request.context.SampleRate(), request.staggered, request.staggerMS, request.enhanced, request.enhancementAmount, request.highQuality)
 	soundMu.Lock()
 	delete(soundRenderCalls, key)
 	close(call.done)
@@ -503,7 +510,11 @@ func renderSoundPlaybackPCM(key soundPlaybackKey, request soundPlaybackRequest) 
 	return call.pcm
 }
 
-func mixSoundPlaybackPCM(ids []uint16, outputRate int, enhanced bool, enhancementAmount float64, highQuality bool) []byte {
+func mixSoundPlaybackPCM(ids []uint16, outputRate int, staggered bool, staggerMS int, enhanced bool, enhancementAmount float64, highQuality bool) []byte {
+	if staggered && len(ids) > 1 {
+		ids = append([]uint16(nil), ids...)
+		slices.Sort(ids)
+	}
 	sounds := make([][]byte, 0, len(ids))
 	for _, id := range ids {
 		pcm := loadSoundForPlayback(id, outputRate, highQuality)
@@ -512,13 +523,17 @@ func mixSoundPlaybackPCM(ids []uint16, outputRate int, enhanced bool, enhancemen
 		}
 		sounds = append(sounds, pcm)
 	}
-	return mixLoadedSoundPlaybackPCM(sounds, enhanced, enhancementAmount)
+	return mixLoadedSoundPlaybackPCM(sounds, outputRate, staggered, staggerMS, enhanced, enhancementAmount)
 }
 
-func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount float64) []byte {
+func mixLoadedSoundPlaybackPCM(sounds [][]byte, outputRate int, staggered bool, staggerMS int, enhanced bool, enhancementAmount float64) []byte {
+	offsets := make([]int, len(sounds))
 	maxSamples := 0
-	for _, pcm := range sounds {
-		if n := len(pcm) / 2; n > maxSamples {
+	for index, pcm := range sounds {
+		if staggered {
+			offsets[index] = staggeredSoundStartOffset(index, len(sounds), outputRate, staggerMS)
+		}
+		if n := offsets[index] + len(pcm)/2; n > maxSamples {
 			maxSamples = n
 		}
 	}
@@ -530,9 +545,10 @@ func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount
 	maxVal := int32(0)
 	for i := range mixed {
 		var sum int32
-		for _, pcm := range sounds {
-			if i < len(pcm)/2 {
-				sum += int32(int16(binary.LittleEndian.Uint16(pcm[2*i:])))
+		for index, pcm := range sounds {
+			sampleIndex := i - offsets[index]
+			if sampleIndex >= 0 && sampleIndex < len(pcm)/2 {
+				sum += int32(int16(binary.LittleEndian.Uint16(pcm[2*sampleIndex:])))
 			}
 		}
 		mixed[i] = sum
@@ -550,7 +566,13 @@ func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount
 		scale = 32767.0 / float64(maxVal)
 	}
 	for i := range mixed {
-		mixed[i] = int32(float64(mixed[i]) * scale)
+		sample := int32(float64(mixed[i]) * scale)
+		if sample > 32767 {
+			sample = 32767
+		} else if sample < -32768 {
+			sample = -32768
+		}
+		mixed[i] = sample
 	}
 
 	// Enhancement is the final signal-processing step. In particular, do not
@@ -560,17 +582,20 @@ func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount
 	}
 	out := make([]byte, len(mixed)*4)
 	for i, sample := range mixed {
-		lv := sample
-		if lv > 32767 {
-			lv = 32767
-		} else if lv < -32768 {
-			lv = -32768
-		}
 		offset := i * 4
-		binary.LittleEndian.PutUint16(out[offset:], uint16(int16(lv)))
-		binary.LittleEndian.PutUint16(out[offset+2:], uint16(int16(lv)))
+		binary.LittleEndian.PutUint16(out[offset:], uint16(int16(sample)))
+		binary.LittleEndian.PutUint16(out[offset+2:], uint16(int16(sample)))
 	}
 	return out
+}
+
+func staggeredSoundStartOffset(index, count, outputRate, spreadMS int) int {
+	if index <= 0 || count <= 1 || outputRate <= 0 {
+		return 0
+	}
+	spreadMS = clampSimultaneousSoundSpreadMS(spreadMS)
+	maxOffset := int(math.Round(float64(outputRate) * float64(spreadMS) / 1000))
+	return (maxOffset*index + (count-1)/2) / (count - 1)
 }
 
 // initSoundContext initializes the global audio context.

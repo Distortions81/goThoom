@@ -9,6 +9,8 @@ Graphics:
 
 Audio:
 - Improved enhanced game sounds so ambience keeps its intended character and simultaneous effects retain consistent volume.
+- Optionally spread sound effects arriving in the same game update across a short, adjustable interval so each effect remains distinct. This is enabled by default.
+- New settings start with game effects at full volume and bard music at one-third volume for a clearer initial mix.
 
 Interface:
 - Improved tab highlights throughout the client, with a clearer selected-tab indicator.

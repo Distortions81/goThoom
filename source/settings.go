@@ -108,6 +108,16 @@ func clampSoundEnhancementAmount(v float64) float64 {
 	return v
 }
 
+func clampSimultaneousSoundSpreadMS(v int) int {
+	if v < 1 {
+		return 1
+	}
+	if v > 50 {
+		return 50
+	}
+	return v
+}
+
 // clampMusicEnhancementAmount keeps the bard-music ambience control within a
 // useful range. A value of 1 preserves the original enhanced mix; lower values
 // are subtler and 2 is deliberately pronounced without overwhelming the tune.
@@ -259,8 +269,8 @@ var gsdef settings = settings{
 	Fullscreen:                     false,
 	AlwaysOnTop:                    false,
 	MasterVolume:                   1.0,
-	GameVolume:                     0.5,
-	MusicVolume:                    1.0,
+	GameVolume:                     1.0,
+	MusicVolume:                    0.33,
 	SoundFontFile:                  soundFontFile,
 	MusicBufferSeconds:             2,
 	Music:                          true,
@@ -390,23 +400,25 @@ var gsdef settings = settings{
 	FlameLightFlicker:    true,
 	FlameFlickerStrength: 1.0,
 
-	PotatoGPU:               false,
-	BatchArtworkLoading:     true,
-	SpriteCacheMiB:          defaultSpriteCacheMiB,
-	AssetActivityIndicators: false,
-	BarColorByValue:         false,
-	ThrottleSounds:          true,
-	SoundEnhancement:        true,
-	SoundEnhancementAmount:  2.0,
-	MusicEnhancement:        true,
-	MusicEnhancementAmount:  1.0,
-	HighQualityResampling:   true,
-	ServerAddress:           defaultServerHostName + ":5010",
-	ServerAddresses:         append([]string(nil), builtInServerAddresses...),
-	AssetsPath:              "",
-	LogsPath:                "",
-	MacrosPath:              "",
-	ScriptsPath:             "",
+	PotatoGPU:                 false,
+	BatchArtworkLoading:       true,
+	SpriteCacheMiB:            defaultSpriteCacheMiB,
+	AssetActivityIndicators:   false,
+	BarColorByValue:           false,
+	ThrottleSounds:            true,
+	StaggerSimultaneousSounds: true,
+	SimultaneousSoundSpreadMS: 16,
+	SoundEnhancement:          true,
+	SoundEnhancementAmount:    2.0,
+	MusicEnhancement:          true,
+	MusicEnhancementAmount:    1.0,
+	HighQualityResampling:     true,
+	ServerAddress:             defaultServerHostName + ":5010",
+	ServerAddresses:           append([]string(nil), builtInServerAddresses...),
+	AssetsPath:                "",
+	LogsPath:                  "",
+	MacrosPath:                "",
+	ScriptsPath:               "",
 
 	NightEffect:              true,
 	ShaderLighting:           true,
@@ -644,18 +656,20 @@ type settings struct {
 	FlameLightFlicker    bool
 	FlameFlickerStrength float64
 
-	PotatoGPU               bool
-	BatchArtworkLoading     bool
-	SpriteCacheMiB          int // Reference reserve at 2x; scales with texture area.
-	AssetActivityIndicators bool
-	PrecacheSounds          bool
-	BarColorByValue         bool
-	ThrottleSounds          bool
-	SoundEnhancement        bool
-	SoundEnhancementAmount  float64
-	MusicEnhancement        bool
-	MusicEnhancementAmount  float64
-	HighQualityResampling   bool
+	PotatoGPU                 bool
+	BatchArtworkLoading       bool
+	SpriteCacheMiB            int // Reference reserve at 2x; scales with texture area.
+	AssetActivityIndicators   bool
+	PrecacheSounds            bool
+	BarColorByValue           bool
+	ThrottleSounds            bool
+	StaggerSimultaneousSounds bool
+	SimultaneousSoundSpreadMS int
+	SoundEnhancement          bool
+	SoundEnhancementAmount    float64
+	MusicEnhancement          bool
+	MusicEnhancementAmount    float64
+	HighQualityResampling     bool
 
 	imgPlanesDebug           bool
 	smoothingDebug           bool
@@ -840,6 +854,7 @@ func loadSettings() bool {
 	}
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
+	gs.SimultaneousSoundSpreadMS = clampSimultaneousSoundSpreadMS(gs.SimultaneousSoundSpreadMS)
 	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
 	if gs.MusicBufferSeconds == 0 {
 		gs.MusicBufferSeconds = gsdef.MusicBufferSeconds

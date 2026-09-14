@@ -1463,6 +1463,37 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 	audioSection.AddItem(soundEnhanceCB)
 	audioSection.AddItem(soundEnhanceSlider)
 
+	staggerSoundsCB, staggerSoundsEvents := eui.NewCheckbox()
+	staggerSoundsCB.Text = "Stagger simultaneous sounds"
+	staggerSoundsCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	staggerSoundsCB.Checked = gs.StaggerSimultaneousSounds
+	staggerSoundsCB.SetTooltip("Spread sound effects from the same game update across a short interval.")
+	staggerSpreadSlider, staggerSpreadEvents := eui.NewSlider()
+	staggerSpreadSlider.Label = "Simultaneous sound spread (ms)"
+	staggerSpreadSlider.MinValue = 1
+	staggerSpreadSlider.MaxValue = 50
+	staggerSpreadSlider.IntOnly = true
+	staggerSpreadSlider.Value = float32(clampSimultaneousSoundSpreadMS(gs.SimultaneousSoundSpreadMS))
+	staggerSpreadSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	staggerSpreadSlider.Disabled = !gs.StaggerSimultaneousSounds
+	staggerSpreadSlider.SetTooltip("Total time from the first simultaneous effect to the last.")
+	staggerSoundsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.StaggerSimultaneousSounds = ev.Checked
+			staggerSpreadSlider.Disabled = !ev.Checked
+			staggerSpreadSlider.Dirty = true
+			settingsDirty = true
+		}
+	}
+	staggerSpreadEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.SimultaneousSoundSpreadMS = clampSimultaneousSoundSpreadMS(int(ev.Value))
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(staggerSoundsCB)
+	audioSection.AddItem(staggerSpreadSlider)
+
 	musicEnhanceSlider, musicEnhanceSliderEvents := eui.NewSlider()
 	musicEnhanceSlider.Label = "Bard music ambience"
 	musicEnhanceSlider.MinValue = 0.1

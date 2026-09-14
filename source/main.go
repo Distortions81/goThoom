@@ -321,9 +321,20 @@ func main() {
 				playerName = ""
 			}
 			var scriptSession uint64
-			defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
+			var movieSession *Session
+			defer func() {
+				dispatchMainThread(func() {
+					endSessionScripts(scriptSession)
+					endMoviePlaybackSession(movieSession)
+				})
+			}()
 			var mp *moviePlayer
 			if !dispatchMainThreadAndWait(ctx, func() {
+				var ok bool
+				movieSession, ok = beginMoviePlaybackSession(playerName)
+				if !ok {
+					return
+				}
 				scriptSession = startSessionScripts(playerName)
 				if loginWin != nil {
 					loginWin.Close()
@@ -332,9 +343,13 @@ func main() {
 				movieCancel := func() {
 					requestApplicationShutdown(cancel, "command-line movie controls closed")
 				}
-				mp = newMoviePlayer(frames, clMovFPS, movieCancel)
+				mp = newMoviePlayer(movieSession, frames, clMovFPS, movieCancel)
 				mp.makePlaybackWindow()
 			}) {
+				return
+			}
+			if mp == nil {
+				log.Printf("movie playback requires an available session tab")
 				return
 			}
 			if *genPGO {

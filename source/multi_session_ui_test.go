@@ -164,6 +164,17 @@ func TestSessionTabPositionUsesOpenTabOrder(t *testing.T) {
 	}
 }
 
+func TestSessionTabsRemainVisibleDuringMoviePlayback(t *testing.T) {
+	oldFake, oldMovie, oldPCAP, oldPreview := fake, clmov, pcapPath, setupWizardPreviewActive
+	t.Cleanup(func() {
+		fake, clmov, pcapPath, setupWizardPreviewActive = oldFake, oldMovie, oldPCAP, oldPreview
+	})
+	fake, clmov, pcapPath, setupWizardPreviewActive = false, "movie.clMov", "", false
+	if !sessionTabsVisible() {
+		t.Fatal("session tabs were hidden during movie playback")
+	}
+}
+
 func TestSessionTabCyclingUsesOpenOrderAndWraps(t *testing.T) {
 	oldSessions := appSessions
 	oldWorkspace := multiSessionWorkspace

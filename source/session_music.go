@@ -56,14 +56,18 @@ func selectMusicSource(id SessionID) bool {
 		appMusicSource.mu.Unlock()
 		return true
 	}
+	previous := appMusicSource.source
 	appMusicSource.source = id
 	appMusicSource.generation++
 	generation := appMusicSource.generation
 	stopMusicSourcePlayback()
 	appMusicSource.mu.Unlock()
+	markMovieMusicSourceInactive(previous)
 	if appSessions != nil {
 		if session, open := appSessions.session(id); open {
-			restoreSessionMusic(session, generation, time.Now())
+			if !restoreMovieMusicSource(session) {
+				restoreSessionMusic(session, generation, time.Now())
+			}
 		}
 	}
 	return true

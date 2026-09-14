@@ -170,6 +170,8 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "Mute", category: settingsAudio, name: "muted"},
 	{field: "MuteWhenUnfocused", category: settingsAudio, name: "mute_when_unfocused"},
 	{field: "ThrottleSounds", category: settingsAudio, name: "limit_repeated_sounds"},
+	{field: "StaggerSimultaneousSounds", category: settingsAudio, name: "stagger_simultaneous_sounds"},
+	{field: "SimultaneousSoundSpreadMS", category: settingsAudio, name: "simultaneous_sound_spread_ms"},
 	{field: "SoundEnhancement", category: settingsAudio, name: "sound_enhancement"},
 	{field: "SoundEnhancementAmount", category: settingsAudio, name: "sound_enhancement_amount"},
 	{field: "MusicEnhancement", category: settingsAudio, name: "music_enhancement"},

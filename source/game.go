@@ -1973,11 +1973,13 @@ func showingGameSplash() bool {
 }
 
 func showingSessionGameSplash(session *Session) bool {
-	if session == nil || session == primarySession {
-		return showingGameSplash()
+	if session == nil {
+		return true
 	}
-	return !setupWizardPreviewActive && clmov == "" && !playingMovie &&
-		!session.transport.connected() && pcapPath == "" && !fake
+	if session == moviePlaybackSession {
+		return false
+	}
+	return !setupWizardPreviewActive && !session.transport.connected() && pcapPath == "" && !fake
 }
 
 type viewportRenderResult struct {

@@ -4056,7 +4056,7 @@ func makePasswordWindow() {
 func reserveMoviePlayback(filename string) bool {
 	loginMu.Lock()
 	defer loginMu.Unlock()
-	if primarySession.connectionBusy() || clmov != "" || playingMovie {
+	if appSessions.anyConnected() || clmov != "" || playingMovie {
 		return false
 	}
 	clmov = filename
@@ -4569,13 +4569,31 @@ func makeLoginWindow() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				var mp *moviePlayer
 				var scriptSession uint64
-				defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
+				var movieSession *Session
+				defer func() {
+					dispatchMainThread(func() {
+						endSessionScripts(scriptSession)
+						endMoviePlaybackSession(movieSession)
+					})
+				}()
 				if !dispatchMainThreadAndWait(ctx, func() {
+					var ok bool
+					movieSession, ok = beginMoviePlaybackSession(playerName)
+					if !ok {
+						clmov = ""
+						loginWin.MarkOpen()
+						makeErrorWindow("Close a session tab before playing a movie.")
+						return
+					}
 					scriptSession = startSessionScripts(playerName)
 					updateGameWindowTitle()
-					mp = newMoviePlayer(frames, clMovFPS, cancel)
+					mp = newMoviePlayer(movieSession, frames, clMovFPS, cancel)
 					mp.makePlaybackWindow()
 				}) {
+					cancel()
+					return
+				}
+				if mp == nil {
 					cancel()
 					return
 				}

@@ -20,6 +20,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"artwork upscale filter":           gsdef.SpriteUpscaleFilter,
 		"sprite gamma correction":          gsdef.SpriteGammaCorrection,
 		"throttle sounds":                  gsdef.ThrottleSounds,
+		"stagger simultaneous sounds":      gsdef.StaggerSimultaneousSounds,
 		"inventory alternating row colors": gsdef.InventoryAlternatingRowColors,
 		"window shadows":                   gsdef.WindowShadows,
 		"bubble overlap prevention":        gsdef.AvoidBubbleOverlap,
@@ -44,8 +45,8 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 }
 
 func TestAudioDefaults(t *testing.T) {
-	if gsdef.MasterVolume != 1 || gsdef.GameVolume != 0.5 || gsdef.MusicVolume != 1 {
-		t.Fatalf("default mixer volumes = master %v, game %v, music %v; want 1, 0.5, 1", gsdef.MasterVolume, gsdef.GameVolume, gsdef.MusicVolume)
+	if gsdef.MasterVolume != 1 || gsdef.GameVolume != 1 || gsdef.MusicVolume != 0.33 {
+		t.Fatalf("default mixer volumes = master %v, game %v, music %v; want 1, 1, 0.33", gsdef.MasterVolume, gsdef.GameVolume, gsdef.MusicVolume)
 	}
 	if gsdef.NotificationVolume != 0.33 || gsdef.ChatTTSVolume != 0.33 {
 		t.Fatalf("default secondary volumes = notifications %v, TTS %v; want 0.33, 0.33", gsdef.NotificationVolume, gsdef.ChatTTSVolume)
@@ -55,6 +56,9 @@ func TestAudioDefaults(t *testing.T) {
 	}
 	if !gsdef.SoundEnhancement || gsdef.SoundEnhancementAmount != 2 {
 		t.Fatalf("sound enhancement defaults = enabled %v, amount %v; want true, 2", gsdef.SoundEnhancement, gsdef.SoundEnhancementAmount)
+	}
+	if gsdef.SimultaneousSoundSpreadMS != 16 {
+		t.Fatalf("simultaneous sound spread default = %d ms, want 16", gsdef.SimultaneousSoundSpreadMS)
 	}
 }
 
@@ -237,17 +241,18 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		t.Fatal("loadSettings() = true without a settings file")
 	}
 	for name, enabled := range map[string]bool{
-		"smooth movement":            gs.MotionSmoothing,
-		"floating-point coordinates": gs.FloatingPointSpriteCoords,
-		"world animation blending":   gs.BlendPicts,
-		"shader lighting":            gs.ShaderLighting,
-		"flame light flicker":        gs.FlameLightFlicker,
-		"character shadows":          gs.CharacterShadows,
-		"characters receive shadows": gs.MobilesReceiveSunShadows,
-		"artwork upscale filter":     gs.SpriteUpscaleFilter,
-		"sound enhancement":          gs.SoundEnhancement,
-		"high quality resampling":    gs.HighQualityResampling,
-		"music enhancement":          gs.MusicEnhancement,
+		"smooth movement":             gs.MotionSmoothing,
+		"floating-point coordinates":  gs.FloatingPointSpriteCoords,
+		"world animation blending":    gs.BlendPicts,
+		"shader lighting":             gs.ShaderLighting,
+		"flame light flicker":         gs.FlameLightFlicker,
+		"character shadows":           gs.CharacterShadows,
+		"characters receive shadows":  gs.MobilesReceiveSunShadows,
+		"artwork upscale filter":      gs.SpriteUpscaleFilter,
+		"sound enhancement":           gs.SoundEnhancement,
+		"stagger simultaneous sounds": gs.StaggerSimultaneousSounds,
+		"high quality resampling":     gs.HighQualityResampling,
+		"music enhancement":           gs.MusicEnhancement,
 	} {
 		if !enabled {
 			t.Errorf("new config has %s disabled", name)

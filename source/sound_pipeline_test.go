@@ -27,7 +27,7 @@ func TestAppendUniqueSoundPreservesDistinctIDs(t *testing.T) {
 func TestMixLoadedSoundPlaybackPCMCombinesEverySound(t *testing.T) {
 	first := monoPCM(1000, -1000)
 	second := monoPCM(3000, 1000)
-	mixed := mixLoadedSoundPlaybackPCM([][]byte{first, second}, false, 0)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{first, second}, sampleRate, false, 16, false, 0)
 	if len(mixed) != 8 {
 		t.Fatalf("stereo mix bytes = %d, want 8", len(mixed))
 	}
@@ -42,7 +42,7 @@ func TestMixLoadedSoundPlaybackPCMCombinesEverySound(t *testing.T) {
 
 func TestMixLoadedSoundPlaybackPCMAppliesPeakLimitAfterMixGain(t *testing.T) {
 	sound := monoPCM(30000)
-	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, false, 0)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, sampleRate, false, 16, false, 0)
 	for channel := range 2 {
 		if got := int16(binary.LittleEndian.Uint16(mixed[channel*2:])); got != 30000 {
 			t.Errorf("mixed channel %d = %d, want 30000", channel, got)
@@ -56,7 +56,7 @@ func TestMixLoadedSoundPlaybackPCMAppliesEnhancementAfterMixGain(t *testing.T) {
 		samples[index] = 30000
 	}
 	sound := monoPCM(samples...)
-	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, true, 2)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, sampleRate, false, 16, true, 2)
 
 	want := make([]int32, len(samples))
 	for index := range want {
@@ -64,16 +64,30 @@ func TestMixLoadedSoundPlaybackPCMAppliesEnhancementAfterMixGain(t *testing.T) {
 	}
 	applyGameSoundReverb(want, 2)
 	for index, sample := range want {
-		if sample > 32767 {
-			sample = 32767
-		} else if sample < -32768 {
-			sample = -32768
-		}
 		for channel := range 2 {
 			offset := (index*2 + channel) * 2
 			if got := int16(binary.LittleEndian.Uint16(mixed[offset:])); got != int16(sample) {
 				t.Fatalf("sample %d channel %d = %d, want %d", index, channel, got, sample)
 			}
+		}
+	}
+}
+
+func TestSoundMixMicroStaggersSimultaneousSounds(t *testing.T) {
+	const rate = 10000
+	sound := monoPCM(1000)
+	mixed := mixLoadedSoundPlaybackPCM([][]byte{sound, sound}, rate, true, 16, false, 0)
+	offset := staggeredSoundStartOffset(1, 2, rate, 16)
+	if offset != 160 {
+		t.Fatalf("second sound offset = %d samples, want 160", offset)
+	}
+	if got := len(mixed) / 4; got != offset+1 {
+		t.Fatalf("enhanced mix length = %d samples, want %d", got, offset+1)
+	}
+	for index := range offset + 1 {
+		got := int16(binary.LittleEndian.Uint16(mixed[index*4:]))
+		if (index == 0 || index == offset) != (got != 0) {
+			t.Errorf("sample %d = %d; want audio only at samples 0 and %d", index, got, offset)
 		}
 	}
 }
@@ -208,6 +222,6 @@ func BenchmarkMixLoadedSoundPlaybackPCM(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(pcm) * len(sounds)))
 	for b.Loop() {
-		_ = mixLoadedSoundPlaybackPCM(sounds, false, 0)
+		_ = mixLoadedSoundPlaybackPCM(sounds, sampleRate, false, 16, false, 0)
 	}
 }

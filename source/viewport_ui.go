@@ -345,7 +345,7 @@ func refreshViewportWorkspace() {
 	if !gameWin.IsOpen() {
 		gameWin.MarkOpen()
 	}
-	if session, ok := appSessions.session(selected); ok && loginWin != nil && sessionTabsVisible() && !status.NeedImages && !status.NeedSounds {
+	if session, ok := appSessions.session(selected); ok && loginWin != nil && sessionTabsVisible() && clmov == "" && !movieMode && !playingMovie && !status.NeedImages && !status.NeedSounds {
 		if session.transport.connected() {
 			loginWin.Close()
 		} else {
