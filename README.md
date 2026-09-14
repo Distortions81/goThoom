@@ -29,9 +29,8 @@ for your computer.
 The user data folder is `%LOCALAPPDATA%\goThoom` on Windows,
 `$XDG_DATA_HOME/goThoom` on Linux (normally `~/.local/share/goThoom`), and
 `~/Library/Containers/com.goThoom.client` on macOS. Open it from
-**Settings → Files → Open User Data Folder**. Upgrading from an older Windows
-or Linux release copies existing portable data there on first launch without
-deleting the original files.
+**Settings → Files → Open User Data Folder**. Files from older portable
+installations can be copied there manually when needed.
 
 Diagnostics are written by default to the user data folder's `Diagnostics`
 directory. Use **Settings → Files → Open Diagnostics Folder** to find the

@@ -47,97 +47,19 @@ func TestPlatformDataDir(t *testing.T) {
 	}
 }
 
-func TestMigratePortableDataCopiesMissingFilesOnce(t *testing.T) {
-	legacyRoot := t.TempDir()
-	destination := t.TempDir()
-	writeTestFile(t, filepath.Join(legacyRoot, "data", "settings.json"), "legacy settings")
-	writeTestFile(t, filepath.Join(legacyRoot, "data", "Scripts", "custom.go"), "package main")
-	writeTestFile(t, filepath.Join(legacyRoot, "data", "background.png"), "background")
-	writeTestFile(t, filepath.Join(legacyRoot, "themes", "palettes", "Mine.json"), "theme")
-	writeTestFile(t, filepath.Join(legacyRoot, "Text Logs", "Hero", "session.txt"), "chat")
-	writeTestFile(t, filepath.Join(legacyRoot, "logs", "error.log"), "error")
-	writeTestFile(t, filepath.Join(destination, "settings.json"), "new settings")
+func TestInitializeUserDataCreatesRoot(t *testing.T) {
+	original := dataDirPath
+	dataDirPath = filepath.Join(t.TempDir(), "user-data")
+	t.Cleanup(func() { dataDirPath = original })
 
-	migrated, err := migratePortableData(legacyRoot, destination)
+	if err := initializeUserData(); err != nil {
+		t.Fatalf("initializeUserData: %v", err)
+	}
+	info, err := os.Stat(dataDirPath)
 	if err != nil {
-		t.Fatalf("migratePortableData: %v", err)
+		t.Fatalf("stat user data root: %v", err)
 	}
-	if !migrated {
-		t.Fatal("migratePortableData did not report a migration")
-	}
-	assertTestFile(t, filepath.Join(destination, "settings.json"), "new settings")
-	assertTestFile(t, filepath.Join(destination, "Scripts", "custom.go"), "package main")
-	assertTestFile(t, filepath.Join(destination, "background.png"), "background")
-	assertTestFile(t, filepath.Join(destination, "themes", "palettes", "Mine.json"), "theme")
-	assertTestFile(t, filepath.Join(destination, "Text Logs", "Hero", "session.txt"), "chat")
-	assertTestFile(t, filepath.Join(destination, "logs", "error.log"), "error")
-	assertTestFile(t, filepath.Join(legacyRoot, "data", "Scripts", "custom.go"), "package main")
-	if _, err := os.Stat(filepath.Join(destination, legacyMigrationMarker)); err != nil {
-		t.Fatalf("migration marker: %v", err)
-	}
-
-	writeTestFile(t, filepath.Join(legacyRoot, "data", "added-later.txt"), "old")
-	migrated, err = migratePortableData(legacyRoot, destination)
-	if err != nil {
-		t.Fatalf("second migratePortableData: %v", err)
-	}
-	if migrated {
-		t.Fatal("second migratePortableData unexpectedly migrated again")
-	}
-	if _, err := os.Stat(filepath.Join(destination, "added-later.txt")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("second migration copied a new legacy file: %v", err)
-	}
-}
-
-func TestMigratePortableDataIgnoresPackagedGuideOnly(t *testing.T) {
-	legacyRoot := t.TempDir()
-	destination := t.TempDir()
-	writeTestFile(t, filepath.Join(legacyRoot, "data", "Macros", "Library", "README.md"), "guide")
-
-	migrated, err := migratePortableData(legacyRoot, destination)
-	if err != nil {
-		t.Fatalf("migratePortableData: %v", err)
-	}
-	if migrated {
-		t.Fatal("packaged guide triggered migration")
-	}
-	if _, err := os.Stat(filepath.Join(destination, legacyMigrationMarker)); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("packaged guide created migration marker: %v", err)
-	}
-}
-
-func TestMigratePortableDataWhenApplicationIsInDestination(t *testing.T) {
-	destination := t.TempDir()
-	writeTestFile(t, filepath.Join(destination, "data", "settings.json"), "legacy settings")
-
-	migrated, err := migratePortableData(destination, destination)
-	if err != nil {
-		t.Fatalf("migratePortableData: %v", err)
-	}
-	if !migrated {
-		t.Fatal("migratePortableData did not report a migration")
-	}
-	assertTestFile(t, filepath.Join(destination, "settings.json"), "legacy settings")
-	assertTestFile(t, filepath.Join(destination, "data", "settings.json"), "legacy settings")
-}
-
-func writeTestFile(t *testing.T, path, contents string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("create %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
-}
-
-func assertTestFile(t *testing.T, path, want string) {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	if string(data) != want {
-		t.Fatalf("%s = %q, want %q", path, data, want)
+	if !info.IsDir() {
+		t.Fatalf("user data root is not a directory: %s", dataDirPath)
 	}
 }

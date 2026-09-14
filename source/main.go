@@ -185,15 +185,12 @@ func main() {
 		return
 	}
 
-	migrated, err := initializeUserData()
+	err := initializeUserData()
 	loadSettings()
 	activateStoragePaths()
 	setupLogging(doDebug)
 	if err != nil {
 		log.Printf("initialize user data: %v", err)
-	}
-	if migrated {
-		log.Printf("copied portable user data to %s; original files were left in place", dataDirPath)
 	}
 	if *instrumentAuditionOutput != "" {
 		outputBase := instrumentAuditionOutputBase(*instrumentAuditionOutput)
