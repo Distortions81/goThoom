@@ -57,8 +57,8 @@ func TestAudioDefaults(t *testing.T) {
 	if !gsdef.SoundEnhancement || gsdef.SoundEnhancementAmount != 2 {
 		t.Fatalf("sound enhancement defaults = enabled %v, amount %v; want true, 2", gsdef.SoundEnhancement, gsdef.SoundEnhancementAmount)
 	}
-	if gsdef.SimultaneousSoundSpreadMS != 16 {
-		t.Fatalf("simultaneous sound spread default = %d ms, want 16", gsdef.SimultaneousSoundSpreadMS)
+	if gsdef.SimultaneousSoundSpreadMS != 50 {
+		t.Fatalf("simultaneous sound spread default = %d ms, want 50", gsdef.SimultaneousSoundSpreadMS)
 	}
 }
 

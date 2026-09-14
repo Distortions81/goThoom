@@ -1471,7 +1471,7 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 	staggerSpreadSlider, staggerSpreadEvents := eui.NewSlider()
 	staggerSpreadSlider.Label = "Simultaneous sound spread (ms)"
 	staggerSpreadSlider.MinValue = 1
-	staggerSpreadSlider.MaxValue = 50
+	staggerSpreadSlider.MaxValue = 100
 	staggerSpreadSlider.IntOnly = true
 	staggerSpreadSlider.Value = float32(clampSimultaneousSoundSpreadMS(gs.SimultaneousSoundSpreadMS))
 	staggerSpreadSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}

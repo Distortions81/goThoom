@@ -112,8 +112,8 @@ func clampSimultaneousSoundSpreadMS(v int) int {
 	if v < 1 {
 		return 1
 	}
-	if v > 50 {
-		return 50
+	if v > 100 {
+		return 100
 	}
 	return v
 }
@@ -407,7 +407,7 @@ var gsdef settings = settings{
 	BarColorByValue:           false,
 	ThrottleSounds:            true,
 	StaggerSimultaneousSounds: true,
-	SimultaneousSoundSpreadMS: 16,
+	SimultaneousSoundSpreadMS: 50,
 	SoundEnhancement:          true,
 	SoundEnhancementAmount:    2.0,
 	MusicEnhancement:          true,
