@@ -144,7 +144,7 @@ func TestLayeredCharacterShadowCommandsFollowTheirCaster(t *testing.T) {
 	}
 }
 
-func TestUprightShadowCellBottomStaysAttached(t *testing.T) {
+func TestUprightShadowCellBottomTucksIntoFeet(t *testing.T) {
 	originalScale := gs.GameScale
 	gs.GameScale = 1
 	t.Cleanup(func() { gs.GameScale = originalScale })
@@ -152,8 +152,8 @@ func TestUprightShadowCellBottomStaysAttached(t *testing.T) {
 	projection := newCharacterShadowProjection(90)
 	geo := uprightShadowGeoMWithFoot(20, 6, 21, 20, 100, 100, projection)
 	footX, footY := geo.Apply(16, 21)
-	if math.Abs(footX-100) > 1e-9 || math.Abs(footY-105) > 1e-9 {
-		t.Fatalf("cell-bottom anchor = (%v, %v), want (100, 105)", footX, footY)
+	if math.Abs(footX-100) > 1e-9 || math.Abs(footY-103) > 1e-9 {
+		t.Fatalf("inset foot anchor = (%v, %v), want (100, 103)", footX, footY)
 	}
 }
 
@@ -313,7 +313,7 @@ func TestUprightShadowProjectionDirection(t *testing.T) {
 		geo := uprightShadowGeoM(20, 20, 100, 100, projection)
 		topX, topY := geo.Apply(10, 0)
 		bottomX, bottomY := geo.Apply(10, 20)
-		if math.Abs(bottomX-100) > 1e-9 || math.Abs(bottomY-110) > 1e-9 {
+		if math.Abs(bottomX-100) > 1e-9 || math.Abs(bottomY-108) > 1e-9 {
 			t.Errorf("azimuth %d moved the foot anchor to (%v, %v)", tt.azimuth, bottomX, bottomY)
 		}
 		dx := topX - bottomX
