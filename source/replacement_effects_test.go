@@ -110,6 +110,14 @@ func TestMagicMoteRingShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestTownPuddleShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(townPuddleShaderSource)
+	if err != nil {
+		t.Fatalf("compile town puddle shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
 func TestStoneFormShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(stoneFormShaderSource)
 	if err != nil {
@@ -193,6 +201,18 @@ func TestWavingFlagIsPersistent(t *testing.T) {
 	if !replacementEffectIsPersistent(replacementEffectMagicMoteRing) {
 		t.Fatal("magic mote ring must remain visible with its source sprite")
 	}
+	if !replacementEffectIsPersistent(replacementEffectTownPuddle) {
+		t.Fatal("town puddle must remain visible with its source sprite")
+	}
+	if replacementEffectUsesPlayerMask(replacementEffectTownPuddle) {
+		t.Fatal("town puddle must remain on the ground instead of pinning to a nearby player")
+	}
+	if !replacementEffectDrawsBelowMobiles(replacementEffectTownPuddle) || !replacementEffectDrawsBelowMobiles(replacementEffectLavaPool) {
+		t.Fatal("ground replacement effects must draw below mobiles")
+	}
+	if replacementEffectDrawsBelowMobiles(replacementEffectFirePlume) {
+		t.Fatal("spell replacement effects must remain above mobiles")
+	}
 }
 
 func TestReplacementEffectFramePhaseUsesSourceAnimationTimeline(t *testing.T) {
@@ -230,6 +250,9 @@ func TestReplacementEffectPreviewPhaseLoopsOneShots(t *testing.T) {
 	}
 	if got, want := replacementEffectSequenceDuration(replacementEffectMagicMoteRing), float32(0.8); got != want {
 		t.Fatalf("magic mote ring cycle = %v, want %v", got, want)
+	}
+	if got, want := replacementEffectSequenceDuration(replacementEffectTownPuddle), float32(3.2); got != want {
+		t.Fatalf("town puddle cycle = %v, want %v", got, want)
 	}
 }
 
@@ -282,6 +305,19 @@ func TestWallTorchMirrors(t *testing.T) {
 	}
 }
 
+func TestFirePlumeThemes(t *testing.T) {
+	for _, test := range []struct {
+		id   uint16
+		want float32
+	}{
+		{481, 0}, {482, 0}, {572, 0}, {1739, 1}, {1740, 2}, {1741, 3},
+	} {
+		if got := replacementEffectFireTheme(test.id); got != test.want {
+			t.Errorf("fire theme for %d = %v, want %v", test.id, got, test.want)
+		}
+	}
+}
+
 func TestWallTorchStartOffsetsAreStableAndDistinct(t *testing.T) {
 	first := replacementEffectInstanceStartOffset(replacementEffectWallTorch, 0x100020003)
 	if got := replacementEffectInstanceStartOffset(replacementEffectWallTorch, 0x100020003); got != first {
@@ -313,6 +349,15 @@ func TestMagicMoteRingThemes(t *testing.T) {
 		if got, want := replacementEffectMagicTheme(id), float32(id-1039); got != want {
 			t.Errorf("magic theme for %d = %v, want %v", id, got, want)
 		}
+	}
+}
+
+func TestTownPuddleVariants(t *testing.T) {
+	if got := replacementEffectPuddleVariant(888); got != 0 {
+		t.Fatalf("puddle 888 variant = %v, want 0", got)
+	}
+	if got := replacementEffectPuddleVariant(889); got != 1 {
+		t.Fatalf("puddle 889 variant = %v, want 1", got)
 	}
 }
 
@@ -375,6 +420,9 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		{id: 33, kind: replacementEffectBloodGush, ok: true},
 		{id: 482, kind: replacementEffectFirePlume, ok: true},
 		{id: 572, kind: replacementEffectFirePlume, ok: true},
+		{id: 1739, kind: replacementEffectFirePlume, ok: true},
+		{id: 1740, kind: replacementEffectFirePlume, ok: true},
+		{id: 1741, kind: replacementEffectFirePlume, ok: true},
 		{id: 885, kind: replacementEffectWavingFlag, ok: true},
 		{id: 5647, kind: replacementEffectWavingFlag, ok: true},
 		{id: 330, kind: replacementEffectWallTorch, ok: true},
@@ -383,6 +431,8 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		{id: 1587, kind: replacementEffectMysticOrbitWard, ok: true},
 		{id: 597, kind: replacementEffectLavaPool, ok: true},
 		{id: 598, kind: replacementEffectLavaPool, ok: true},
+		{id: 888, kind: replacementEffectTownPuddle, ok: true},
+		{id: 889, kind: replacementEffectTownPuddle, ok: true},
 		{id: 1039, kind: replacementEffectMagicMoteRing, ok: true},
 		{id: 1044, kind: replacementEffectMagicMoteRing, ok: true},
 		{id: 445, kind: replacementEffectHiddenPath, ok: true},
@@ -406,7 +456,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 597, 598, 885, 1039, 1044, 5647, 1286, 1587, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 539, 540, 572, 597, 598, 885, 888, 889, 1039, 1044, 1286, 1587, 1739, 1740, 1741, 1759, 1847, 2976, 2977, 2978, 3125, 5000, 5647}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])

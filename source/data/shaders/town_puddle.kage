@@ -1,0 +1,99 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+var PuddleVariant float
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func polarAngle(p vec2) float {
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		if p.y >= 0 {
+			return 3.14159265 - angle
+		}
+		return -3.14159265 - angle
+	}
+	return angle
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	q := vec2(p.x*2.0, p.y*2.0)
+	r := length(q)
+	angle := polarAngle(q)
+	// Interpolate the four subtle source frames as a deliberately gentle
+	// 3.2-second ambient cycle rather than replaying their old five-UPS cadence.
+	t := Phase * 1.9634954
+
+	// A shallow, lumpy silhouette follows the source artwork. Only its smallest
+	// edge variations move; the puddle remains firmly attached to the ground.
+	boundary := 0.90
+	boundary += sin(angle*5.0+0.5)*0.034
+	boundary += sin(angle*9.0-1.3)*0.020
+	boundary += sin(angle*13.0+t)*0.004
+	if PuddleVariant > 0.5 {
+		// 889 is broader and more irregular through its lower edge than 888.
+		boundary += sin(angle*4.0-0.8)*0.018
+		boundary += sin(angle*7.0+2.2)*0.012
+	} else {
+		boundary += sin(angle*6.0+1.1)*0.010
+	}
+	coverage := clamp((boundary+0.030-r)/0.060, 0, 1)
+	if coverage <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	x := localPos.x
+	y := localPos.y
+	// Dense crossing currents reproduce the originals' woven teal pixels while
+	// interpolating them into smooth water movement at higher resolutions.
+	flowA := 0.5 + 0.5*sin(y*0.54+sin(x*0.105+t)*0.82+t)
+	flowB := 0.5 + 0.5*sin((x+y)*0.235+sin(y*0.125-t)*0.68-t)
+	flowC := 0.5 + 0.5*sin((x-y)*0.285+sin(x*0.082+t)*0.58+t*2.0)
+	water := flowA*0.44 + flowB*0.34 + flowC*0.22
+
+	// Thin highlights and dark troughs drift independently, giving the two
+	// native sizes the same texture density without stretching one bitmap.
+	glintA := spark(x*0.34+y*0.21+t*3.0) * spark(x*0.13-y*0.38-t*2.0)
+	glintB := spark(x*0.27-y*0.31-t) * spark(x*0.41+y*0.12+t*2.0)
+	glints := min(1, glintA+glintB*0.72) * max(0, 1-r*0.72)
+	troughA := spark(x*0.19-y*0.42+t) * spark(x*0.37+y*0.15-t*2.0)
+	troughB := spark(x*0.46+y*0.17-t*3.0) * spark(x*0.11-y*0.29+t)
+	troughs := min(1, troughA+troughB*0.68)
+
+	// A pair of very soft ripples occasionally crosses the surface. They remain
+	// broken and low contrast so this reads as a town puddle, not spell energy.
+	ripplePhase := fract(Phase/3.2)
+	rippleRadius := 0.12 + ripplePhase*0.62
+	ripple := max(0, 1-abs(length(vec2(q.x+0.18, q.y-0.08))-rippleRadius)/0.028)
+	ripple *= spark(angle*7.0+x*0.11)*sin(ripplePhase*3.14159265)*0.15
+
+	edgeDepth := clamp((boundary-r)/0.17, 0, 1)
+	color := mix(vec3(0.10, 0.13, 0.10), vec3(0.25, 0.45, 0.43), edgeDepth)
+	color = mix(color, vec3(0.27, 0.47, 0.65), water*0.58)
+	color = mix(color, vec3(0.47, 0.66, 0.65), min(1, water*0.28+glints*0.46+ripple))
+	color = mix(color, vec3(0.15, 0.25, 0.26), troughs*0.30)
+	// Preserve the dark mossy rim that separates the translucent water from the
+	// similarly colored town ground.
+	rim := 1-smoothstep(0.012, 0.085, boundary-r)
+	color = mix(color, vec3(0.08, 0.12, 0.055), rim*0.76)
+	a := coverage * (0.68+0.10*water) * Alpha
+	return vec4(color*a, a)
+}

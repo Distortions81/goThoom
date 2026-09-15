@@ -2267,9 +2267,24 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 	}
+	// Ground replacement pictures on zero or positive planes must be queued
+	// before character drawing. Their originals are skipped in the normal
+	// interleaved pass below, and the replacement layer is painted beneath
+	// shadows and mobiles regardless of the source picture's plane.
+	for _, pictures := range [...][]framePicture{zeroPics, posPics} {
+		for _, p := range pictures {
+			if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+				drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
+			}
+		}
+	}
+	drawReplacementEffectsBelowMobiles(screen, ox, oy, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
+			if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+				continue
+			}
 			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 		}
 	} else {
@@ -2289,6 +2304,12 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		i, j := 0, 0
 		maxInt := int(^uint(0) >> 1)
 		for i < len(live) || j < len(zeroPics) {
+			for j < len(zeroPics) && replacementEffectPictureDrawsBelowMobiles(zeroPics[j].PictID) {
+				j++
+			}
+			if i >= len(live) && j >= len(zeroPics) {
+				break
+			}
 			mV, mH := maxInt, maxInt
 			if i < len(live) {
 				mV = int(live[i].V)
@@ -2315,6 +2336,9 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	}
 
 	for _, p := range posPics {
+		if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+			continue
+		}
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 	}
 }

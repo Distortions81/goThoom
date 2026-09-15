@@ -11,6 +11,7 @@ var HasMask float
 var MaskOffset vec2
 var MaskInvScale float
 var SpriteLightOnly float
+var FireTheme float
 
 func maskAlpha(localPos vec2) float {
 	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
@@ -40,6 +41,58 @@ func spark(value float) float {
 	return v
 }
 
+func fireDark(theme float) vec3 {
+	if theme < 0.5 {
+		return vec3(0.28, 0.001, 0)
+	}
+	if theme < 1.5 {
+		return vec3(0.08, 0, 0.15)
+	}
+	if theme < 2.5 {
+		return vec3(0, 0.20, 0)
+	}
+	return vec3(0, 0, 0.22)
+}
+
+func fireBody(theme float) vec3 {
+	if theme < 0.5 {
+		return vec3(1.0, 0.035, 0.002)
+	}
+	if theme < 1.5 {
+		return vec3(0, 0, 0.86)
+	}
+	if theme < 2.5 {
+		return vec3(0.20, 0.65, 0)
+	}
+	return vec3(0, 0.12, 0.88)
+}
+
+func fireMiddle(theme float) vec3 {
+	if theme < 0.5 {
+		return vec3(1.0, 0.42, 0.004)
+	}
+	if theme < 1.5 {
+		return vec3(0.47, 0, 1.0)
+	}
+	if theme < 2.5 {
+		return vec3(0.47, 0.83, 0)
+	}
+	return vec3(0, 0.65, 1.0)
+}
+
+func fireHot(theme float) vec3 {
+	if theme < 0.5 {
+		return vec3(1.0, 0.83, 0.025)
+	}
+	if theme < 1.5 {
+		return vec3(1.0, 0, 1.0)
+	}
+	if theme < 2.5 {
+		return vec3(0.65, 1.0, 0)
+	}
+	return vec3(0, 1.0, 1.0)
+}
+
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	// Overscan reserves room for sparks, so center coordinates on its complete
@@ -65,7 +118,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		edge := max(0, max(right, up)-body)
 		flicker := 0.48 + 0.52*spark(t*17.0-p.y*17.0+p.x*11.0)
 		light := (body*(0.045+0.095*flicker)+edge*(0.16+0.09*flicker))*Alpha
-		color := mix(vec3(0.88, 0.018, 0.001), vec3(1.0, 0.44, 0.015), flicker)
+		color := mix(fireBody(FireTheme), fireMiddle(FireTheme), flicker)
 		return vec4(color*light, light)
 	}
 
@@ -130,9 +183,9 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	heat := min(1, innerFire*1.05+base*0.55+embers*0.20)
 	orange := min(1, heat*1.25)
 	yellow := max(0, (heat-0.62)/0.38)
-	color := mix(vec3(0.28, 0.001, 0), vec3(1.0, 0.035, 0.002), min(1, intensity*1.55))
-	color = mix(color, vec3(1.0, 0.42, 0.004), orange)
-	color = mix(color, vec3(1.0, 0.83, 0.025), yellow)
+	color := mix(fireDark(FireTheme), fireBody(FireTheme), min(1, intensity*1.55))
+	color = mix(color, fireMiddle(FireTheme), orange)
+	color = mix(color, fireHot(FireTheme), yellow)
 	a := min(1, intensity*1.48) * Alpha
 	return vec4(color*a, a)
 }
