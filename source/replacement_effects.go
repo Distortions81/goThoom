@@ -65,6 +65,9 @@ var magicMoteRingShaderSource []byte
 //go:embed data/shaders/town_puddle.kage
 var townPuddleShaderSource []byte
 
+//go:embed data/shaders/shore_wave.kage
+var shoreWaveShaderSource []byte
+
 //go:embed data/shaders/coin_reward.kage
 var coinRewardShaderSource []byte
 
@@ -82,6 +85,7 @@ var stoneFormShader *ebiten.Shader
 var lavaPoolShader *ebiten.Shader
 var magicMoteRingShader *ebiten.Shader
 var townPuddleShader *ebiten.Shader
+var shoreWaveShader *ebiten.Shader
 var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 var replacementEffectsPreview bool
@@ -135,6 +139,7 @@ const (
 	replacementEffectLavaPool
 	replacementEffectMagicMoteRing
 	replacementEffectTownPuddle
+	replacementEffectShoreWave
 	replacementEffectCoinReward
 )
 
@@ -199,6 +204,7 @@ func init() {
 			"MagicTheme":      float32(0),
 			"FireTheme":       float32(0),
 			"PuddleVariant":   float32(0),
+			"WaveDirection":   float32(0),
 		}
 		if kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
@@ -302,6 +308,10 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	waveShader, err := compileReplacementEffectShaderForInit("shore_wave.kage", shoreWaveShaderSource)
+	if err != nil {
+		return err
+	}
 	coinShader, err := compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 	if err != nil {
 		return err
@@ -323,6 +333,7 @@ func ReloadReplacementEffectsShader() error {
 	lavaPoolShader = lavaShader
 	magicMoteRingShader = magicRingShader
 	townPuddleShader = puddleShader
+	shoreWaveShader = waveShader
 	coinRewardShader = coinShader
 	bloodGushShader = bloodShader
 	replacementEffectsShadersReady = true
@@ -331,7 +342,7 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 15
+const replacementEffectsShaderCount = 16
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -446,11 +457,16 @@ func loadNextReplacementEffectShader() error {
 			townPuddleShader = shader
 		}
 	case 13:
+		shader, err = compileReplacementEffectShaderForInit("shore_wave.kage", shoreWaveShaderSource)
+		if err == nil {
+			shoreWaveShader = shader
+		}
+	case 14:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
 		}
-	case 14:
+	case 15:
 		shader, err = compileReplacementEffectShaderForInit("blood_gush.kage", bloodGushShaderSource)
 		if err == nil {
 			bloodGushShader = shader
@@ -515,6 +531,8 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 		return replacementEffectMagicMoteRing, true
 	case 888, 889:
 		return replacementEffectTownPuddle, true
+	case 3568, 3569, 3570, 3571:
+		return replacementEffectShoreWave, true
 	case 2976:
 		return replacementEffectTeleportGold, true
 	case 2977:
@@ -569,6 +587,9 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectTownPuddle {
 		return townPuddleShader
 	}
+	if kind == replacementEffectShoreWave {
+		return shoreWaveShader
+	}
 	if kind == replacementEffectCoinReward {
 		return coinRewardShader
 	}
@@ -583,15 +604,15 @@ func replacementEffectIsOneShot(kind replacementEffectKind) bool {
 // long as their source picture is present. Unlike a spell burst, they should
 // neither ease in nor linger at a stale position after that picture is gone.
 func replacementEffectIsPersistent(kind replacementEffectKind) bool {
-	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle
+	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle || kind == replacementEffectShoreWave
 }
 
 func replacementEffectUsesPlayerMask(kind replacementEffectKind) bool {
-	return kind != replacementEffectLavaPool && kind != replacementEffectTownPuddle
+	return kind != replacementEffectLavaPool && kind != replacementEffectTownPuddle && kind != replacementEffectShoreWave
 }
 
 func replacementEffectDrawsBelowMobiles(kind replacementEffectKind) bool {
-	return kind == replacementEffectLavaPool || kind == replacementEffectTownPuddle
+	return kind == replacementEffectLavaPool || kind == replacementEffectTownPuddle || kind == replacementEffectShoreWave
 }
 
 func replacementEffectPictureDrawsBelowMobiles(pictID uint16) bool {
@@ -620,9 +641,12 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 	if kind == replacementEffectFirePlume {
 		return 1.35
 	}
-	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle {
+	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle || kind == replacementEffectShoreWave {
 		if kind == replacementEffectTownPuddle {
 			return 3.2
+		}
+		if kind == replacementEffectShoreWave {
+			return 12.8
 		}
 		return 0.8
 	}
@@ -630,7 +654,7 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 }
 
 func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16, frame int) time.Duration {
-	if kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectCoinReward {
+	if kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectShoreWave || kind == replacementEffectCoinReward {
 		return 0
 	}
 	frames := 1
@@ -642,7 +666,7 @@ func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16
 	}
 	duration := replacementEffectSequenceDuration(kind)
 	phase := replacementEffectFramePhase(frame, frames, duration)
-	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle {
+	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle || kind == replacementEffectShoreWave {
 		frame %= frames
 		if frame < 0 {
 			frame += frames
@@ -748,6 +772,19 @@ func replacementEffectPuddleVariant(id uint16) float32 {
 		return 1
 	}
 	return 0
+}
+
+func replacementEffectWaveDirection(id uint16) float32 {
+	switch id {
+	case 3571:
+		return 1 // south
+	case 3568:
+		return 2 // east
+	case 3569:
+		return 3 // west
+	default:
+		return 0 // north
+	}
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
@@ -974,7 +1011,7 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 			continue
 		}
 		phase := globalPhase
-		if effect.kind != replacementEffectWavingFlag && effect.kind != replacementEffectCoinReward {
+		if effect.kind != replacementEffectWavingFlag && effect.kind != replacementEffectShoreWave && effect.kind != replacementEffectCoinReward {
 			phase = float32(now.Sub(effect.started).Seconds())
 		}
 		shader := replacementEffectShader(effect.kind)
@@ -1014,6 +1051,9 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 		}
 		if effect.kind == replacementEffectTownPuddle {
 			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(effect.pictID)
+		}
+		if effect.kind == replacementEffectShoreWave {
+			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(effect.pictID)
 		}
 		if effect.kind == replacementEffectMagicMoteRing {
 			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(effect.pictID)
@@ -1087,6 +1127,10 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectMagicMoteRing, label: "Cyan Magic Ring", pictID: 1044},
 	{kind: replacementEffectTownPuddle, label: "Town Puddle (small)", pictID: 888},
 	{kind: replacementEffectTownPuddle, label: "Town Puddle (large)", pictID: 889},
+	{kind: replacementEffectShoreWave, label: "Shore Foam (east)", pictID: 3568},
+	{kind: replacementEffectShoreWave, label: "Shore Foam (west)", pictID: 3569},
+	{kind: replacementEffectShoreWave, label: "Shore Foam (north)", pictID: 3570},
+	{kind: replacementEffectShoreWave, label: "Shore Foam (south)", pictID: 3571},
 	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
 	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
 	{kind: replacementEffectTeleportBlue, label: "Blue Teleport", pictID: 2977},
@@ -1112,7 +1156,7 @@ func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
 // already-expired final state.
 func replacementEffectPreviewPhase(kind replacementEffectKind, elapsed float64) float32 {
 	switch kind {
-	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectMysticOrbitWard, replacementEffectStoneForm, replacementEffectLavaPool, replacementEffectMagicMoteRing, replacementEffectTownPuddle, replacementEffectCoinReward:
+	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectMysticOrbitWard, replacementEffectStoneForm, replacementEffectLavaPool, replacementEffectMagicMoteRing, replacementEffectTownPuddle, replacementEffectShoreWave, replacementEffectCoinReward:
 		return float32(elapsed)
 	default:
 		return float32(math.Mod(elapsed, float64(replacementEffectSequenceDuration(kind))))
@@ -1276,6 +1320,9 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		if preview.kind == replacementEffectTownPuddle {
 			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(preview.pictID)
+		}
+		if preview.kind == replacementEffectShoreWave {
+			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(preview.pictID)
 		}
 		if preview.kind == replacementEffectMagicMoteRing {
 			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(preview.pictID)

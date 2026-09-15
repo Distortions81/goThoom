@@ -1,0 +1,159 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+var WaveDirection float
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func hash21(p vec2) float {
+	return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453)
+}
+
+// shoreSpace rotates every source direction into the north-facing artwork:
+// along runs parallel to shore and depth runs from dry shore into the ocean.
+func shoreSpace(uv vec2) vec2 {
+	if WaveDirection < 0.5 {
+		return uv
+	}
+	if WaveDirection < 1.5 {
+		return vec2(1-uv.x, 1-uv.y)
+	}
+	if WaveDirection < 2.5 {
+		return vec2(uv.y, 1-uv.x)
+	}
+	return vec2(1-uv.y, uv.x)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	uv := localPos/Size
+	shore := shoreSpace(uv)
+	along := shore.x
+	// The coast-parallel axis always spans the complete image and tiles. Use
+	// that same pixel scale across the surf; the few non-square source frames
+	// are therefore clipped only at their far ocean/shore edge, never seamed.
+	alongSize := Size.x
+	depthSize := Size.y
+	if WaveDirection > 1.5 {
+		alongSize = Size.y
+		depthSize = Size.x
+	}
+	depth := shore.y*depthSize/alongSize
+	coastAngle := along*6.2831853
+
+	// A long shore cycle lets the breaker gather, spill forward, and slowly draw
+	// back. Harmonic motion keeps the turnarounds organic without breaking the
+	// perfectly continuous loop.
+	cycle := fract(Phase/12.8)
+	waveTime := cycle*6.2831853
+	turn := sin(waveTime-0.28)*0.78 + sin(waveTime*2.0+0.72)*0.16
+	turn += sin(waveTime*3.0-1.10)*0.06
+	breakup := sin(coastAngle*4.0+sin(coastAngle*2.0+waveTime)*1.35)
+	breakup += sin(coastAngle*10.0-waveTime*2.0)*0.38
+	// Give the breaker enough travel to visibly climb the beach and drain back;
+	// the prior narrow excursion read as surface shimmer rather than a wave.
+	front := 0.185 + turn*0.145 + breakup*0.020
+	px := vec2(along, depth)*alongSize
+
+	// A wide cyan shoulder leads into the brilliant white breaker. These are
+	// foam-only sheets: every gap between the hand-painted curls stays clear.
+	distance := depth-front
+	crestWidth := 0.039+0.021*(0.5+0.5*sin(coastAngle*6.0-waveTime*2.0))
+	crest := exp(-pow(distance/crestWidth, 2.0))
+	crestBreak := 0.74+0.26*spark(coastAngle*13.0+sin(coastAngle*3.0)*2.0+waveTime*3.0)
+	crest *= crestBreak
+	crestHalo := exp(-pow((distance-0.036)/0.088, 2.0))
+	crestHalo *= 0.72+0.28*spark(coastAngle*9.0-waveTime*2.0)
+	// Tiny white caps make the leading edge glisten without turning it into a
+	// flat stripe. The cell count is integral, so it still tiles at both ends.
+	capCell := floor(vec2(fract(along)*192.0, depth*192.0))
+	caps := step(0.78, hash21(capCell+vec2(19.0, 7.0)))
+	caps *= exp(-pow(distance/0.073, 2.0))
+
+	// A shallow sheet of aerated water spreads landward from the breaker. Its
+	// reach grows during the incoming half of the cycle, then the broken veins
+	// pull back toward the crest as the water drains from the sand.
+	incoming := clamp(0.5+turn*0.52, 0, 1)
+	washReach := 0.105+incoming*0.175
+	washDistance := front-depth
+	washBody := (1-smoothstep(washReach*0.30, washReach, washDistance))*step(0, washDistance)
+	washVeinA := spark(coastAngle*12.0+px.y*0.34-waveTime*2.0)
+	washVeinA *= spark(coastAngle*5.0-px.y*0.51+waveTime)
+	washVeinB := spark(coastAngle*19.0-px.y*0.27+waveTime*3.0)
+	washVeinB *= spark(coastAngle*7.0+px.y*0.43-waveTime)
+	washVeins := min(1, washVeinA+washVeinB*0.72)
+	wash := washBody*(0.34+washVeins*0.52)
+
+	// Parallel scalloped trains fill the ocean side just like the source. Each
+	// line is independently broken so the empty ground or water remains visible.
+	ridge1Pos := front+0.105+0.018*sin(coastAngle*3.0+waveTime)
+	ridge2Pos := front+0.245+0.025*sin(coastAngle*2.0-waveTime)
+	ridge3Pos := front+0.425+0.032*sin(coastAngle*2.0+waveTime*2.0)
+	ridge4Pos := front+0.655+0.027*sin(coastAngle*3.0-waveTime)
+	ridge5Pos := front+0.845+0.022*sin(coastAngle*4.0+waveTime*2.0)
+	ridge1 := exp(-pow((depth-ridge1Pos)/0.036, 2.0))
+	ridge2 := exp(-pow((depth-ridge2Pos)/0.030, 2.0))
+	ridge3 := exp(-pow((depth-ridge3Pos)/0.025, 2.0))
+	ridge4 := exp(-pow((depth-ridge4Pos)/0.021, 2.0))
+	ridge5 := exp(-pow((depth-ridge5Pos)/0.017, 2.0))
+	ridge1 *= 0.30+0.70*spark(coastAngle*9.0-px.y*0.13+waveTime*2.0)
+	ridge2 *= 0.20+0.80*spark(coastAngle*8.0+px.y*0.17-waveTime)
+	ridge3 *= 0.15+0.85*spark(coastAngle*10.0-px.y*0.20+waveTime)
+	ridge4 *= 0.10+0.90*spark(coastAngle*8.0+px.y*0.15-waveTime)
+	ridge5 *= 0.08+0.92*spark(coastAngle*11.0-px.y*0.18+waveTime*2.0)
+
+	// Fine diagonal lace connects the larger breakers. It stays sparse and blue,
+	// providing the recognizable woven texture without becoming solid water.
+	laceA := spark(coastAngle*14.0+px.y*0.31+waveTime)
+	laceA *= spark(coastAngle*5.0-px.y*0.49-waveTime)
+	laceB := spark(coastAngle*12.0-px.y*0.28-waveTime)
+	laceB *= spark(coastAngle*5.0+px.y*0.52+waveTime)
+	laceC := spark(coastAngle*21.0+px.y*0.43-waveTime*2.0)
+	laceC *= spark(coastAngle*7.0-px.y*0.37+waveTime)
+	lace := min(1, laceA+laceB*0.72+laceC*0.42)
+	lace *= smoothstep(front+0.045, front+0.20, depth)*0.48
+
+	foamBlue := min(1, ridge1+ridge2*0.82+ridge3*0.67+ridge4*0.55+ridge5*0.42+lace+wash*0.58)
+	foamBright := min(1, crest+crestHalo*0.50+ridge1*0.32+caps+washVeins*washBody*0.30)
+	color := mix(vec3(0.18, 0.38, 0.88), vec3(0.18, 0.76, 1.00), foamBlue)
+	color = mix(color, vec3(0.86, 0.98, 1.00), foamBright)
+	color = mix(color, vec3(0.48, 0.88, 1.00), wash*0.42)
+
+	// Granular foam is strongest on the landward side of the breaker. At native
+	// size it evokes the source pixels; enlarged previews resolve into droplets.
+	cell := floor(vec2(fract(along)*192.0, depth*192.0))
+	grain := hash21(cell)
+	landward := clamp((front-depth+0.02)/0.18, 0, 1)
+	sprayChance := landward*(0.16+0.40*max(0, turn))
+	sprayChance *= 0.58+0.42*spark(coastAngle*6.0+waveTime*3.0)
+	spray := step(1-sprayChance, grain)
+	spray *= step(0.018, depth)
+	spray *= step(depth, front+0.012)
+
+	// A few longer flecks bridge the breaker and the dry side during the surge.
+	streak := spark(coastAngle*19.0+depth*29.0+waveTime*3.0)
+	streak *= spark(coastAngle*8.0-depth*71.0-waveTime*2.0)
+	streak *= landward*step(depth, front+0.018)
+	foam := max(spray, streak*0.88)
+	color = mix(color, vec3(0.88, 0.98, 1.00), foam)
+
+	foamAlpha := max(max(foamBlue*0.88, foamBright), max(foam, wash*0.72))
+	alpha := foamAlpha * Alpha
+	return vec4(color*alpha, alpha)
+}

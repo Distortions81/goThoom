@@ -118,6 +118,14 @@ func TestTownPuddleShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestShoreWaveShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(shoreWaveShaderSource)
+	if err != nil {
+		t.Fatalf("compile shore wave shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
 func TestStoneFormShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(stoneFormShaderSource)
 	if err != nil {
@@ -361,6 +369,40 @@ func TestTownPuddleVariants(t *testing.T) {
 	}
 }
 
+func TestShoreWaveDirections(t *testing.T) {
+	tests := []struct {
+		id        uint16
+		direction float32
+	}{
+		{id: 3568, direction: 2},
+		{id: 3569, direction: 3},
+		{id: 3570, direction: 0},
+		{id: 3571, direction: 1},
+	}
+	for _, test := range tests {
+		if got := replacementEffectWaveDirection(test.id); got != test.direction {
+			t.Errorf("wave %d direction = %v, want %v", test.id, got, test.direction)
+		}
+	}
+	if !replacementEffectIsPersistent(replacementEffectShoreWave) {
+		t.Fatal("shore wave must persist while its source picture is present")
+	}
+	if replacementEffectUsesPlayerMask(replacementEffectShoreWave) {
+		t.Fatal("shore wave must not use a player mask")
+	}
+	if !replacementEffectDrawsBelowMobiles(replacementEffectShoreWave) {
+		t.Fatal("shore wave must draw below mobiles")
+	}
+	if got, want := replacementEffectSequenceDuration(replacementEffectShoreWave), float32(12.8); got != want {
+		t.Fatalf("shore wave duration = %v, want %v", got, want)
+	}
+	for frame := range 4 {
+		if got := replacementEffectFrameStartOffset(replacementEffectShoreWave, 3568, frame); got != 0 {
+			t.Errorf("shore wave frame %d start offset = %v, want zero", frame, got)
+		}
+	}
+}
+
 func TestConcurrentReplacementShaderInitializationDoesNotRepeatShaders(t *testing.T) {
 	replacementEffectsShaderInitMu.Lock()
 	originalReady := replacementEffectsShadersReady
@@ -433,6 +475,14 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		{id: 598, kind: replacementEffectLavaPool, ok: true},
 		{id: 888, kind: replacementEffectTownPuddle, ok: true},
 		{id: 889, kind: replacementEffectTownPuddle, ok: true},
+		{id: 3568, kind: replacementEffectShoreWave, ok: true},
+		{id: 3569, kind: replacementEffectShoreWave, ok: true},
+		{id: 3570, kind: replacementEffectShoreWave, ok: true},
+		{id: 3571, kind: replacementEffectShoreWave, ok: true},
+		{id: 965, ok: false},
+		{id: 977, ok: false},
+		{id: 978, ok: false},
+		{id: 979, ok: false},
 		{id: 1039, kind: replacementEffectMagicMoteRing, ok: true},
 		{id: 1044, kind: replacementEffectMagicMoteRing, ok: true},
 		{id: 445, kind: replacementEffectHiddenPath, ok: true},
@@ -456,7 +506,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 539, 540, 572, 597, 598, 885, 888, 889, 1039, 1044, 1286, 1587, 1739, 1740, 1741, 1759, 1847, 2976, 2977, 2978, 3125, 5000, 5647}
+	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 539, 540, 572, 597, 598, 885, 888, 889, 1039, 1044, 1286, 1587, 1739, 1740, 1741, 1759, 1847, 2976, 2977, 2978, 3125, 3568, 3569, 3570, 3571, 5000, 5647}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])
