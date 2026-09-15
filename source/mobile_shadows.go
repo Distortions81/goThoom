@@ -786,7 +786,7 @@ func mobileSunShadowQuad(texture characterShadowTexture, size, x, y int, project
 	if upright {
 		geo := uprightShadowGeoMWithFoot(texture.contentSize, texture.padding, texture.footY, size, x, y, projection)
 		bounds := texture.image.Bounds()
-		return transformedShadowQuad(geo, float64(bounds.Dx()), float64(bounds.Dy()))
+		return transformedShadowQuad(geo, float64(bounds.Dx()), uprightShadowFootCutoff(texture))
 	}
 	drawSize := texture.contentSize
 	target := float64(roundToInt(float64(size) * gs.GameScale))
@@ -1087,7 +1087,7 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 	drawSize := texture.contentSize
 	if upright {
 		geo := uprightShadowGeoMWithFoot(drawSize, texture.padding, texture.footY, size, x, y, projection)
-		drawUprightShadowTexture(screen, texture, geo, alpha, blend)
+		drawUprightShadowTexture(screen, texture, geo, alpha, blend, true)
 		return
 	}
 
@@ -1097,14 +1097,31 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 	geo.Scale(baseScale, baseScale)
 	padding := float64(texture.padding) * baseScale
 	geo.Translate(float64(x)-target/2-padding+projection.dropOffsetX, float64(y)-target/2-padding+projection.dropOffsetY)
-	drawUprightShadowTexture(screen, texture, geo, alpha, blend)
+	drawUprightShadowTexture(screen, texture, geo, alpha, blend, false)
+}
+
+func uprightShadowFootCutoff(texture characterShadowTexture) float64 {
+	if texture.image == nil || texture.contentSize <= 0 {
+		return 0
+	}
+	// Clip the lower few percent of the upright silhouette just before its
+	// opaque foot row. This removes the doubled foot shape without changing
+	// the separate contact shadow or a lying body's drop shadow.
+	crop := float64(texture.contentSize) * 0.05
+	return math.Min(float64(texture.image.Bounds().Dy()), math.Max(0, texture.footY-crop))
 }
 
 // drawUprightShadowTexture projects the source frame alpha onto the ground.
-func drawUprightShadowTexture(screen *ebiten.Image, texture characterShadowTexture, geo ebiten.GeoM, alpha float32, blend ebiten.Blend) {
+func drawUprightShadowTexture(screen *ebiten.Image, texture characterShadowTexture, geo ebiten.GeoM, alpha float32, blend ebiten.Blend, cropFeet bool) {
 	img := texture.image
 	bounds := img.Bounds()
 	w, h := float64(bounds.Dx()), float64(bounds.Dy())
+	if cropFeet {
+		h = uprightShadowFootCutoff(texture)
+	}
+	if h <= 0 {
+		return
+	}
 	topLeftX, topLeftY := geo.Apply(0, 0)
 	topRightX, topRightY := geo.Apply(w, 0)
 	bottomLeftX, bottomLeftY := geo.Apply(0, h)
@@ -1113,8 +1130,8 @@ func drawUprightShadowTexture(screen *ebiten.Image, texture characterShadowTextu
 	uprightShadowVertices = [4]ebiten.Vertex{
 		{DstX: float32(topLeftX), DstY: float32(topLeftY), SrcX: float32(bounds.Min.X), SrcY: float32(bounds.Min.Y), ColorA: alpha},
 		{DstX: float32(topRightX), DstY: float32(topRightY), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Min.Y), ColorA: alpha},
-		{DstX: float32(bottomLeftX), DstY: float32(bottomLeftY), SrcX: float32(bounds.Min.X), SrcY: float32(bounds.Max.Y), ColorA: alpha},
-		{DstX: float32(bottomRightX), DstY: float32(bottomRightY), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Max.Y), ColorA: alpha},
+		{DstX: float32(bottomLeftX), DstY: float32(bottomLeftY), SrcX: float32(bounds.Min.X), SrcY: float32(float64(bounds.Min.Y) + h), ColorA: alpha},
+		{DstX: float32(bottomRightX), DstY: float32(bottomRightY), SrcX: float32(bounds.Max.X), SrcY: float32(float64(bounds.Min.Y) + h), ColorA: alpha},
 	}
 	uprightShadowDrawOpts.Blend = blend
 	screen.DrawTriangles(uprightShadowVertices[:], uprightShadowIndices[:], img, &uprightShadowDrawOpts)
