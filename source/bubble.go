@@ -237,19 +237,40 @@ func bubbleRectForPlacement(x, y int, m bubbleMetrics, placement uint8, noTail b
 }
 
 func clampBubbleRect(rect image.Rectangle, sw, sh int) image.Rectangle {
-	if rect.Min.X < 0 {
-		rect = rect.Add(image.Pt(-rect.Min.X, 0))
+	return clampBubbleRectToBounds(rect, image.Rect(0, 0, sw, sh))
+}
+
+func clampBubbleRectToBounds(rect, bounds image.Rectangle) image.Rectangle {
+	if rect.Min.X < bounds.Min.X {
+		rect = rect.Add(image.Pt(bounds.Min.X-rect.Min.X, 0))
 	}
-	if rect.Max.X > sw {
-		rect = rect.Add(image.Pt(sw-rect.Max.X, 0))
+	if rect.Max.X > bounds.Max.X {
+		rect = rect.Add(image.Pt(bounds.Max.X-rect.Max.X, 0))
 	}
-	if rect.Min.Y < 0 {
-		rect = rect.Add(image.Pt(0, -rect.Min.Y))
+	if rect.Min.Y < bounds.Min.Y {
+		rect = rect.Add(image.Pt(0, bounds.Min.Y-rect.Min.Y))
 	}
-	if rect.Max.Y > sh {
-		rect = rect.Add(image.Pt(0, sh-rect.Max.Y))
+	if rect.Max.Y > bounds.Max.Y {
+		rect = rect.Add(image.Pt(0, bounds.Max.Y-rect.Max.Y))
 	}
 	return rect
+}
+
+func bubbleLayoutBounds(bounds image.Rectangle, request bubbleDrawRequest) image.Rectangle {
+	sw, sh := bounds.Dx(), bounds.Dy()
+	full := image.Rect(0, 0, sw, sh)
+	anchor := image.Pt(request.x, request.y)
+	if request.hasTailAnchor {
+		anchor = request.tailAnchor
+	}
+	if anchor.In(full) {
+		return full
+	}
+	// A speaker beyond the screen still gets a readable bubble, with even
+	// animated spikes/lobes clear of the viewport's edge.
+	inset := max(4, int(math.Ceil(8*request.bubbleScale))) + bubbleOverlapMargin(request.typ, request.bubbleScale)
+	inset = min(inset, min(max(0, (sw-request.metrics.width)/2), max(0, (sh-request.metrics.height)/2)))
+	return image.Rect(inset, inset, sw-inset, sh-inset)
 }
 
 func ponderBubblePhase(elapsed time.Duration) float64 {
@@ -771,9 +792,10 @@ func bubbleDrawRect(bounds image.Rectangle, request bubbleDrawRequest) (image.Re
 		noArrow = true
 	}
 	rect := bubbleRectForPlacement(request.x, request.y, request.metrics, request.placement, request.far || noArrow)
-	rect = clampBubbleRect(rect, sw, sh)
-	rect = clampBubbleRect(rect.Add(request.bodyOffset), sw, sh)
-	rect, clear := clearBubbleSpeaker(rect, request.speakerRect, bubbleOverlapMargin(request.typ, request.bubbleScale), sw, sh)
+	layoutBounds := bubbleLayoutBounds(bounds, request)
+	rect = clampBubbleRectToBounds(rect, layoutBounds)
+	rect = clampBubbleRectToBounds(rect.Add(request.bodyOffset), layoutBounds)
+	rect, clear := clearBubbleSpeakerWithinBounds(rect, request.speakerRect, bubbleOverlapMargin(request.typ, request.bubbleScale), layoutBounds)
 	return rect, noArrow, clear
 }
 

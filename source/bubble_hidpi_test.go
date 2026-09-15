@@ -37,6 +37,29 @@ func setupBubbleLayoutTest(t *testing.T) {
 	bubbleFrameScratch = speechBubbleFrameScratch{}
 }
 
+func TestSpeechBubblesRemainVisibleWhenCollisionLayoutCannotFit(t *testing.T) {
+	setupBubbleLayoutTest(t)
+	gs.GameScale = 1
+	gs.AvoidBubbleOverlap = true
+	screen := ebiten.NewImage(110, 80)
+	defer screen.Dispose()
+	snap := drawSnapshot{bubbles: make([]bubble, 8)}
+	for i := range snap.bubbles {
+		snap.bubbles[i] = bubble{
+			Index: uint8(i + 1), DedupeID: uint16(i + 1),
+			H: int16(-fieldCenterX - 20), V: int16(-fieldCenterY - 20),
+			Far: true, Type: kBubbleNormal, Text: fmt.Sprintf("bubble %d", i),
+		}
+	}
+	drawSpeechBubbles(screen, snap, 1, 1)
+	if got, want := len(bubbleFrameScratch.prepared), len(snap.bubbles); got != want {
+		t.Fatalf("prepared %d of %d live bubbles", got, want)
+	}
+	if got, want := len(bubbleFrameScratch.drawRequests), len(snap.bubbles); got != want {
+		t.Fatalf("drew %d of %d live bubbles in crowded viewport", got, want)
+	}
+}
+
 func TestSpeechBubbleViewportCoordinatesAtDisplayScales(t *testing.T) {
 	setupBubbleLayoutTest(t)
 	for _, scale := range []float64{1, 1.5, 2} {

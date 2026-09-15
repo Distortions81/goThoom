@@ -377,6 +377,30 @@ func TestBubbleDrawRectMatchesResolvedRequest(t *testing.T) {
 	}
 }
 
+func TestOffscreenBubbleKeepsDecorationsClearOfViewportEdge(t *testing.T) {
+	bounds := image.Rect(0, 0, 300, 200)
+	metrics := bubbleMetrics{width: 80, height: 30}
+	for _, anchor := range []image.Point{{X: -20, Y: -20}, {X: 320, Y: -20}, {X: -20, Y: 220}, {X: 320, Y: 220}} {
+		request := bubbleDrawRequest{
+			txt: "hello", x: anchor.X, y: anchor.Y, typ: kBubbleYell,
+			far: true, bubbleScale: 1, metrics: metrics,
+		}
+		body, _, ok := bubbleDrawRect(bounds, request)
+		if !ok {
+			t.Fatalf("offscreen bubble at %v was rejected", anchor)
+		}
+		footprint := bubbleOverlapRect(body, bubbleOverlapMargin(request.typ, request.bubbleScale))
+		if footprint.Min.X < 8 || footprint.Min.Y < 8 || footprint.Max.X > bounds.Max.X-8 || footprint.Max.Y > bounds.Max.Y-8 {
+			t.Fatalf("offscreen bubble at %v reached viewport edge: body=%v footprint=%v", anchor, body, footprint)
+		}
+	}
+	onscreen := bubbleDrawRequest{txt: "hello", x: 0, y: 90, typ: kBubbleNormal, bubbleScale: 1, metrics: metrics}
+	body, _, ok := bubbleDrawRect(bounds, onscreen)
+	if !ok || body.Min.X != 0 {
+		t.Fatalf("visible speaker's bubble gained offscreen padding: %v", body)
+	}
+}
+
 func TestJointBubbleLayoutLeavesClearBubblesAtNormalPositions(t *testing.T) {
 	bounds := image.Rect(0, 0, 400, 240)
 	items := []jointBubbleLayoutItem{

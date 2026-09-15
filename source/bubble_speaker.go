@@ -21,6 +21,10 @@ func bubbleSpeakerAnchors(center image.Point, size, facing, tailHeight, clearanc
 // Moving/crowded bubbles must not slide their bodies over their own speaker.
 // Choose the nearest clear side that still fits the viewport.
 func clearBubbleSpeaker(body, sprite image.Rectangle, margin, sw, sh int) (image.Rectangle, bool) {
+	return clearBubbleSpeakerWithinBounds(body, sprite, margin, image.Rect(0, 0, sw, sh))
+}
+
+func clearBubbleSpeakerWithinBounds(body, sprite image.Rectangle, margin int, bounds image.Rectangle) (image.Rectangle, bool) {
 	if sprite.Empty() || bubbleOverlapRect(body, margin).Intersect(sprite).Empty() {
 		return body, true
 	}
@@ -33,7 +37,7 @@ func clearBubbleSpeaker(body, sprite image.Rectangle, margin, sw, sh int) (image
 	best, found := body, false
 	distance := math.MaxInt
 	for _, offset := range candidates {
-		moved := clampBubbleRect(body.Add(offset), sw, sh)
+		moved := clampBubbleRectToBounds(body.Add(offset), bounds)
 		if !bubbleOverlapRect(moved, margin).Intersect(sprite).Empty() {
 			continue
 		}

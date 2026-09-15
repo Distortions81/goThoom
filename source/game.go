@@ -3837,7 +3837,7 @@ func bubbleLayoutRenderOffset(previous bubblePlacementHistoryEntry, targetRect, 
 	}
 	renderMin := image.Pt(reference.X+roundToInt(renderX), reference.Y+roundToInt(renderY))
 	renderRect := image.Rect(renderMin.X, renderMin.Y, renderMin.X+targetRect.Dx(), renderMin.Y+targetRect.Dy())
-	renderRect = clampBubbleRect(renderRect, bounds.Dx(), bounds.Dy())
+	renderRect = clampBubbleRectToBounds(renderRect, bounds)
 	renderX = float64(renderRect.Min.X - reference.X)
 	renderY = float64(renderRect.Min.Y - reference.Y)
 	return renderRect.Min.Sub(baseRect.Min), renderX, renderY, renderRect
@@ -3890,6 +3890,7 @@ func bubbleTextWithSpeakerName(name, text string) string {
 
 type jointBubbleLayoutItem struct {
 	rect   image.Rectangle
+	bounds image.Rectangle
 	margin int
 }
 
@@ -3898,6 +3899,7 @@ type preparedSpeechBubble struct {
 	key             bubblePlacementHistoryKey
 	request         bubbleDrawRequest
 	normalRect      image.Rectangle
+	layoutBounds    image.Rectangle
 	targetRect      image.Rectangle
 	referenceAnchor image.Point
 	tailAnchor      image.Point
@@ -3915,6 +3917,13 @@ func bubbleLayoutPairFootprints(a, b jointBubbleLayoutItem, gap int) (image.Rect
 }
 
 func separateBubblePair(a, b *jointBubbleLayoutItem, bounds image.Rectangle) bool {
+	aBounds, bBounds := a.bounds, b.bounds
+	if aBounds.Empty() {
+		aBounds = bounds
+	}
+	if bBounds.Empty() {
+		bBounds = bounds
+	}
 	aFoot, bFoot := bubbleLayoutPairFootprints(*a, *b, bubbleCollisionGap)
 	intersection := aFoot.Intersect(bFoot)
 	if intersection.Empty() {
@@ -3933,12 +3942,12 @@ func separateBubblePair(a, b *jointBubbleLayoutItem, bounds image.Rectangle) boo
 			aBeforeB := aFoot.Min.X+aFoot.Max.X <= bFoot.Min.X+bFoot.Max.X
 			if aBeforeB {
 				option.aDirection, option.bDirection = -1, 1
-				option.aCapacity = max(0, a.rect.Min.X-bounds.Min.X)
-				option.bCapacity = max(0, bounds.Max.X-b.rect.Max.X)
+				option.aCapacity = max(0, a.rect.Min.X-aBounds.Min.X)
+				option.bCapacity = max(0, bBounds.Max.X-b.rect.Max.X)
 			} else {
 				option.aDirection, option.bDirection = 1, -1
-				option.aCapacity = max(0, bounds.Max.X-a.rect.Max.X)
-				option.bCapacity = max(0, b.rect.Min.X-bounds.Min.X)
+				option.aCapacity = max(0, aBounds.Max.X-a.rect.Max.X)
+				option.bCapacity = max(0, b.rect.Min.X-bBounds.Min.X)
 			}
 			return option
 		}
@@ -3946,12 +3955,12 @@ func separateBubblePair(a, b *jointBubbleLayoutItem, bounds image.Rectangle) boo
 		aBeforeB := aFoot.Min.Y+aFoot.Max.Y <= bFoot.Min.Y+bFoot.Max.Y
 		if aBeforeB {
 			option.aDirection, option.bDirection = -1, 1
-			option.aCapacity = max(0, a.rect.Min.Y-bounds.Min.Y)
-			option.bCapacity = max(0, bounds.Max.Y-b.rect.Max.Y)
+			option.aCapacity = max(0, a.rect.Min.Y-aBounds.Min.Y)
+			option.bCapacity = max(0, bBounds.Max.Y-b.rect.Max.Y)
 		} else {
 			option.aDirection, option.bDirection = 1, -1
-			option.aCapacity = max(0, bounds.Max.Y-a.rect.Max.Y)
-			option.bCapacity = max(0, b.rect.Min.Y-bounds.Min.Y)
+			option.aCapacity = max(0, aBounds.Max.Y-a.rect.Max.Y)
+			option.bCapacity = max(0, b.rect.Min.Y-bBounds.Min.Y)
 		}
 		return option
 	}
@@ -3983,8 +3992,8 @@ func separateBubblePair(a, b *jointBubbleLayoutItem, bounds image.Rectangle) boo
 		bDelta.Y = chosen.bDirection * bAmount
 	}
 	oldA, oldB := a.rect, b.rect
-	a.rect = clampBubbleRect(oldA.Add(aDelta), bounds.Dx(), bounds.Dy())
-	b.rect = clampBubbleRect(oldB.Add(bDelta), bounds.Dx(), bounds.Dy())
+	a.rect = clampBubbleRectToBounds(oldA.Add(aDelta), aBounds)
+	b.rect = clampBubbleRectToBounds(oldB.Add(bDelta), bBounds)
 	return a.rect != oldA || b.rect != oldB
 }
 
@@ -4317,6 +4326,7 @@ func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha
 		}
 		prepared = append(prepared, preparedSpeechBubble{
 			bubble: b, key: key, request: request, normalRect: normalRect,
+			layoutBounds:    bubbleLayoutBounds(screen.Bounds(), request),
 			referenceAnchor: referenceAnchor, tailAnchor: tailAnchor,
 			speakerName: speakerName, historyText: historyText, margin: collisionMargin,
 		})
@@ -4333,9 +4343,9 @@ func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha
 			// offset learned for the old side is never reused on the new side.
 			lastLayouts[i] = time.Time{}
 		}
-		prepared[i].targetRect = clampBubbleRect(prepared[i].normalRect.Add(previous.offset), bounds.Dx(), bounds.Dy())
+		prepared[i].targetRect = clampBubbleRectToBounds(prepared[i].normalRect.Add(previous.offset), prepared[i].layoutBounds)
 		priorTargets[i] = jointBubbleLayoutItem{
-			rect: prepared[i].targetRect, margin: prepared[i].margin,
+			rect: prepared[i].targetRect, bounds: prepared[i].layoutBounds, margin: prepared[i].margin,
 		}
 	}
 	needsSolve := bubbleLayoutNeedsSolve(
@@ -4346,7 +4356,7 @@ func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha
 		targets := resizeBubbleScratch(bubbleFrameScratch.targets, len(prepared))
 		for i := range prepared {
 			targets[i] = jointBubbleLayoutItem{
-				rect: prepared[i].normalRect, margin: prepared[i].margin,
+				rect: prepared[i].normalRect, bounds: prepared[i].layoutBounds, margin: prepared[i].margin,
 			}
 		}
 		if gs.AvoidBubbleOverlap {
@@ -4391,12 +4401,12 @@ func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha
 	for i := range prepared {
 		previous := history[prepared[i].key]
 		offset, _, _, renderedRect := bubbleLayoutRenderOffset(
-			previous, prepared[i].targetRect, prepared[i].normalRect, bounds,
+			previous, prepared[i].targetRect, prepared[i].normalRect, prepared[i].layoutBounds,
 			prepared[i].referenceAnchor, layoutNow,
 		)
 		prepared[i].request.bodyOffset = offset
 		renderItems[i] = jointBubbleLayoutItem{
-			rect: renderedRect, margin: prepared[i].margin,
+			rect: renderedRect, bounds: prepared[i].layoutBounds, margin: prepared[i].margin,
 		}
 	}
 	if gs.AvoidBubbleOverlap {
@@ -4424,11 +4434,8 @@ func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha
 		entry.rendered = true
 		entry.renderedAt = layoutNow
 		logBubbleTortureOverlap(prepared[i].bubble, prepared[i].request.txt, renderedRect, occupied, prepared[i].margin, layoutNow)
-		if gs.AvoidBubbleOverlap && bubbleOverlapsOccupied(renderedRect, occupied, prepared[i].margin) {
-			entry.rendered = false
-			history[prepared[i].key] = entry
-			continue
-		}
+		// Collision avoidance is best-effort in a tight viewport. Never hide
+		// live speech just because the final arrangement still overlaps.
 		history[prepared[i].key] = entry
 		occupied = append(occupied, bubbleOverlapRect(renderedRect, prepared[i].margin))
 		drawRequests = append(drawRequests, prepared[i].request)
