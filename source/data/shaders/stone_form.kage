@@ -48,6 +48,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	body := float(0)
 	bodyEdge := float(0)
 	outerBodyEdge := float(0)
+	redOuterBodyEdge := float(0)
 	if HasMask > 0.5 {
 		body = maskAlpha(localPos)
 		left := maskAlpha(localPos+vec2(-2, 0))
@@ -56,8 +57,14 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		down := maskAlpha(localPos+vec2(0, 2))
 		inside := min(min(left, right), min(up, down))
 		outside := max(max(left, right), max(up, down))
+		farLeft := maskAlpha(localPos+vec2(-4, 0))
+		farRight := maskAlpha(localPos+vec2(4, 0))
+		farUp := maskAlpha(localPos+vec2(0, -4))
+		farDown := maskAlpha(localPos+vec2(0, 4))
+		farOutside := max(max(farLeft, farRight), max(farUp, farDown))
 		bodyEdge = max(0, body-inside)
 		outerBodyEdge = max(0, outside-body)
+		redOuterBodyEdge = max(0, farOutside-max(body, outside))
 	}
 
 	if SpriteLightOnly > 0.5 {
@@ -93,9 +100,11 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	stoneCracks := body*cracks*0.48
 	innerShell := band(r, 0.335, 0.062)*(0.42+facets*0.36)
 	stoneRim := band(r, 0.390, 0.052)*(0.82+facets*0.42)
-	blackRim := band(r, 0.430, 0.022)*0.92 + outerBodyEdge*0.52
+	blackRim := band(r, 0.430, 0.022)*0.92
+	blackBodyOutline := min(1, outerBodyEdge*0.94+bodyEdge*0.20)
+	redBodyOutline := redOuterBodyEdge*0.88
 	whiteCatch := band(r, 0.372, 0.025)*(0.25+0.75*chip(angle*3.0-0.7))*0.82 + bodyEdge*(0.18+facets*0.42)
-	stone := min(1, stoneBody+growingShells*1.15+innerShell+stoneRim+stoneCracks+blackRim+whiteCatch)
+	stone := min(1, stoneBody+growingShells*1.15+innerShell+stoneRim+stoneCracks+blackRim+blackBodyOutline+redBodyOutline+whiteCatch)
 
 	// The red field pulses outward without orbiting the target. This keeps the
 	// original center-out motion and removes the unrelated spinning flare.
@@ -115,7 +124,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	shellColor := mix(vec3(0.56, 0.002, 0.008), vec3(1.0, 0.075, 0.022), facets)
 	shellCoverage := min(1, growingShells*1.35+innerShell*1.15+stoneRim*1.45)
 	color := mix(stoneColor, shellColor, shellCoverage)
-	color = mix(color, vec3(0.025, 0.018, 0.016), min(1, blackRim+stoneCracks*1.5))
+	color = mix(color, vec3(1.0, 0.015, 0.012), redBodyOutline)
+	color = mix(color, vec3(0.025, 0.018, 0.016), min(1, blackRim+blackBodyOutline+stoneCracks*1.5))
 	color = mix(color, vec3(1.0, 0.90, 0.86), min(1, growingShells*0.24+whiteCatch*1.8))
 	magicColor := mix(vec3(0.88, 0.004, 0.012), vec3(1.0, 0.22, 0.075), min(1, magic*1.7))
 	color = mix(color, magicColor, min(1, magic*1.35))
