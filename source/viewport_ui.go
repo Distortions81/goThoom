@@ -28,6 +28,7 @@ func bindSelectedViewportWindow() {
 		return
 	}
 	sharedLightingTmp := state.lightingTmp
+	sharedPuddleReflectionTmp := state.puddleReflectionTmp
 	for _, view := range appViewports.snapshot() {
 		other := view.render
 		if other == nil || other == state {
@@ -41,6 +42,13 @@ func bindSelectedViewportWindow() {
 				sharedLightingTmp = other.lightingTmp
 				other.lightingTmp = nil
 			}
+			if other.puddleReflectionTmp != nil {
+				if sharedPuddleReflectionTmp != nil && sharedPuddleReflectionTmp != other.puddleReflectionTmp {
+					sharedPuddleReflectionTmp.Deallocate()
+				}
+				sharedPuddleReflectionTmp = other.puddleReflectionTmp
+				other.puddleReflectionTmp = nil
+			}
 			other.window = nil
 			other.imageItem = nil
 			other.image = nil
@@ -52,6 +60,7 @@ func bindSelectedViewportWindow() {
 	state.image = gameImage
 	state.imageBacking = gameImageBacking
 	state.lightingTmp = sharedLightingTmp
+	state.puddleReflectionTmp = sharedPuddleReflectionTmp
 }
 
 func syncPrimaryViewportAliases(state *viewportRenderState) {
@@ -312,11 +321,15 @@ func refreshViewportWorkspace() {
 			if state.lightingTmp != nil {
 				state.lightingTmp.Deallocate()
 			}
+			if state.puddleReflectionTmp != nil {
+				state.puddleReflectionTmp.Deallocate()
+			}
 			state.window = nil
 			state.imageItem = nil
 			state.image = nil
 			state.imageBacking = nil
 			state.lightingTmp = nil
+			state.puddleReflectionTmp = nil
 			state.nightTransition = nightTransitionState{}
 			state.worldRenderValid = false
 			continue

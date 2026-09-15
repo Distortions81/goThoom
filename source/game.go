@@ -2278,7 +2278,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 		}
 	}
-	drawReplacementEffectsBelowMobiles(screen, ox, oy, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
+	drawReplacementEffectsBelowMobiles(screen, ox, oy, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, viewport)
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
@@ -3119,6 +3119,12 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		effectFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
 	}
 	mobileImg, mobileX, mobileY, mobileTargetSize, effectInstanceKey := replacementEffectPlayerMask(ox, oy, p, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha)
+	if kind, ok := replacementEffectKindForPict(p.PictID); ok && kind == replacementEffectTownPuddle {
+		// The picture matcher keeps this identity through camera and independent
+		// motion. A puddle's gentle cycle should follow the picture, not reseed
+		// whenever its H/V coordinates change.
+		effectInstanceKey = replacementEffectGroundPictureInstanceKey(p)
+	}
 	if queueReplacementPictureEffect(p.PictID, effectFrame, p.H, p.V, effectInstanceKey, left, top, right-left, bottom-top, fadeAlpha, mobileImg, mobileX, mobileY, mobileTargetSize) {
 		return
 	}

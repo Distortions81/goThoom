@@ -168,18 +168,37 @@ type replacementEffectDraw struct {
 	maskOffsetY                 float32
 	maskInvScale                float32
 	hasMask                     bool
+	puddleFeet                  map[uint8]townPuddleFootTrack
+	puddleRipples               [6]townPuddleRippleEvent
+	puddleRippleNext            int
+}
+
+type townPuddleFootTrack struct {
+	x, y     float32
+	lastSeen time.Time
+}
+
+type townPuddleRippleEvent struct {
+	x, y     float32
+	strength float32
+	seed     float32
+	started  time.Time
 }
 
 var replacementEffectDraws = make(map[uint64]replacementEffectDraw)
 var replacementEffectNextKey uint64
 
 type replacementEffectShaderState struct {
-	op         ebiten.DrawTrianglesShaderOptions
-	uniforms   map[string]any
-	size       [2]float32
-	canvasSize [2]float32
-	maskOffset [2]float32
-	coinDigits [4]float32
+	op           ebiten.DrawTrianglesShaderOptions
+	uniforms     map[string]any
+	size         [2]float32
+	canvasSize   [2]float32
+	maskOffset   [2]float32
+	coinDigits   [4]float32
+	rippleFeet   [12]float32
+	rippleMotion [6]float32
+	rippleSeeds  [6]float32
+	rippleAges   [6]float32
 }
 
 var replacementEffectShaderStates [replacementEffectCoinReward + 1]replacementEffectShaderState
@@ -204,7 +223,15 @@ func init() {
 			"MagicTheme":      float32(0),
 			"FireTheme":       float32(0),
 			"PuddleVariant":   float32(0),
+			"HasReflection":   float32(0),
 			"WaveDirection":   float32(0),
+		}
+		if kind == replacementEffectTownPuddle {
+			state.uniforms["RippleFeet"] = state.rippleFeet[:]
+			state.uniforms["RippleMotion"] = state.rippleMotion[:]
+			state.uniforms["RippleSeeds"] = state.rippleSeeds[:]
+			state.uniforms["RippleAges"] = state.rippleAges[:]
+			state.uniforms["RippleTime"] = float32(0)
 		}
 		if kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
@@ -774,6 +801,13 @@ func replacementEffectPuddleVariant(id uint16) float32 {
 	return 0
 }
 
+func replacementEffectGroundPictureInstanceKey(p framePicture) uint64 {
+	// The picture matcher carries lightKey from frame to frame, including
+	// retained edge pictures. Keep different puddle shapes distinct even when
+	// their world anchors overlap.
+	return uint64(p.PictID)<<33 | pictureLightInstanceKey(p)
+}
+
 func replacementEffectWaveDirection(id uint16) float32 {
 	switch id {
 	case 3571:
@@ -818,7 +852,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 		}
 	}
 	effect, ok := replacementEffectDraws[key]
-	if !ok || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
+	if !ok || (!replacementEffectIsPersistent(kind) && now.Sub(effect.lastSeen) > replacementEffectFadeOut) {
 		startOffset := replacementEffectFrameStartOffset(kind, pictID, frame) + replacementEffectInstanceStartOffset(kind, key)
 		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now.Add(-startOffset)}
 	}
@@ -943,13 +977,33 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 	drawReplacementEffectsLayer(screen, ox, oy, mobiles, prevMobiles, shiftX, shiftY, alpha, false)
 }
 
-func drawReplacementEffectsBelowMobiles(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64) {
-	drawReplacementEffectsLayer(screen, ox, oy, mobiles, prevMobiles, shiftX, shiftY, alpha, true)
+func drawReplacementEffectsBelowMobiles(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, viewport *viewportRenderState) {
+	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, true, viewport)
 }
 
 func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, belowMobiles bool) {
+	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, nil, prevMobiles, shiftX, shiftY, alpha, belowMobiles, nil)
+}
+
+func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, belowMobiles bool, viewport *viewportRenderState) {
 	if !replacementEffectsEnabled() {
 		return
+	}
+	if belowMobiles && !gs.hideMobiles && len(descriptors) != 0 {
+		maxWidth, maxHeight := 0, 0
+		for _, effect := range replacementEffectDraws {
+			if effect.kind == replacementEffectTownPuddle && effect.seen {
+				maxWidth = max(maxWidth, int(math.Ceil(effect.width)))
+				maxHeight = max(maxHeight, int(math.Ceil(effect.height)))
+			}
+		}
+		if maxWidth > 0 && maxHeight > 0 {
+			scratch := &townPuddleReflectionTmp
+			if viewport != nil {
+				scratch = &viewport.puddleReflectionTmp
+			}
+			ensureTownPuddleReflectionScratch(scratch, maxWidth, maxHeight)
+		}
 	}
 	now := drawFrameNow
 	if now.IsZero() {
@@ -1035,6 +1089,7 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 		state.uniforms["Alpha"] = visualAlpha
 		state.uniforms["Energy"] = energy
 		state.uniforms["HasMask"] = hasMask
+		state.uniforms["HasReflection"] = float32(0)
 		state.uniforms["MaskInvScale"] = effect.maskInvScale
 		if effect.kind == replacementEffectWavingFlag {
 			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(effect.pictID)
@@ -1051,6 +1106,11 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 		}
 		if effect.kind == replacementEffectTownPuddle {
 			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(effect.pictID)
+			state.rippleFeet = [12]float32{}
+			state.rippleMotion = [6]float32{}
+			state.rippleSeeds = [6]float32{}
+			state.rippleAges = [6]float32{}
+			state.uniforms["RippleTime"] = globalPhase
 		}
 		if effect.kind == replacementEffectShoreWave {
 			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(effect.pictID)
@@ -1065,7 +1125,19 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 			state.uniforms["CoinValue"] = float32(effect.frame % 10)
 			state.uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
 		}
-		state.op.Images[0] = effect.maskImage
+		state.op.Images[0], state.op.Images[1] = effect.maskImage, nil
+		if effect.kind == replacementEffectTownPuddle && !gs.hideMobiles && len(descriptors) != 0 {
+			surface := drawTownPuddleMobileReflections(&effect, w, h, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, now, viewport)
+			populateTownPuddleRippleUniforms(&effect, now, state)
+			replacementEffectDraws[key] = effect
+			if reflection := surface.image; reflection != nil {
+				// Kage pixel-unit shaders require every bound source to have the same
+				// size. The puddle uses image 0 only for local coordinates, so the
+				// reflection texture can safely occupy both slots.
+				state.op.Images[0], state.op.Images[1] = reflection, reflection
+				state.uniforms["HasReflection"] = float32(1)
+			}
+		}
 		if state.op.Images[0] == nil {
 			state.op.Images[0] = whiteImage
 		}
@@ -1078,6 +1150,193 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 		state.uniforms["SpriteLightOnly"] = float32(0)
 		drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
 	}
+}
+
+var townPuddleReflectionTmp *ebiten.Image
+
+type townPuddleMobileSurface struct {
+	image *ebiten.Image
+}
+
+func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, height, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, now time.Time, viewport *viewportRenderState) townPuddleMobileSurface {
+	var surface townPuddleMobileSurface
+	if width <= 0 || height <= 0 || len(mobiles) == 0 {
+		return surface
+	}
+	var scratch **ebiten.Image = &townPuddleReflectionTmp
+	if viewport != nil {
+		scratch = &viewport.puddleReflectionTmp
+	}
+	reflection := *scratch
+	if reflection == nil {
+		return surface
+	}
+	reflection.Clear()
+	reflectionCount := 0
+	for _, mobile := range mobiles {
+		desc, ok := descriptors[mobile.Index]
+		if !ok || desc.PictID == 0 || mobile.State == poseDead {
+			continue
+		}
+		mobileX, mobileY := mobileScreenPositionFloat(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
+		size := mobileSize(desc.PictID)
+		if size <= 0 {
+			continue
+		}
+		drawSize := float64(roundToInt(float64(size) * gs.GameScale))
+		if drawSize <= 0 {
+			continue
+		}
+		centerX := effect.left + effect.width/2
+		centerY := effect.top + effect.height/2
+		// Before loading the pose, reject mobiles whose approximate contact
+		// point cannot reach the puddle. The exact opaque foot row follows.
+		approximateFootY := mobileY + drawSize*0.40
+		if math.Abs(mobileX-centerX) >= effect.width/2+drawSize*0.25 || math.Abs(approximateFootY-centerY) >= effect.height/2+drawSize*0.65 {
+			continue
+		}
+		colors := playerColorsForDescriptor(desc)
+		img, influence, palette, gpuRecolor := loadGPURecoloredMobileFrame(desc.PictID, mobile.State, colors)
+		metricsKey := makeMobileKey(desc.PictID, mobile.State, colors)
+		if !gpuRecolor {
+			img = loadMobileFrame(desc.PictID, mobile.State, colors)
+			img = getScaledMobileFrame(metricsKey, img)
+		} else {
+			metricsKey = mobileRecolorSharedKey(desc.PictID, mobile.State)
+		}
+		if img == nil || img.Bounds().Dx() <= 0 || img.Bounds().Dy() <= 0 {
+			continue
+		}
+		footFraction := float64(mobileSpriteMetricsFor(metricsKey, img).footFraction)
+		footY := mobileY - drawSize/2 + drawSize*footFraction
+		proximity := townPuddleReflectionProximity(mobileX-centerX, footY-centerY, effect.width, effect.height, drawSize)
+		if proximity <= 0 {
+			continue
+		}
+		localFootX, localFootY := float32(mobileX-effect.left), float32(footY-effect.top)
+		if effect.puddleFeet == nil || effect.puddleFeet[mobile.Index].lastSeen.IsZero() {
+			if motion := townPuddleMobileMotion(mobile, prevMobiles, shiftX, shiftY); motion > 0 {
+				effect.addTownPuddleRipple(localFootX, localFootY, max(0.75, motion)*float32(proximity), mobile.Index, now)
+			}
+		}
+		effect.recordTownPuddleFoot(mobile.Index, localFootX, localFootY, float32(proximity), now)
+		if reflectionCount == 3 {
+			continue
+		}
+		// The camera looks down onto a ground plane. The mobile's ground point
+		// moves the reflection in the same screen-space direction; only its
+		// artwork is flipped and foreshortened into the shallow puddle. Reuse
+		// the same opaque foot row as contact shadows so the two feet meet.
+		options := frameBlendDrawOptions{
+			Left:   mobileX - drawSize/2 - effect.left,
+			Top:    townPuddleReflectionVerticalTop(footY, effect.top, float64(height), footFraction),
+			ScaleX: drawSize / float64(img.Bounds().Dx()),
+			ScaleY: -float64(height) * 0.82 / float64(img.Bounds().Dy()),
+			Red:    1, Green: 1, Blue: 1, Alpha: float32(0.80 * proximity),
+			Linear: worldArtworkFilter() == ebiten.FilterLinear,
+		}
+		if !gpuRecolor || !drawRecoloredMobile(reflection, img, influence, palette, options) {
+			op := acquireDrawOpts()
+			op.Filter = worldArtworkFilter()
+			op.DisableMipmaps = true
+			op.GeoM.Scale(options.ScaleX, options.ScaleY)
+			op.GeoM.Translate(options.Left, options.Top)
+			op.ColorScale.Scale(1, 1, 1, options.Alpha)
+			reflection.DrawImage(img, op)
+			releaseDrawOpts(op)
+		}
+		reflectionCount++
+	}
+	if reflectionCount > 0 {
+		surface.image = reflection
+	}
+	return surface
+}
+
+func (effect *replacementEffectDraw) addTownPuddleRipple(x, y, strength float32, mobileIndex uint8, now time.Time) {
+	index := effect.puddleRippleNext % len(effect.puddleRipples)
+	effect.puddleRipples[index] = townPuddleRippleEvent{
+		x: x, y: y, strength: strength,
+		seed:    float32(mobileIndex) * 0.6180339,
+		started: now,
+	}
+	effect.puddleRippleNext++
+}
+
+func (effect *replacementEffectDraw) recordTownPuddleFoot(mobileIndex uint8, x, y, proximity float32, now time.Time) {
+	if effect.puddleFeet == nil {
+		effect.puddleFeet = make(map[uint8]townPuddleFootTrack)
+	}
+	previous, hadPrevious := effect.puddleFeet[mobileIndex]
+	if hadPrevious && now.Sub(previous.lastSeen) <= 350*time.Millisecond {
+		dx, dy := float64(x-previous.x), float64(y-previous.y)
+		distance := math.Hypot(dx, dy)
+		scale := max(1, gs.GameScale)
+		if distance >= 0.9*scale && distance <= maxMobileInterpPixels*scale {
+			strength := float32(math.Min(1, math.Max(0.75, distance/(8*scale)))) * proximity
+			effect.addTownPuddleRipple(x, y, strength, mobileIndex, now)
+			previous.x, previous.y = x, y
+		} else if distance > maxMobileInterpPixels*scale {
+			previous.x, previous.y = x, y
+		}
+		previous.lastSeen = now
+		effect.puddleFeet[mobileIndex] = previous
+		return
+	}
+	effect.puddleFeet[mobileIndex] = townPuddleFootTrack{x: x, y: y, lastSeen: now}
+}
+
+func populateTownPuddleRippleUniforms(effect *replacementEffectDraw, now time.Time, state *replacementEffectShaderState) {
+	for i, ripple := range effect.puddleRipples {
+		age := now.Sub(ripple.started)
+		if ripple.started.IsZero() || age < 0 || age >= time.Second {
+			continue
+		}
+		state.rippleFeet[i*2], state.rippleFeet[i*2+1] = ripple.x, ripple.y
+		state.rippleMotion[i] = ripple.strength
+		state.rippleSeeds[i] = ripple.seed
+		state.rippleAges[i] = float32(age.Seconds())
+	}
+}
+
+func townPuddleMobileMotion(mobile frameMobile, previous map[uint8]frameMobile, shiftX, shiftY int) float32 {
+	prev, ok := previous[mobile.Index]
+	if !ok {
+		return 0
+	}
+	dh := int(mobile.H) - int(prev.H) - shiftX
+	dv := int(mobile.V) - int(prev.V) - shiftY
+	distanceSquared := dh*dh + dv*dv
+	if distanceSquared < 4 || distanceSquared > maxMobileInterpPixels*maxMobileInterpPixels {
+		return 0
+	}
+	return float32(math.Min(1, math.Sqrt(float64(distanceSquared))/12))
+}
+
+func ensureTownPuddleReflectionScratch(scratch **ebiten.Image, width, height int) *ebiten.Image {
+	if *scratch == nil || (*scratch).Bounds().Dx() < width || (*scratch).Bounds().Dy() < height {
+		if *scratch != nil {
+			(*scratch).Deallocate()
+		}
+		*scratch = ebiten.NewImageWithOptions(image.Rect(0, 0, width, height), &ebiten.NewImageOptions{Unmanaged: true})
+	}
+	return *scratch
+}
+
+func townPuddleReflectionProximity(dx, dy, puddleWidth, puddleHeight, mobileSize float64) float64 {
+	if puddleWidth <= 0 || puddleHeight <= 0 || mobileSize <= 0 {
+		return 0
+	}
+	xReach := puddleWidth/2 + mobileSize*0.25
+	yReach := puddleHeight/2 + mobileSize*0.45
+	return math.Max(0, 1-math.Max(math.Abs(dx)/xReach, math.Abs(dy)/yReach))
+}
+
+func townPuddleReflectionVerticalTop(footY, puddleTop, puddleHeight, footFraction float64) float64 {
+	reflectedHeight := puddleHeight * 0.82
+	// With the source flipped, its opaque foot row lands at Top minus this
+	// amount. Put that row exactly at the upright sprite's contact point.
+	return footY - puddleTop + reflectedHeight*footFraction
 }
 
 func replacementEffectEase(t float32) float32 {
@@ -1303,6 +1562,7 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		state.uniforms["Alpha"] = float32(1)
 		state.uniforms["Energy"] = float32(1)
 		state.uniforms["HasMask"] = float32(0)
+		state.uniforms["HasReflection"] = float32(0)
 		state.uniforms["MaskInvScale"] = float32(1)
 		state.uniforms["SpriteLightOnly"] = float32(0)
 		if preview.kind == replacementEffectWavingFlag {
@@ -1320,6 +1580,19 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		if preview.kind == replacementEffectTownPuddle {
 			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(preview.pictID)
+			state.rippleFeet = [12]float32{}
+			state.rippleMotion = [6]float32{}
+			state.rippleSeeds = [6]float32{}
+			state.rippleAges = [6]float32{}
+			state.uniforms["RippleTime"] = float32(elapsed)
+			// The gallery has no moving mobile; demonstrate one footfall so
+			// puddle movement ripples can still be judged in effectsPreview.
+			previewRippleAge := math.Mod(elapsed+float64(preview.pictID-888)*0.35, 1.25)
+			if previewRippleAge < 1 {
+				state.rippleFeet[0], state.rippleFeet[1] = float32(effectW)*0.5, float32(effectH)*0.5
+				state.rippleMotion[0] = 0.9
+				state.rippleAges[0] = float32(previewRippleAge)
+			}
 		}
 		if preview.kind == replacementEffectShoreWave {
 			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(preview.pictID)
@@ -1342,7 +1615,7 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		if replacementEffectsPreviewMode != replacementEffectPreviewOriginal {
 			state.op.Blend = ebiten.Blend{}
-			state.op.Images[0] = whiteImage
+			state.op.Images[0], state.op.Images[1] = whiteImage, nil
 			drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
 		}
 

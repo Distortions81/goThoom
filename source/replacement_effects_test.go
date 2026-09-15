@@ -369,6 +369,146 @@ func TestTownPuddleVariants(t *testing.T) {
 	}
 }
 
+func TestTownPuddleCycleFollowsMovingPicture(t *testing.T) {
+	originalReady, originalEnabled := replacementEffectsShadersReady, gs.ReplacementEffects
+	originalDraws, originalNow := replacementEffectDraws, drawFrameNow
+	replacementEffectsShadersReady, gs.ReplacementEffects = true, true
+	replacementEffectDraws = make(map[uint64]replacementEffectDraw)
+	drawFrameNow = time.Unix(1_000, 0)
+	t.Cleanup(func() {
+		replacementEffectsShadersReady, gs.ReplacementEffects = originalReady, originalEnabled
+		replacementEffectDraws, drawFrameNow = originalDraws, originalNow
+	})
+
+	picture := framePicture{PictID: 888, H: 12, V: 18, lightKey: 0x1234}
+	identity := replacementEffectGroundPictureInstanceKey(picture)
+	if !queueReplacementPictureEffect(picture.PictID, 1, picture.H, picture.V, identity, 50, 80, 60, 9, 1, nil, 0, 0, 0) {
+		t.Fatal("first puddle was not queued")
+	}
+	key := identity | uint64(replacementEffectTownPuddle)<<56
+	started := replacementEffectDraws[key].started
+	if started.IsZero() {
+		t.Fatal("puddle cycle did not start")
+	}
+
+	beginReplacementEffects()
+	drawFrameNow = drawFrameNow.Add(400 * time.Millisecond)
+	picture.H, picture.V = 24, 30
+	if got := replacementEffectGroundPictureInstanceKey(picture); got != identity {
+		t.Fatalf("moving picture identity = %x, want %x", got, identity)
+	}
+	if !queueReplacementPictureEffect(picture.PictID, 2, picture.H, picture.V, identity, 62, 92, 60, 9, 1, nil, 0, 0, 0) {
+		t.Fatal("moving puddle was not queued")
+	}
+	if got := len(replacementEffectDraws); got != 1 {
+		t.Fatalf("moving puddle created %d effects, want one", got)
+	}
+	effect := replacementEffectDraws[key]
+	if effect.started != started || effect.left != 62 || effect.top != 92 || !effect.seen {
+		t.Fatalf("moving puddle restarted or lost its anchor: %#v", effect)
+	}
+	picture.PictID = 889
+	if got := replacementEffectGroundPictureInstanceKey(picture); got == identity {
+		t.Fatal("different puddle shapes shared an instance identity")
+	}
+	beginReplacementEffects()
+	drawReplacementEffectsLayer(nil, 0, 0, nil, nil, 0, 0, 0, true)
+	if len(replacementEffectDraws) != 0 {
+		t.Fatal("puddle retained a stale cycle after its source picture disappeared")
+	}
+}
+
+func TestTownPuddleReflectionProximity(t *testing.T) {
+	const width, height, mobileSize = 84.0, 13.0, 64.0
+	if got := townPuddleReflectionProximity(0, 0, width, height, mobileSize); got != 1 {
+		t.Fatalf("centered mobile proximity = %v, want 1", got)
+	}
+	if got := townPuddleReflectionProximity(120, 0, width, height, mobileSize); got != 0 {
+		t.Fatalf("distant mobile proximity = %v, want 0", got)
+	}
+	if got := townPuddleReflectionProximity(0, 90, width, height, mobileSize); got != 0 {
+		t.Fatalf("mobile on different ground proximity = %v, want 0", got)
+	}
+	if got := townPuddleReflectionProximity(20, 0, width, height, mobileSize); got <= 0 || got >= 1 {
+		t.Fatalf("nearby mobile proximity = %v, want a partial reflection", got)
+	}
+}
+
+func TestTownPuddleMobileMotionIgnoresCameraShift(t *testing.T) {
+	previous := map[uint8]frameMobile{7: {Index: 7, H: 30, V: 40}}
+	if got := townPuddleMobileMotion(frameMobile{Index: 7, H: 35, V: 43}, previous, 5, 3); got != 0 {
+		t.Fatalf("camera-only displacement produced foot ripples: %v", got)
+	}
+	if got := townPuddleMobileMotion(frameMobile{Index: 7, H: 40, V: 43}, previous, 5, 3); got <= 0 {
+		t.Fatalf("mobile movement relative to ground produced no ripples: %v", got)
+	}
+	if got := townPuddleMobileMotion(frameMobile{Index: 8, H: 40, V: 43}, previous, 5, 3); got != 0 {
+		t.Fatalf("mobile without previous position produced foot ripples: %v", got)
+	}
+	if got := townPuddleMobileMotion(frameMobile{Index: 7, H: 140, V: 43}, previous, 5, 3); got != 0 {
+		t.Fatalf("teleport produced foot ripples: %v", got)
+	}
+}
+
+func TestTownPuddleFootRippleFollowsMovementAndLingers(t *testing.T) {
+	originalScale := gs.GameScale
+	gs.GameScale = 2
+	t.Cleanup(func() { gs.GameScale = originalScale })
+	now := time.Unix(1_000, 0)
+	var effect replacementEffectDraw
+	effect.recordTownPuddleFoot(7, 30, 5, 1, now)
+	effect.recordTownPuddleFoot(7, 31, 5, 1, now.Add(16*time.Millisecond))
+	if !effect.puddleRipples[0].started.IsZero() {
+		t.Fatal("stationary/subpixel foot motion emitted a ripple")
+	}
+	effect.recordTownPuddleFoot(7, 32, 5, 1, now.Add(32*time.Millisecond))
+	if effect.puddleRipples[0].started.IsZero() || effect.puddleRipples[0].x != 32 {
+		t.Fatal("moving foot did not start a ripple at its contact point")
+	}
+	effect.recordTownPuddleFoot(7, 32, 5, 1, now.Add(48*time.Millisecond))
+	if effect.puddleRippleNext != 1 {
+		t.Fatal("stationary foot restarted its ripple")
+	}
+	var state replacementEffectShaderState
+	populateTownPuddleRippleUniforms(&effect, now.Add(432*time.Millisecond), &state)
+	if state.rippleMotion[0] <= 0 || math.Abs(float64(state.rippleAges[0]-0.4)) > 0.0001 {
+		t.Fatalf("ripple vanished while expanding: motion=%v age=%v", state.rippleMotion[0], state.rippleAges[0])
+	}
+	state.rippleMotion = [6]float32{}
+	populateTownPuddleRippleUniforms(&effect, now.Add(1100*time.Millisecond), &state)
+	if state.rippleMotion[0] != 0 {
+		t.Fatal("expired foot ripple remained active")
+	}
+	effect.recordTownPuddleFoot(7, 200, 5, 1, now.Add(60*time.Millisecond))
+	if effect.puddleRippleNext != 1 {
+		t.Fatal("teleport emitted a puddle ripple")
+	}
+}
+
+func TestTownPuddleReflectionVerticalPosition(t *testing.T) {
+	const puddleTop, height, footFraction = 90.0, 20.0, 0.9
+	const footY = 100.0
+	centered := townPuddleReflectionVerticalTop(footY, puddleTop, height, footFraction)
+	reflectedHeight := height * 0.82
+	if got, want := centered-reflectedHeight*footFraction, footY-puddleTop; math.Abs(got-want) > 0.0001 {
+		t.Fatalf("reflected foot row = %v, want contact point %v", got, want)
+	}
+	above := townPuddleReflectionVerticalTop(footY-10, puddleTop, height, footFraction)
+	below := townPuddleReflectionVerticalTop(footY+10, puddleTop, height, footFraction)
+	if above >= centered || below <= centered {
+		t.Fatalf("ground reflection did not follow vertical movement: above=%v centered=%v below=%v", above, centered, below)
+	}
+	if math.Abs((above-centered)+10) > 0.0001 || math.Abs((below-centered)-10) > 0.0001 {
+		t.Fatalf("ground reflection was not translated by the mobile's screen delta: above=%v centered=%v below=%v", above, centered, below)
+	}
+	if math.Abs((centered-above)-(below-centered)) > 0.0001 {
+		t.Fatalf("reflection vertical movement is asymmetric: above=%v centered=%v below=%v", above, centered, below)
+	}
+	if got := townPuddleReflectionVerticalTop(footY, puddleTop, height, 0.75) - reflectedHeight*0.75; math.Abs(got-(footY-puddleTop)) > 0.0001 {
+		t.Fatalf("different mobile pose foot row = %v, want %v", got, footY-puddleTop)
+	}
+}
+
 func TestShoreWaveDirections(t *testing.T) {
 	tests := []struct {
 		id        uint16

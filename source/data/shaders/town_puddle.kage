@@ -11,6 +11,12 @@ var MaskOffset vec2
 var MaskInvScale float
 var SpriteLightOnly float
 var PuddleVariant float
+var HasReflection float
+var RippleFeet [6]vec2
+var RippleMotion [6]float
+var RippleSeeds [6]float
+var RippleAges [6]float
+var RippleTime float
 
 func spark(value float) float {
 	v := max(0, sin(value))
@@ -95,5 +101,60 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	rim := 1-smoothstep(0.012, 0.085, boundary-r)
 	color = mix(color, vec3(0.08, 0.12, 0.055), rim*0.76)
 	a := coverage * (0.68+0.10*water) * Alpha
-	return vec4(color*a, a)
+	base := color*a
+	if HasReflection > 0.5 {
+		// The second source is a mobile-only, vertically flipped silhouette.
+		// Sample a mildly wandering surface and let the puddle's existing rim
+		// and texture dissolve the image into the water.
+		shift := sin(y*0.43+t*2.0+sin(x*0.12))*0.75
+		shift += sin(y*0.19-t+x*0.07)*0.35
+		shift += sin(x*0.29-y*0.24+t*2.4)*0.42
+		// Blur along the water's horizontal flow, but leave the vertically
+		// foreshortened foot contact crisp.
+		reflected := imageSrc1AtFromSrc0Pos(srcPos+vec2(shift, 0))*0.38
+		reflected += imageSrc1AtFromSrc0Pos(srcPos+vec2(shift-1.0, 0))*0.22
+		reflected += imageSrc1AtFromSrc0Pos(srcPos+vec2(shift+1.0, 0))*0.22
+		reflected += imageSrc1AtFromSrc0Pos(srcPos+vec2(shift-2.0, 0))*0.09
+		reflected += imageSrc1AtFromSrc0Pos(srcPos+vec2(shift+2.0, 0))*0.09
+		strength := reflected.a * coverage * edgeDepth * 0.52 * Alpha
+		strength *= 0.70+0.30*water
+		base = base*(1-strength) + reflected.rgb*vec3(0.52, 0.78, 0.84)*(strength/max(reflected.a, 0.001))
+		a = a + strength*(1-a)
+	}
+	// Feet disturb the water only while their mobile moves relative to the
+	// ground. Screen-space ellipses are circles projected through the pitched
+	// camera; two staggered rings leave each foot without looking like a spell.
+	for i := 0; i < 6; i++ {
+		if RippleMotion[i] <= 0 {
+			continue
+		}
+		delta := localPos - RippleFeet[i]
+		distance := length(vec2(delta.x, delta.y*1.7))
+		waveAngle := polarAngle(delta)
+		pixelScale := Size.x/60.0
+		for wave := 0; wave < 2; wave++ {
+			if wave > 0 && RippleAges[i] < 0.20 {
+				continue
+			}
+			cycle := clamp((RippleAges[i]-float(wave)*0.20)/0.78, 0, 1)
+			radius := (1.4+cycle*11.2)*pixelScale
+			// The crest bends and drifts rather than expanding as a rigid oval.
+			wobble := 0.65*sin(waveAngle*5.0+RippleTime*2.7+RippleSeeds[i])
+			wobble += 0.35*sin(waveAngle*11.0-RippleTime*1.8+float(wave))
+			radius += pixelScale*wobble*(0.35+0.65*cycle)
+			thickness := (0.90+cycle*0.30)*pixelScale
+			distanceFromCrest := abs(distance-radius)
+			crest := 1-smoothstep(thickness*0.15, thickness*1.35, distanceFromCrest)
+			softEdge := 1-smoothstep(thickness*0.30, thickness*3.0, distanceFromCrest)
+			ring := crest*0.62 + softEdge*0.38
+			ring *= (1-cycle)*RippleMotion[i]
+			// Small gaps and uneven highlights keep the water lively, while the
+			// puddle silhouette clips the ring naturally at its shoreline.
+			ring *= 0.82+0.18*sin(waveAngle*7.0+RippleTime*2.0+float(wave))
+			ring *= coverage*edgeDepth*Alpha*0.88
+			base = base*(1-ring) + vec3(0.61, 0.86, 0.93)*ring
+			a = a + ring*(1-a)
+		}
+	}
+	return vec4(base, a)
 }

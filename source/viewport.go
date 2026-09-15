@@ -23,21 +23,22 @@ type Viewport struct {
 }
 
 type viewportRenderState struct {
-	drawSnapshot       drawSnapshot
-	lastWorldRenderKey worldRenderKey
-	worldRenderValid   bool
-	lighting           viewportLightingFrame
-	window             *eui.WindowData
-	imageItem          *eui.ItemData
-	image              *ebiten.Image
-	imageBacking       *ebiten.Image
-	lightingTmp        *ebiten.Image
-	nightTransition    nightTransitionState
-	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
-	bubbleLayout       bubbleLayoutContext
-	loginServer        string
-	loginCharacter     string
-	loginDemoLookup    bool
+	drawSnapshot        drawSnapshot
+	lastWorldRenderKey  worldRenderKey
+	worldRenderValid    bool
+	lighting            viewportLightingFrame
+	window              *eui.WindowData
+	imageItem           *eui.ItemData
+	image               *ebiten.Image
+	imageBacking        *ebiten.Image
+	lightingTmp         *ebiten.Image
+	puddleReflectionTmp *ebiten.Image
+	nightTransition     nightTransitionState
+	bubbleHistory       map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
+	bubbleLayout        bubbleLayoutContext
+	loginServer         string
+	loginCharacter      string
+	loginDemoLookup     bool
 }
 
 func (v Viewport) worldAt(point image.Point) (int16, int16, bool) {
