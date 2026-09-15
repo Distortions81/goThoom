@@ -8,9 +8,30 @@ var Alpha float
 var PathVariant float
 var SpriteLightOnly float
 
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
 func sparkle(p vec2, center vec2, radius float) float {
 	d := abs(p-center)
 	return max(0, 1-(d.x+d.y*1.15)/radius)
+}
+
+func mote(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func polarAngle(p vec2) float {
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		if p.y >= 0 {
+			return 3.14159265 - angle
+		}
+		return -3.14159265 - angle
+	}
+	return angle
 }
 
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
@@ -29,6 +50,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		extent = mix(1.0, 0.48, progress)
 	}
 	q := p / max(0.20, extent)
+	r := length(q)
+	angle := polarAngle(q)
 	life := max(0, 1-t*0.70)
 	if PathVariant > 0.5 {
 		life = max(0, 1-t*0.56)
@@ -47,12 +70,22 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		f := sparkle(q, vec2(0.04+sin(t*3.7+5.0)*0.025, 0.36-t*0.08), 0.044) * max(0, sin(t*18.0+4.4))
 		trail = max(trail, max(e, f))
 	}
+
+	// The source frames are dense fields of discrete yellow flecks. Layer
+	// several irregular dotted shells around the larger landmark glints, as the
+	// healing replacement does, so the effect retains that particle density.
+	outerMotes := band(r, 0.43, 0.030) * mote(angle*20.0+q.x*13.0-q.y*9.0-t*1.2)
+	middleMotes := band(r, 0.31, 0.026) * mote(angle*15.0-q.x*17.0-q.y*11.0+t*1.6)
+	innerMotes := band(r, 0.19, 0.023) * mote(angle*11.0+q.x*19.0-q.y*15.0-t*2.1)
+	looseFlecks := band(r, 0.36, 0.15) * mote(angle*29.0+q.x*31.0+q.y*23.0+t*2.4) * 0.58
+	particles := min(1, outerMotes*1.35+middleMotes+innerMotes*0.82+looseFlecks)
 	glow := max(0, 1-length(vec2(q.x*1.08, q.y*0.94))*2.15) * 0.22
-	intensity := (trail + glow) * life * brightness
+	intensity := (trail+particles+glow) * life * brightness
 	if intensity <= 0 {
 		return vec4(0, 0, 0, 0)
 	}
-	color := mix(vec3(0.72, 0.18, 0.005), vec3(1.0, 0.92, 0.30), min(1, trail*1.5))
-	aOut := min(1, intensity*3.6) * Alpha
+	hot := min(1, trail*1.35+outerMotes*0.50+middleMotes*0.36)
+	color := mix(vec3(1.0, 0.46, 0), vec3(1.0, 1.0, 0.04), hot)
+	aOut := min(1, intensity*3.85) * Alpha
 	return vec4(color*aOut, aOut)
 }

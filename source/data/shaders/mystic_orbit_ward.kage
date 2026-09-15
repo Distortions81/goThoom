@@ -1,0 +1,114 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
+func segmentDistance(p, a, b vec2) float {
+	pa := p - a
+	ba := b - a
+	h := clamp(dot(pa, ba)/max(0.0001, dot(ba, ba)), 0, 1)
+	return length(pa - ba*h)
+}
+
+func orbitPoint(angle, radius float) vec2 {
+	// A slightly flattened orbit follows the legacy sprite's path around the
+	// character instead of looking like a circle pasted over the screen.
+	return vec2(cos(angle)*radius, sin(angle)*radius*0.88)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+
+	// Sprite 1587 advances through its four quadrants at the game's five UPS,
+	// giving one orbit a duration of 0.8 seconds. Frame zero starts low-right.
+	angle := 0.78539816 - Phase*7.8539816
+	orb := orbitPoint(angle, 0.315)
+	previousA := orbitPoint(angle+0.24, 0.315)
+	previousB := orbitPoint(angle+0.50, 0.315)
+	previousC := orbitPoint(angle+0.78, 0.315)
+	previousD := orbitPoint(angle+1.08, 0.315)
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := maskAlpha(localPos)
+		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
+		facing := max(0, 1-length(p-orb)*1.8)
+		pulse := 0.84 + 0.16*spark(Phase*15.707963)
+		light := max(0, body*(0.10+0.18*facing)+edge*0.22)*pulse*Alpha
+		color := mix(vec3(1.0, 0.43, 0.008), vec3(1.0, 0.82, 0.08), facing)
+		return vec4(color*light, light)
+	}
+
+	// A bright ward mote with a dark amber edge and a restless, yellow-hot
+	// center. Noise breaks the round halo into a small lick of magical flame.
+	d := length(p - orb)
+	orbFlicker := 0.48 + 0.52*spark(p.x*31.0-p.y*27.0+angle*7.0)
+	orbHalo := band(d, 0, 0.135)*(0.24+0.24*orbFlicker)
+	orbEdge := band(d, 0.064, 0.038)*0.92
+	orbBody := band(d, 0, 0.069)
+	orbCore := band(d, 0, 0.030)
+
+	// The old animation draws a long, broken trail behind the mote. Tapered
+	// curved segments preserve that silhouette while moving smoothly between
+	// the four source frames.
+	tailA := band(segmentDistance(p, orb, previousA), 0, 0.030)
+	tailB := band(segmentDistance(p, previousA, previousB), 0, 0.026)*0.82
+	tailC := band(segmentDistance(p, previousB, previousC), 0, 0.021)*0.62
+	tailD := band(segmentDistance(p, previousC, previousD), 0, 0.016)*0.42
+	tailBreaks := 0.40 + 0.60*spark(p.x*43.0-p.y*37.0+angle*5.0)
+	tail := (tailA+tailB+tailC+tailD)*tailBreaks
+
+	// Sparse sparks extend and branch away from the trail. They retain the old
+	// broken-pixel cadence without drawing a complete circle around the player.
+	trailSparkA := band(length(p-orbitPoint(angle+1.42, 0.315)), 0, 0.025)
+	trailSparkB := band(length(p-orbitPoint(angle+1.78, 0.315)), 0, 0.018)
+	trailSparkC := band(length(p-(orbitPoint(angle+0.66, 0.315)+vec2(cos(angle+2.1), sin(angle+2.1))*0.046)), 0, 0.017)
+	trailSparkD := band(length(p-(orbitPoint(angle+1.02, 0.315)+vec2(cos(angle-1.4), sin(angle-1.4))*0.060)), 0, 0.014)
+	trailSparkE := band(length(p-(orbitPoint(angle+1.34, 0.315)+vec2(cos(angle+0.5), sin(angle+0.5))*0.072)), 0, 0.011)
+	branchAEnd := previousA + vec2(cos(angle+1.75), sin(angle+1.75))*0.064
+	branchBEnd := previousB + vec2(cos(angle-1.25), sin(angle-1.25))*0.052
+	branchA := band(segmentDistance(p, previousA, branchAEnd), 0, 0.012)*spark(p.x*39.0+p.y*33.0-angle*4.0)
+	branchB := band(segmentDistance(p, previousB, branchBEnd), 0, 0.010)*spark(p.x*47.0-p.y*29.0+angle*3.0)
+	// Fine ember fields sit around, rather than inside, the main trail. They
+	// make the source sprite's broken amber pixels feel alive at higher scale.
+	emberA := band(segmentDistance(p, orb, previousB), 0.055, 0.018)*spark(p.x*61.0+p.y*47.0-angle*7.0)
+	emberB := band(segmentDistance(p, previousA, previousC), 0.074, 0.022)*spark(p.x*73.0-p.y*53.0+angle*9.0)
+	emberC := band(segmentDistance(p, previousB, previousD), 0.092, 0.025)*spark(p.x*89.0+p.y*67.0-angle*11.0)
+	sparks := trailSparkA*0.72 + trailSparkB*0.48 + trailSparkC*0.82 + trailSparkD*0.68 + trailSparkE*0.54 + branchA*0.62 + branchB*0.48 + emberA*0.72 + emberB*0.58 + emberC*0.42
+	intensity := min(1, orbHalo+orbEdge+orbBody+orbCore+tail*1.18+sparks)
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	color := vec3(0.74, 0.25, 0.002)
+	color = mix(color, vec3(1.0, 0.655, 0), min(1, tail*1.25+orbBody+branchA+branchB+sparks*0.45))
+	color = mix(color, vec3(1.0, 1.0, 0.08), min(1, orbCore*1.6+sparks*1.18))
+	a := min(1, intensity*3.05) * Alpha
+	return vec4(color*a, a)
+}

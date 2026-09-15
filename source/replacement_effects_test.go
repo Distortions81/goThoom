@@ -86,6 +86,14 @@ func TestHiddenPathShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestMysticOrbitWardShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(mysticOrbitWardShaderSource)
+	if err != nil {
+		t.Fatalf("compile mystic orbit ward shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
 func TestStoneFormShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(stoneFormShaderSource)
 	if err != nil {
@@ -157,6 +165,9 @@ func TestWavingFlagIsPersistent(t *testing.T) {
 	if replacementEffectIsPersistent(replacementEffectFirePlume) {
 		t.Fatal("fire plume must remain a transient effect")
 	}
+	if !replacementEffectIsPersistent(replacementEffectMysticOrbitWard) {
+		t.Fatal("orbiting mystic ward must remain visible with its source sprite")
+	}
 }
 
 func TestReplacementEffectFramePhaseUsesSourceAnimationTimeline(t *testing.T) {
@@ -182,6 +193,12 @@ func TestReplacementEffectPreviewPhaseLoopsOneShots(t *testing.T) {
 	}
 	if got, want := replacementEffectPreviewPhase(replacementEffectHealing, 2.90), float32(2.90); got != want {
 		t.Fatalf("healing preview phase = %v, want continuous %v", got, want)
+	}
+	if got, want := replacementEffectPreviewPhase(replacementEffectMysticOrbitWard, 2.90), float32(2.90); got != want {
+		t.Fatalf("orbit ward preview phase = %v, want continuous %v", got, want)
+	}
+	if got, want := replacementEffectSequenceDuration(replacementEffectMysticOrbitWard), float32(0.8); got != want {
+		t.Fatalf("orbit ward cycle = %v, want %v", got, want)
 	}
 }
 
@@ -324,6 +341,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		{id: 330, kind: replacementEffectWallTorch, ok: true},
 		{id: 331, kind: replacementEffectWallTorch, ok: true},
 		{id: 1286, kind: replacementEffectMysticWard, ok: true},
+		{id: 1587, kind: replacementEffectMysticOrbitWard, ok: true},
 		{id: 445, kind: replacementEffectHiddenPath, ok: true},
 		{id: 446, kind: replacementEffectHiddenPath, ok: true},
 		{id: 2976, kind: replacementEffectTeleportGold, ok: true},
@@ -345,7 +363,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 885, 5647, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 885, 5647, 1286, 1587, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])

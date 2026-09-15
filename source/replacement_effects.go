@@ -44,6 +44,9 @@ var hiddenPathShaderSource []byte
 //go:embed data/shaders/mystic_ward.kage
 var mysticWardShaderSource []byte
 
+//go:embed data/shaders/mystic_orbit_ward.kage
+var mysticOrbitWardShaderSource []byte
+
 //go:embed data/shaders/mystic_fade.kage
 var mysticFadeShaderSource []byte
 
@@ -63,6 +66,7 @@ var wavingFlagShader *ebiten.Shader
 var wallTorchShader *ebiten.Shader
 var hiddenPathShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
+var mysticOrbitWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
 var teleportBurstShader *ebiten.Shader
 var stoneFormShader *ebiten.Shader
@@ -110,6 +114,7 @@ const (
 	replacementEffectWallTorch
 	replacementEffectHiddenPath
 	replacementEffectMysticWard
+	replacementEffectMysticOrbitWard
 	replacementEffectMysticFade
 	replacementEffectTeleportGold
 	replacementEffectTeleportBlue
@@ -251,6 +256,10 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	orbitWardShader, err := compileReplacementEffectShaderForInit("mystic_orbit_ward.kage", mysticOrbitWardShaderSource)
+	if err != nil {
+		return err
+	}
 	fadeShader, err := compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 	if err != nil {
 		return err
@@ -277,6 +286,7 @@ func ReloadReplacementEffectsShader() error {
 	wallTorchShader = torchShader
 	hiddenPathShader = pathShader
 	mysticWardShader = wardShader
+	mysticOrbitWardShader = orbitWardShader
 	mysticFadeShader = fadeShader
 	teleportBurstShader = teleportShader
 	stoneFormShader = stoneShader
@@ -288,7 +298,7 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 11
+const replacementEffectsShaderCount = 12
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -368,26 +378,31 @@ func loadNextReplacementEffectShader() error {
 			mysticWardShader = shader
 		}
 	case 6:
+		shader, err = compileReplacementEffectShaderForInit("mystic_orbit_ward.kage", mysticOrbitWardShaderSource)
+		if err == nil {
+			mysticOrbitWardShader = shader
+		}
+	case 7:
 		shader, err = compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 		if err == nil {
 			mysticFadeShader = shader
 		}
-	case 7:
+	case 8:
 		shader, err = compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 		if err == nil {
 			teleportBurstShader = shader
 		}
-	case 8:
+	case 9:
 		shader, err = compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 		if err == nil {
 			stoneFormShader = shader
 		}
-	case 9:
+	case 10:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
 		}
-	case 10:
+	case 11:
 		shader, err = compileReplacementEffectShaderForInit("blood_gush.kage", bloodGushShaderSource)
 		if err == nil {
 			bloodGushShader = shader
@@ -444,6 +459,8 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 		return replacementEffectHiddenPath, true
 	case 1286:
 		return replacementEffectMysticWard, true
+	case 1587:
+		return replacementEffectMysticOrbitWard, true
 	case 2976:
 		return replacementEffectTeleportGold, true
 	case 2977:
@@ -477,6 +494,9 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectMysticWard {
 		return mysticWardShader
 	}
+	if kind == replacementEffectMysticOrbitWard {
+		return mysticOrbitWardShader
+	}
 	if kind == replacementEffectMysticFade {
 		return mysticFadeShader
 	}
@@ -500,7 +520,7 @@ func replacementEffectIsOneShot(kind replacementEffectKind) bool {
 // long as their source picture is present. Unlike a spell burst, they should
 // neither ease in nor linger at a stale position after that picture is gone.
 func replacementEffectIsPersistent(kind replacementEffectKind) bool {
-	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch
+	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectMysticOrbitWard
 }
 
 // replacementEffectFramePhase maps a legacy sprite frame to a position in the
@@ -521,6 +541,9 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 	if kind == replacementEffectFirePlume {
 		return 1.35
 	}
+	if kind == replacementEffectMysticOrbitWard {
+		return 0.8
+	}
 	return 1
 }
 
@@ -535,7 +558,16 @@ func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16
 	if frames < 2 {
 		return 0
 	}
-	return time.Duration(float64(replacementEffectFramePhase(frame, frames, replacementEffectSequenceDuration(kind))) * float64(time.Second))
+	duration := replacementEffectSequenceDuration(kind)
+	phase := replacementEffectFramePhase(frame, frames, duration)
+	if kind == replacementEffectMysticOrbitWard {
+		frame %= frames
+		if frame < 0 {
+			frame += frames
+		}
+		phase = duration * float32(frame) / float32(frames)
+	}
+	return time.Duration(float64(phase) * float64(time.Second))
 }
 
 func replacementEffectInstanceStartOffset(kind replacementEffectKind, key uint64) time.Duration {
@@ -912,6 +944,7 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectHiddenPath, label: "Hidden Path Sparkles", pictID: 446},
 	{kind: replacementEffectHiddenPath, label: "Hidden Path Fading", pictID: 445},
 	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
+	{kind: replacementEffectMysticOrbitWard, label: "Amber Orbit Ward", pictID: 1587},
 	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
 	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
 	{kind: replacementEffectTeleportBlue, label: "Blue Teleport", pictID: 2977},
@@ -937,7 +970,7 @@ func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
 // already-expired final state.
 func replacementEffectPreviewPhase(kind replacementEffectKind, elapsed float64) float32 {
 	switch kind {
-	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectStoneForm, replacementEffectCoinReward:
+	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectMysticOrbitWard, replacementEffectStoneForm, replacementEffectCoinReward:
 		return float32(elapsed)
 	default:
 		return float32(math.Mod(elapsed, float64(replacementEffectSequenceDuration(kind))))
