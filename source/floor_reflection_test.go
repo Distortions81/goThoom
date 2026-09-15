@@ -3,6 +3,8 @@ package main
 import (
 	"math"
 	"testing"
+
+	"gothoom/climg"
 )
 
 func TestFloorReflectionProfilesAndGroundOrder(t *testing.T) {
@@ -36,6 +38,65 @@ func TestMobileReflectionFeetMeetGroundPoint(t *testing.T) {
 		if got := top - test.height*test.footRow; math.Abs(got-test.footY) > 1e-9 {
 			t.Errorf("reflected foot row = %v, want %v", got, test.footY)
 		}
+	}
+}
+
+func TestMobilePoseCanReflect(t *testing.T) {
+	for _, test := range []struct {
+		state uint8
+		want  bool
+	}{
+		{state: 0, want: true},
+		{state: 31, want: true},
+		{state: poseDead, want: false},
+		{state: poseLie, want: false},
+		{state: 40, want: true},
+	} {
+		if got := mobilePoseCanReflect(test.state); got != test.want {
+			t.Errorf("pose %d reflection eligibility = %v, want %v", test.state, got, test.want)
+		}
+	}
+}
+
+func TestMobileReflectionRequiresUprightShadowArtwork(t *testing.T) {
+	const upright = climg.PictDefFlagUprightShadow
+	for _, test := range []struct {
+		state uint8
+		flags uint32
+		want  bool
+	}{
+		{state: 0, flags: upright, want: true},
+		{state: 4, flags: upright | climg.PictDefFlagEmitsLight, want: true},
+		{state: 0, flags: 0, want: false},
+		{state: 0, flags: climg.PictDefFlagEmitsLight, want: false},
+		{state: poseDead, flags: upright, want: false},
+		{state: poseLie, flags: upright, want: false},
+	} {
+		if got := mobileReflectionEligibleForFlags(test.state, test.flags); got != test.want {
+			t.Errorf("pose %d, flags %#x reflection eligibility = %v, want %v", test.state, test.flags, got, test.want)
+		}
+	}
+}
+
+func TestMobileReflectionPoseSkewFollowsFacingAndDepth(t *testing.T) {
+	const width, floorHeight = 40.0, 28.8
+	east := mobileReflectionPoseSkew(0, width, floorHeight)
+	if east <= 0 || east > 2.5 || mobileReflectionPoseSkew(3, width, floorHeight) != east {
+		t.Fatalf("east-facing walk pose skew = %v", east)
+	}
+	if got := mobileReflectionPoseSkew(4, width, floorHeight); got <= 0 || got >= east {
+		t.Errorf("southeast skew = %v, want smaller positive lean", got)
+	}
+	if got := mobileReflectionPoseSkew(16, width, floorHeight); math.Abs(got+east) > 1e-9 {
+		t.Errorf("west skew = %v, want %v", got, -east)
+	}
+	for _, state := range []uint8{8, 24, poseDead, poseLie, 40} {
+		if got := mobileReflectionPoseSkew(state, width, floorHeight); got != 0 {
+			t.Errorf("pose %d skew = %v, want 0", state, got)
+		}
+	}
+	if got := mobileReflectionPoseSkew(0, width, floorHeight/2); got <= 0 || got >= east {
+		t.Errorf("shallow reflection skew = %v, want smaller than %v", got, east)
 	}
 }
 

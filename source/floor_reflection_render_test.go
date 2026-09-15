@@ -114,7 +114,66 @@ func (g *floorReflectionRenderGame) Draw(_ *ebiten.Image) {
 	gpu.ReadPixels(c)
 	if c[nearFoot+2] <= background.B || c[contact+2] >= c[nearFoot+2] || !bytes.Equal(c[aboveContact:aboveContact+4], []byte{background.R, background.G, background.B, background.A}) {
 		g.err = fmt.Errorf("recolored reflection did not soften and crop at the feet: above=%v contact=%v near=%v", c[aboveContact:aboveContact+4], c[contact:contact+4], c[nearFoot:nearFoot+4])
+		return
+	}
+	stripe := ebiten.NewImage(8, 8)
+	defer stripe.Deallocate()
+	stripePixels := make([]byte, 8*8*4)
+	for y := 0; y < 8; y++ {
+		for x := 3; x <= 4; x++ {
+			i := (y*8 + x) * 4
+			stripePixels[i], stripePixels[i+1], stripePixels[i+2], stripePixels[i+3] = 255, 255, 255, 255
+		}
+	}
+	stripe.WritePixels(stripePixels)
+	stripeInfluence := ebiten.NewImage(8, 8)
+	defer stripeInfluence.Deallocate()
+	stripeInfluence.Fill(color.RGBA{R: 1, A: 255})
+	for _, recolored := range []bool{false, true} {
+		var far, near [2]float64
+		for facingIndex, state := range []uint8{0, 16} { // east and west
+			pose := mobileReflectionPose{image: stripe, footRow: 1, state: state, gpuRecolor: recolored}
+			if recolored {
+				pose.influence, pose.palette = stripeInfluence, palette
+			}
+			target := ebiten.NewImage(32, 24)
+			drawMobileReflectionSprite(target, pose, frameBlendDrawOptions{
+				Left: 4, Top: 20, ScaleX: 3, ScaleY: -2,
+				Red: 1, Green: 1, Blue: 1, Alpha: 1,
+			})
+			pixels := make([]byte, 32*24*4)
+			target.ReadPixels(pixels)
+			target.Deallocate()
+			var ok bool
+			far[facingIndex], ok = reflectionRowCentroid(pixels, 32, 18)
+			if !ok {
+				g.err = fmt.Errorf("pose-skew reflection lost its upper body (recolored=%v, pose=%d)", recolored, state)
+				return
+			}
+			near[facingIndex], ok = reflectionRowCentroid(pixels, 32, 6)
+			if !ok {
+				g.err = fmt.Errorf("pose-skew reflection lost its foot fade (recolored=%v, pose=%d)", recolored, state)
+				return
+			}
+		}
+		if far[0] <= far[1]+1 || near[0] >= near[1]+1 {
+			g.err = fmt.Errorf("pose skew did not lean the upper body while anchoring feet (recolored=%v, far=%v, near=%v)", recolored, far, near)
+			return
+		}
 	}
 }
 
 func (g *floorReflectionRenderGame) Layout(_, _ int) (int, int) { return 8, 8 }
+
+func reflectionRowCentroid(pixels []byte, width, row int) (float64, bool) {
+	var weightedX, totalAlpha float64
+	for x := 0; x < width; x++ {
+		alpha := float64(pixels[(row*width+x)*4+3])
+		weightedX += float64(x) * alpha
+		totalAlpha += alpha
+	}
+	if totalAlpha == 0 {
+		return 0, false
+	}
+	return weightedX / totalAlpha, true
+}

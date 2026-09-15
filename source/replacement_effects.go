@@ -1231,7 +1231,7 @@ func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, heigh
 	reflectionCount := 0
 	for _, mobile := range mobiles {
 		desc, ok := descriptors[mobile.Index]
-		if !ok || desc.PictID == 0 || mobile.State == poseDead {
+		if !ok || desc.PictID == 0 || !mobileArtworkCanReflect(desc.PictID, mobile.State) {
 			continue
 		}
 		mobileX, mobileY := mobileScreenPositionFloat(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)

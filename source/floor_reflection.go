@@ -4,6 +4,8 @@ import (
 	"image"
 	"math"
 
+	"gothoom/climg"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -52,6 +54,7 @@ type mobileReflectionPose struct {
 	palette    *mobilePaletteShaderState
 	gpuRecolor bool
 	footRow    float64
+	state      uint8
 }
 
 func loadMobileReflectionPose(desc frameDescriptor, state uint8) (mobileReflectionPose, bool) {
@@ -69,8 +72,19 @@ func loadMobileReflectionPose(desc frameDescriptor, state uint8) (mobileReflecti
 	}
 	return mobileReflectionPose{
 		image: img, influence: influence, palette: palette, gpuRecolor: gpuRecolor,
-		footRow: float64(mobileSpriteMetricsFor(metricsKey, img).footFraction),
+		footRow: float64(mobileSpriteMetricsFor(metricsKey, img).footFraction), state: state,
 	}, true
+}
+
+func mobileReflectionPoseSkew(state uint8, drawWidth, reflectedHeight float64) float64 {
+	if state >= poseDead || drawWidth <= 0 || reflectedHeight <= 0 {
+		return 0
+	}
+	// Facing groups contain four synchronized walk poses. Lean the reflected
+	// upper body slightly toward its facing side, with the feet kept fixed.
+	facing := [...]float64{1, 0.7, 0, -0.7, -1, -0.7, 0, 0.7}
+	lean := facing[int(state)/4] * drawWidth * 0.055
+	return lean * math.Min(1, reflectedHeight/(drawWidth*0.72))
 }
 
 func drawMobileReflectionSprite(target *ebiten.Image, pose mobileReflectionPose, options frameBlendDrawOptions) {
@@ -86,19 +100,21 @@ func drawMobileReflectionSprite(target *ebiten.Image, pose mobileReflectionPose,
 	contact := math.Min(float64(bounds.Dy()), math.Max(1, math.Ceil(pose.footRow*float64(bounds.Dy()))))
 	fadeStart := math.Max(0, contact-math.Max(2, float64(bounds.Dy())*0.10))
 	left, right := float32(options.Left), float32(options.Left+float64(bounds.Dx())*options.ScaleX)
+	skew := mobileReflectionPoseSkew(pose.state, math.Abs(float64(bounds.Dx())*options.ScaleX), math.Abs(float64(bounds.Dy())*options.ScaleY))
 	red, green, blue, alpha := premultipliedDrawColor(options.Red, options.Green, options.Blue, options.Alpha)
 	rows := [...]float64{0, fadeStart, contact}
 	var vertices [6]ebiten.Vertex
 	for row, offset := range rows {
 		dstY := float32(options.Top + offset*options.ScaleY)
 		srcY := float32(float64(bounds.Min.Y) + offset)
+		rowSkew := float32(skew * (1 - offset/contact))
 		strength := float32(1)
 		if row == 2 {
 			strength = 0
 		}
 		for column, dstX := range [...]float32{left, right} {
 			v := &vertices[row*2+column]
-			v.DstX, v.DstY = dstX, dstY
+			v.DstX, v.DstY = dstX+rowSkew, dstY
 			v.SrcX, v.SrcY = float32(bounds.Min.X), srcY
 			if column == 1 {
 				v.SrcX = float32(bounds.Max.X)
@@ -140,6 +156,18 @@ func mobileReflectionFootOverlap(drawSize, reflectedHeight float64) float64 {
 	return math.Min(2*gs.GameScale, drawSize*0.04) * math.Min(1, reflectedHeight/(drawSize*0.72))
 }
 
+func mobilePoseCanReflect(state uint8) bool {
+	return state != poseDead && state != poseLie
+}
+
+func mobileReflectionEligibleForFlags(state uint8, flags uint32) bool {
+	return mobilePoseCanReflect(state) && flags&climg.PictDefFlagUprightShadow != 0
+}
+
+func mobileArtworkCanReflect(pictID uint16, state uint8) bool {
+	return clImages != nil && mobileReflectionEligibleForFlags(state, clImages.Flags(uint32(pictID)))
+}
+
 func drawFloorPictureMobileReflections(screen *ebiten.Image, profile floorReflectionProfile, left, top, width, height float64, pictureAlpha float32, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64) {
 	if screen == nil || gs.hideMobiles || pictureAlpha <= 0 || width <= 0 || height <= 0 || len(mobiles) == 0 {
 		return
@@ -154,7 +182,7 @@ func drawFloorPictureMobileReflections(screen *ebiten.Image, profile floorReflec
 	var clip *ebiten.Image
 	for _, mobile := range mobiles {
 		desc, ok := descriptors[mobile.Index]
-		if !ok || desc.PictID == 0 || mobile.State == poseDead {
+		if !ok || desc.PictID == 0 || !mobileArtworkCanReflect(desc.PictID, mobile.State) {
 			continue
 		}
 		mobileX, mobileY := mobileScreenPositionFloat(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
@@ -168,9 +196,10 @@ func drawFloorPictureMobileReflections(screen *ebiten.Image, profile floorReflec
 		}
 		reflectedHeight := drawSize * profile.heightScale
 		// Reject distant mobiles before loading their pose. A reflection may
-		// cross a tile seam, so allow the silhouette to reach an adjacent tile.
+		// cross a tile seam, so include its facing lean at adjacent tile edges.
 		approximateFootY := mobileY + drawSize*0.40
-		if mobileX+drawSize/2 <= float64(clipBounds.Min.X) || mobileX-drawSize/2 >= float64(clipBounds.Max.X) ||
+		skewReach := math.Abs(mobileReflectionPoseSkew(mobile.State, drawSize, reflectedHeight))
+		if mobileX+drawSize/2+skewReach <= float64(clipBounds.Min.X) || mobileX-drawSize/2-skewReach >= float64(clipBounds.Max.X) ||
 			approximateFootY-reflectedHeight*0.20 >= float64(clipBounds.Max.Y) || approximateFootY+reflectedHeight <= float64(clipBounds.Min.Y) {
 			continue
 		}
