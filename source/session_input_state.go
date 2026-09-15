@@ -123,6 +123,18 @@ func (s *sessionInputState) storeHover(info ClickInfo, generation uint64) bool {
 	return changed
 }
 
+func (s *sessionInputState) clearHover() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	changed := s.lastHover.OnMobile
+	s.lastHover = ClickInfo{}
+	s.hoverValid = false
+	s.mu.Unlock()
+	return changed
+}
+
 func (s *sessionInputState) hoverSnapshot() ClickInfo {
 	if s == nil {
 		return ClickInfo{}

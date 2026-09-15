@@ -829,9 +829,15 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	h := innerHeight / frames
 
 	framesToDump := imageDumpFrameCount(frames, imgDumpSingleFrame)
+	dumpRect := image.Rect(0, 0, innerWidth, h)
+	if imgDumpSingleFrame {
+		if poseRect, ok := imageDumpMobilePoseRect(innerWidth, innerHeight, frames); ok {
+			dumpRect = poseRect
+		}
+	}
 	for f := 0; f < framesToDump; f++ {
-		y := 1 + f*h
-		frameImg := sheet.SubImage(image.Rect(1, y, 1+innerWidth, y+h)).(*ebiten.Image)
+		frameRect := dumpRect.Add(image.Pt(1, 1+f*h))
+		frameImg := sheet.SubImage(frameRect).(*ebiten.Image)
 		fn := filepath.Join(assetDumpImageDir(), imageDumpFrameFilename(id, f, frames))
 		if file, err := os.Create(fn); err == nil {
 			img := frameImg
@@ -847,7 +853,7 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 		}
 	}
 
-	width, height := innerWidth, h
+	width, height := dumpRect.Dx(), dumpRect.Dy()
 	var flags uint32
 	var name string
 	if clImages != nil {
@@ -874,6 +880,19 @@ func imageDumpFrameCount(frames int, singleFrame bool) int {
 		return 1
 	}
 	return frames
+}
+
+// Mobile sheets contain 16 square poses per row. State 4 is the first pose in
+// the southeast-facing group, after the four east-facing walk poses.
+func imageDumpMobilePoseRect(width, height, frames int) (image.Rectangle, bool) {
+	if frames != 1 || width <= 0 || width%16 != 0 {
+		return image.Rectangle{}, false
+	}
+	poseSize := width / 16
+	if height != 3*poseSize && height != 4*poseSize {
+		return image.Rectangle{}, false
+	}
+	return image.Rect(4*poseSize, 0, 5*poseSize, poseSize), true
 }
 
 func imageDumpFrameFilename(id uint16, frame, frames int) string {

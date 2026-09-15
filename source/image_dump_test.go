@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"image"
+	"testing"
+)
 
 func TestImageDumpFrameCount(t *testing.T) {
 	tests := []struct {
@@ -18,6 +21,31 @@ func TestImageDumpFrameCount(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := imageDumpFrameCount(test.frames, test.singleFrame); got != test.want {
 				t.Fatalf("imageDumpFrameCount(%d, %v) = %d, want %d", test.frames, test.singleFrame, got, test.want)
+			}
+		})
+	}
+}
+
+func TestImageDumpMobilePoseRect(t *testing.T) {
+	tests := []struct {
+		name                string
+		width, height       int
+		frames              int
+		wantRect            image.Rectangle
+		wantMobilePoseSheet bool
+	}{
+		{name: "three-row mobile", width: 512, height: 96, frames: 1, wantRect: image.Rect(128, 0, 160, 32), wantMobilePoseSheet: true},
+		{name: "four-row mobile", width: 608, height: 152, frames: 1, wantRect: image.Rect(152, 0, 190, 38), wantMobilePoseSheet: true},
+		{name: "square tiled floor", width: 400, height: 400, frames: 1},
+		{name: "ordinary animated image", width: 512, height: 96, frames: 4},
+		{name: "non-pose strip", width: 512, height: 1280, frames: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rect, ok := imageDumpMobilePoseRect(test.width, test.height, test.frames)
+			if rect != test.wantRect || ok != test.wantMobilePoseSheet {
+				t.Fatalf("imageDumpMobilePoseRect(%d, %d, %d) = (%v, %v), want (%v, %v)",
+					test.width, test.height, test.frames, rect, ok, test.wantRect, test.wantMobilePoseSheet)
 			}
 		})
 	}

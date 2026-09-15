@@ -104,7 +104,7 @@ func main() {
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	flag.BoolVar(&dumpMusic, "dumpMusic", false, "write played music as a .wav file")
 	flag.BoolVar(&imgDump, "imgDump", false, "export all images to dump/img as PNG and exit")
-	flag.BoolVar(&imgDumpSingleFrame, "imgDumpSingleFrame", false, "with -imgDump, export only frame 0 of each image")
+	flag.BoolVar(&imgDumpSingleFrame, "imgDumpSingleFrame", false, "with -imgDump, export frame 0 of each image or the southeast pose of mobile sheets")
 	flag.IntVar(&imgDumpScale, "imgDumpScale", 1, "scale exported images by 1, 2, 3, or 4")
 	flag.StringVar(&imgDumpScaleType, "imgDumpScaleType", "nearest", "image export upscale type: nearest, crisp, balanced, smooth, or ultra-smooth")
 	flag.BoolVar(&sndDump, "sndDump", false, "export all sounds to dump/snd as WAV and exit")

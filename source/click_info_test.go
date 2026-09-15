@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -13,6 +14,55 @@ func TestMobileSizeUsesImageMetadata(t *testing.T) {
 
 	if got := mobileSize(1); got != 10 {
 		t.Fatalf("mobileSize(1) = %d, want 10", got)
+	}
+}
+
+func TestWorldHoverClearsOutsideGameViewAndOnFocusLoss(t *testing.T) {
+	session := mustNewSession(2)
+	session.draw.current = drawState{
+		descriptors: map[uint8]frameDescriptor{7: {Index: 7, Name: "Self", PictID: 100}},
+		liveMobs:    []frameMobile{{Index: 7, H: 0, V: 0}},
+	}
+	oldMobileSizeFunc := mobileSizeFunc
+	mobileSizeFunc = func(uint16) int { return 10 }
+	t.Cleanup(func() { mobileSizeFunc = oldMobileSizeFunc })
+	oldHoverOnly := gs.NameTagsOnHoverOnly
+	gs.NameTagsOnHoverOnly = true
+	t.Cleanup(func() { gs.NameTagsOnHoverOnly = oldHoverOnly })
+	clearNameTagHoverReveals()
+	t.Cleanup(clearNameTagHoverReveals)
+
+	start := time.Unix(300, 0)
+	updateSessionWorldHoverForPointer(session, 0, 0, true, true)
+	if !sessionHoverSnapshot(session).OnMobile {
+		t.Fatal("pointer over self did not establish hover")
+	}
+	if got := nameTagHoverAlphaForSession(session.ID(), 7, "Self", true, start); got != 1 {
+		t.Fatalf("initial name alpha = %v, want 1", got)
+	}
+
+	before := worldRenderGeneration.Load()
+	updateSessionWorldHoverForPointer(session, 0, 0, false, true)
+	if sessionHoverSnapshot(session).OnMobile {
+		t.Fatal("pointer outside game view retained self hover")
+	}
+	if _, ok := session.input.cachedHover(session.draw.generation.Load(), 0, 0); ok {
+		t.Fatal("outside-view hover was cached at world origin")
+	}
+	if worldRenderGeneration.Load() != before+1 {
+		t.Fatal("leaving game view did not invalidate name-tag rendering")
+	}
+	if got := nameTagHoverAlphaForSession(session.ID(), 7, "Self", false, start.Add(nameTagHoverHold+nameTagHoverFade/2)); got != 0.5 {
+		t.Fatalf("name alpha after leaving game view = %v, want 0.5", got)
+	}
+
+	updateSessionWorldHoverForPointer(session, 0, 0, true, true)
+	if !sessionHoverSnapshot(session).OnMobile {
+		t.Fatal("returning to the same world coordinate did not restore hover")
+	}
+	updateSessionWorldHoverForPointer(session, 0, 0, true, false)
+	if sessionHoverSnapshot(session).OnMobile {
+		t.Fatal("focus loss retained stale self hover")
 	}
 }
 

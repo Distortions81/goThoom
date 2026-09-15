@@ -149,6 +149,19 @@ func updateSessionWorldHover(session *Session, x, y int16) {
 	}
 }
 
+func updateSessionWorldHoverForPointer(session *Session, x, y int16, insideWorld, focused bool) {
+	if !insideWorld || !focused {
+		if session == nil {
+			session = primarySession
+		}
+		if session.input.clearHover() && gs.NameTagsOnHoverOnly {
+			markWorldRenderChanged()
+		}
+		return
+	}
+	updateSessionWorldHover(session, x, y)
+}
+
 func sessionHoverSnapshot(session *Session) ClickInfo {
 	if session == nil {
 		return ClickInfo{}

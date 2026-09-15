@@ -128,6 +128,22 @@ func (g *townPuddleReflectionRenderGame) Draw(_ *ebiten.Image) {
 	if g.err == nil && centroids[1] <= centroids[0]+2 {
 		g.err = fmt.Errorf("flipped reflection did not follow vertical movement: above=%v below=%v", centroids[0], centroids[1])
 	}
+	// The puddle uses the same trimmed, faded foot join as the floor tiles.
+	scratch.Clear()
+	pose := mobileReflectionPose{image: sprite, footRow: 1}
+	drawSize := float64(sprite.Bounds().Dx())
+	reflectedHeight := float64(height) * 0.82
+	drawMobileReflectionSprite(scratch, pose, frameBlendDrawOptions{
+		Left: 38, Top: townPuddleReflectionVerticalTop(5, 0, height, 1) - mobileReflectionFootOverlap(drawSize, reflectedHeight),
+		ScaleX: 1, ScaleY: -reflectedHeight / drawSize,
+		Red: 1, Green: 1, Blue: 1, Alpha: 0.80,
+	})
+	footPixels := make([]byte, width*height*4)
+	scratch.ReadPixels(footPixels)
+	above, near, deeper := (3*width+40)*4, (5*width+40)*4, (8*width+40)*4
+	if footPixels[above+3] != 0 || footPixels[deeper+3] == 0 || footPixels[near+3] >= footPixels[deeper+3] {
+		g.err = fmt.Errorf("puddle reflection did not soften and crop at the feet: above=%v near=%v deep=%v", footPixels[above:above+4], footPixels[near:near+4], footPixels[deeper:deeper+4])
+	}
 	g.rendered = true
 }
 

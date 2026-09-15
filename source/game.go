@@ -1186,8 +1186,8 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := eui.PointerPosition()
-	hx, hy, _ := sessionViewportWorldAt(inputSession, image.Pt(mx, my))
-	updateSessionWorldHover(inputSession, hx, hy)
+	hx, hy, insideWorld := sessionViewportWorldAt(inputSession, image.Pt(mx, my))
+	updateSessionWorldHoverForPointer(inputSession, hx, hy, insideWorld, focused)
 	updateHotkeyRecording()
 	consumedScriptInput := InputEvent{}
 	if !paletteKeyboardActive {
@@ -2276,12 +2276,12 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			drawReplacementEffectInlineGround(screen, key, ox, oy, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, snap.logicalFrame, viewport)
 		}
 	}
-	// Ground replacements on zero or positive planes still queue before
-	// characters, so their shaders sit below shadows and mobiles. Negative-
-	// plane ground pictures have already drawn in scenery order above.
+	// Ground artwork and effects on zero or positive planes draw before
+	// characters, so their reflections and shaders stay below mobiles.
+	// Negative-plane ground pictures have already drawn in scenery order.
 	for _, pictures := range [...][]framePicture{zeroPics, posPics} {
 		for _, p := range pictures {
-			if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+			if groundPictureDrawsBelowMobiles(p.PictID) {
 				drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 			}
 		}
@@ -2290,7 +2290,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+			if groundPictureDrawsBelowMobiles(p.PictID) {
 				continue
 			}
 			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
@@ -2312,7 +2312,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		i, j := 0, 0
 		maxInt := int(^uint(0) >> 1)
 		for i < len(live) || j < len(zeroPics) {
-			for j < len(zeroPics) && replacementEffectPictureDrawsBelowMobiles(zeroPics[j].PictID) {
+			for j < len(zeroPics) && groundPictureDrawsBelowMobiles(zeroPics[j].PictID) {
 				j++
 			}
 			if i >= len(live) && j >= len(zeroPics) {
@@ -2344,7 +2344,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	}
 
 	for _, p := range posPics {
-		if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+		if groundPictureDrawsBelowMobiles(p.PictID) {
 			continue
 		}
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
@@ -3230,6 +3230,17 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 				clearLayeredShadowCoverageImage(src, op)
 			}
 			releaseDrawOpts(op)
+		}
+		if profile, ok := floorReflectionProfileForPict(p.PictID); ok {
+			// Shared, snapped tile boundaries clip adjacent copies without a
+			// reflection gap or double blend at their seam.
+			floorW, floorH := w, h
+			if floorW <= 0 || floorH <= 0 {
+				floorW, floorH = img.Bounds().Dx(), img.Bounds().Dy()
+			}
+			floorLeft, floorRight := tiledPictureSpan(rawX, floorW, gs.GameScale)
+			floorTop, floorBottom := tiledPictureSpan(rawY, floorH, gs.GameScale)
+			drawFloorPictureMobileReflections(screen, profile, floorLeft, floorTop, floorRight-floorLeft, floorBottom-floorTop, fadeAlpha, ox, oy, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha)
 		}
 
 		if gs.pictIDDebug {

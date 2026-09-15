@@ -1251,19 +1251,11 @@ func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, heigh
 		if math.Abs(mobileX-centerX) >= effect.width/2+drawSize*0.25 || math.Abs(approximateFootY-centerY) >= effect.height/2+drawSize*0.65 {
 			continue
 		}
-		colors := playerColorsForDescriptor(desc)
-		img, influence, palette, gpuRecolor := loadGPURecoloredMobileFrame(desc.PictID, mobile.State, colors)
-		metricsKey := makeMobileKey(desc.PictID, mobile.State, colors)
-		if !gpuRecolor {
-			img = loadMobileFrame(desc.PictID, mobile.State, colors)
-			img = getScaledMobileFrame(metricsKey, img)
-		} else {
-			metricsKey = mobileRecolorSharedKey(desc.PictID, mobile.State)
-		}
-		if img == nil || img.Bounds().Dx() <= 0 || img.Bounds().Dy() <= 0 {
+		pose, ok := loadMobileReflectionPose(desc, mobile.State)
+		if !ok {
 			continue
 		}
-		footFraction := float64(mobileSpriteMetricsFor(metricsKey, img).footFraction)
+		footFraction := pose.footRow
 		footY := mobileY - drawSize/2 + drawSize*footFraction
 		proximity := townPuddleReflectionProximity(mobileX-centerX, footY-centerY, effect.width, effect.height, drawSize)
 		if proximity <= 0 {
@@ -1277,26 +1269,17 @@ func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, heigh
 		}
 		// The camera looks down onto a ground plane. The mobile's ground point
 		// moves the reflection in the same screen-space direction; only its
-		// artwork is flipped and foreshortened into the shallow puddle. Reuse
-		// the same opaque foot row as contact shadows so the two feet meet.
+		// artwork is flipped and foreshortened into the shallow puddle. The
+		// shared reflection draw trims and softens the join at the foot row.
 		options := frameBlendDrawOptions{
 			Left:   mobileX - drawSize/2 - effect.left,
-			Top:    townPuddleReflectionVerticalTop(footY, effect.top, float64(height), footFraction),
-			ScaleX: drawSize / float64(img.Bounds().Dx()),
-			ScaleY: -float64(height) * 0.82 / float64(img.Bounds().Dy()),
+			Top:    townPuddleReflectionVerticalTop(footY, effect.top, float64(height), footFraction) - mobileReflectionFootOverlap(drawSize, float64(height)*0.82),
+			ScaleX: drawSize / float64(pose.image.Bounds().Dx()),
+			ScaleY: -float64(height) * 0.82 / float64(pose.image.Bounds().Dy()),
 			Red:    1, Green: 1, Blue: 1, Alpha: float32(0.80 * proximity),
 			Linear: worldArtworkFilter() == ebiten.FilterLinear,
 		}
-		if !gpuRecolor || !drawRecoloredMobile(reflection, img, influence, palette, options) {
-			op := acquireDrawOpts()
-			op.Filter = worldArtworkFilter()
-			op.DisableMipmaps = true
-			op.GeoM.Scale(options.ScaleX, options.ScaleY)
-			op.GeoM.Translate(options.Left, options.Top)
-			op.ColorScale.Scale(1, 1, 1, options.Alpha)
-			reflection.DrawImage(img, op)
-			releaseDrawOpts(op)
-		}
+		drawMobileReflectionSprite(reflection, pose, options)
 		reflectionCount++
 	}
 	if reflectionCount > 0 {
@@ -1386,7 +1369,7 @@ func townPuddleReflectionVerticalTop(footY, puddleTop, puddleHeight, footFractio
 	reflectedHeight := puddleHeight * 0.82
 	// With the source flipped, its opaque foot row lands at Top minus this
 	// amount. Put that row exactly at the upright sprite's contact point.
-	return footY - puddleTop + reflectedHeight*footFraction
+	return mobileReflectionTop(footY, reflectedHeight, footFraction) - puddleTop
 }
 
 func replacementEffectEase(t float32) float32 {
