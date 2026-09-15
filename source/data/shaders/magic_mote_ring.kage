@@ -1,0 +1,140 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+var MagicTheme float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func mote(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func softMote(value float) float {
+	v := max(0, sin(value))
+	return v * v
+}
+
+func polarAngle(p vec2) float {
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		if p.y >= 0 {
+			return 3.14159265 - angle
+		}
+		return -3.14159265 - angle
+	}
+	return angle
+}
+
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
+func themeColor(theme float) vec3 {
+	if theme < 0.5 {
+		return vec3(0.48, 0.52, 0.56)
+	}
+	if theme < 1.5 {
+		return vec3(0.01, 1.0, 0.20)
+	}
+	if theme < 2.5 {
+		return vec3(1.0, 0.17, 0.015)
+	}
+	if theme < 3.5 {
+		return vec3(0.92, 0.005, 0.48)
+	}
+	if theme < 4.5 {
+		return vec3(1.0, 0.92, 0.015)
+	}
+	return vec3(0.0, 0.78, 1.0)
+}
+
+func sourcePulse(cycle float) float {
+	// Match the four legacy frames: large and fully outlined, tiny and dim,
+	// medium, then brightening on the way back to the large first frame.
+	if cycle < 0.25 {
+		return mix(1.0, 0.22, smoothstep(0, 0.25, cycle))
+	}
+	if cycle < 0.50 {
+		return mix(0.22, 0.53, smoothstep(0.25, 0.50, cycle))
+	}
+	if cycle < 0.75 {
+		return mix(0.53, 0.67, smoothstep(0.50, 0.75, cycle))
+	}
+	return mix(0.67, 1.0, smoothstep(0.75, 1.0, cycle))
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	r := length(p)
+	angle := polarAngle(p)
+	cycle := fract(Phase/0.8)
+	pulse := sourcePulse(cycle)
+	baseColor := themeColor(MagicTheme)
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := maskAlpha(localPos)
+		right := maskAlpha(localPos+vec2(2, 0))
+		left := maskAlpha(localPos+vec2(-2, 0))
+		up := maskAlpha(localPos+vec2(0, -2))
+		down := maskAlpha(localPos+vec2(0, 2))
+		inside := min(min(right, left), min(up, down))
+		edge := max(0, body-inside)
+		light := (body*(0.055+0.075*pulse)+edge*(0.16+0.12*pulse))*Alpha
+		lightColor := mix(baseColor, vec3(1.0), 0.18+edge*0.25)
+		return vec4(lightColor*light, light)
+	}
+
+	// Eight fixed points reproduce the source silhouette. Radial and angular
+	// profiles expand together so each point reads as a round gem, not an arc.
+	dotPhase := angle*8.0 + 1.5707963
+	angularWide := softMote(dotPhase)
+	angularCore := mote(dotPhase)
+	orbitRadius := 0.355
+	dotWidth := 0.008 + pulse*0.052
+	outlineStrength := smoothstep(0.28, 0.76, pulse)
+	blackDots := band(r, orbitRadius, dotWidth+0.028)*angularWide*(0.16+0.84*outlineStrength)
+	metalDots := band(r, orbitRadius, dotWidth+0.015)*angularWide*(0.08+0.92*outlineStrength)
+	colorDots := band(r, orbitRadius, dotWidth)*angularCore*(0.36+0.64*pulse)
+	hotDots := band(r, orbitRadius, max(0.010, dotWidth*0.48))*mote(dotPhase)*pulse
+
+	// Small matching flecks appear between the main gems at peak strength. They
+	// add modern particle detail without rotating or obscuring the eight points.
+	fleckRingA := band(r, 0.285, 0.016)*mote(angle*16.0+cycle*6.2831853)*pulse
+	fleckRingB := band(r, 0.430, 0.012)*mote(angle*24.0-cycle*12.5663706)*(0.35+0.65*pulse)
+	flecks := fleckRingA*0.44 + fleckRingB*0.34
+	intensity := min(1, blackDots+metalDots+colorDots+hotDots+flecks)
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	color := vec3(0.018, 0.020, 0.022)
+	color = mix(color, vec3(0.56, 0.58, 0.60), min(1, metalDots*1.2))
+	color = mix(color, baseColor, min(1, colorDots*1.45+flecks))
+	// Neutral magic keeps a dark center like sprite 1039; colored variants get
+	// a restrained white shine matching their gray legacy edge pixels.
+	highlight := min(1, hotDots*0.64+flecks*0.42)
+	if MagicTheme < 0.5 {
+		highlight *= 0.38
+	}
+	color = mix(color, vec3(1.0), highlight)
+	a := min(1, intensity*2.65) * Alpha
+	return vec4(color*a, a)
+}

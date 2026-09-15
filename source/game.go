@@ -3255,6 +3255,10 @@ func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobi
 	if !replacementEffectReplacesPict(p.PictID) {
 		return nil, 0, 0, 0, 0
 	}
+	kind, _ := replacementEffectKindForPict(p.PictID)
+	if !replacementEffectUsesPlayerMask(kind) {
+		return nil, 0, 0, 0, 0
+	}
 	best := -1
 	bestDist := 65 * 65
 	for i, mobile := range mobiles {

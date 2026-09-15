@@ -1,0 +1,89 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func polarAngle(p vec2) float {
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		if p.y >= 0 {
+			return 3.14159265 - angle
+		}
+		return -3.14159265 - angle
+	}
+	return angle
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	// Work in normalized elliptical coordinates so the compact 597 pool and
+	// broad 598 field each retain their own native footprint.
+	q := vec2(p.x*2.0, p.y*2.0)
+	r := length(q)
+	angle := polarAngle(q)
+	t := Phase * 7.8539816 // Four source frames at the game's five UPS.
+
+	// The originals have a lumpy, breathing outline rather than a clean oval.
+	boundary := 0.91
+	boundary += sin(angle*5.0+t)*0.030
+	boundary += sin(angle*9.0-t*2.0+1.7)*0.018
+	boundary += sin(angle*13.0+t*3.0+0.4)*0.010
+	coverage := clamp((boundary+0.025-r)/0.050, 0, 1)
+	if coverage <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	// Pixel-space frequencies give the large pool proportionally more churning
+	// cells instead of merely stretching the compact pool's pattern.
+	x := localPos.x
+	y := localPos.y
+	flowA := spark(x*0.145+sin(y*0.105+t)*1.35+t*2.0)
+	flowB := spark(y*0.165+sin(x*0.082-t*2.0)*1.10-t)
+	flowC := spark((x+y)*0.108+sin((x-y)*0.075+t*3.0)*1.25+t)
+	hotCells := min(1, flowA*0.72+flowB*0.58+flowC*0.46)
+
+	// Dark red fissures snake between the hot cells. Their motion is slow and
+	// lateral, matching the source frames' dense surface churn rather than fire.
+	fissureA := spark(x*0.205-y*0.135+sin(y*0.070+t)*1.8-t*2.0)
+	fissureB := spark(x*0.118+y*0.232+sin(x*0.063-t)*1.5+t*3.0)
+	fissures := fissureA*fissureB
+	deepCells := spark(x*0.071-y*0.089+t) * spark(x*0.097+y*0.061-t*2.0)
+
+	// Scattered yellow boils brighten and collapse at different points during
+	// the four-frame cycle, reproducing the originals' moving hot spots.
+	boilA := spark(x*0.235+y*0.173+t*3.0) * spark(x*0.087-y*0.219-t*2.0)
+	boilB := spark(x*0.191-y*0.147-t) * spark(x*0.123+y*0.201+t*2.0)
+	boils := min(1, boilA+boilB*0.82) * max(0, 1-r*0.82)
+
+	edgeDepth := clamp((boundary-r)/0.20, 0, 1)
+	color := mix(vec3(0.10, 0.002, 0), vec3(0.72, 0.015, 0), edgeDepth)
+	color = mix(color, vec3(0.96, 0.19, 0), min(1, hotCells*0.72+edgeDepth*0.28))
+	color = mix(color, vec3(1.0, 0.47, 0), min(1, hotCells*0.78))
+	color = mix(color, vec3(1.0, 0.78, 0.015), boils*0.88)
+	color = mix(color, vec3(0.29, 0.002, 0), min(0.78, fissures*0.70+deepCells*0.38))
+
+	// Retain a crisp near-black rim like the source artwork so the replacement
+	// remains readable against similarly colored ground.
+	rim := 1-smoothstep(0.015, 0.090, boundary-r)
+	color = mix(color, vec3(0.035, 0.001, 0), rim*0.90)
+	a := coverage * Alpha
+	return vec4(color*a, a)
+}

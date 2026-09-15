@@ -56,6 +56,12 @@ var teleportBurstShaderSource []byte
 //go:embed data/shaders/stone_form.kage
 var stoneFormShaderSource []byte
 
+//go:embed data/shaders/lava_pool.kage
+var lavaPoolShaderSource []byte
+
+//go:embed data/shaders/magic_mote_ring.kage
+var magicMoteRingShaderSource []byte
+
 //go:embed data/shaders/coin_reward.kage
 var coinRewardShaderSource []byte
 
@@ -70,6 +76,8 @@ var mysticOrbitWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
 var teleportBurstShader *ebiten.Shader
 var stoneFormShader *ebiten.Shader
+var lavaPoolShader *ebiten.Shader
+var magicMoteRingShader *ebiten.Shader
 var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 var replacementEffectsPreview bool
@@ -120,6 +128,8 @@ const (
 	replacementEffectTeleportBlue
 	replacementEffectTeleportPrismatic
 	replacementEffectStoneForm
+	replacementEffectLavaPool
+	replacementEffectMagicMoteRing
 	replacementEffectCoinReward
 )
 
@@ -181,6 +191,7 @@ func init() {
 			"FlagMirror":      float32(0),
 			"TorchMirror":     float32(0),
 			"PathVariant":     float32(0),
+			"MagicTheme":      float32(0),
 		}
 		if kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
@@ -272,6 +283,14 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	lavaShader, err := compileReplacementEffectShaderForInit("lava_pool.kage", lavaPoolShaderSource)
+	if err != nil {
+		return err
+	}
+	magicRingShader, err := compileReplacementEffectShaderForInit("magic_mote_ring.kage", magicMoteRingShaderSource)
+	if err != nil {
+		return err
+	}
 	coinShader, err := compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 	if err != nil {
 		return err
@@ -290,6 +309,8 @@ func ReloadReplacementEffectsShader() error {
 	mysticFadeShader = fadeShader
 	teleportBurstShader = teleportShader
 	stoneFormShader = stoneShader
+	lavaPoolShader = lavaShader
+	magicMoteRingShader = magicRingShader
 	coinRewardShader = coinShader
 	bloodGushShader = bloodShader
 	replacementEffectsShadersReady = true
@@ -298,7 +319,7 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 12
+const replacementEffectsShaderCount = 14
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -398,11 +419,21 @@ func loadNextReplacementEffectShader() error {
 			stoneFormShader = shader
 		}
 	case 10:
+		shader, err = compileReplacementEffectShaderForInit("lava_pool.kage", lavaPoolShaderSource)
+		if err == nil {
+			lavaPoolShader = shader
+		}
+	case 11:
+		shader, err = compileReplacementEffectShaderForInit("magic_mote_ring.kage", magicMoteRingShaderSource)
+		if err == nil {
+			magicMoteRingShader = shader
+		}
+	case 12:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
 		}
-	case 11:
+	case 13:
 		shader, err = compileReplacementEffectShaderForInit("blood_gush.kage", bloodGushShaderSource)
 		if err == nil {
 			bloodGushShader = shader
@@ -461,6 +492,10 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 		return replacementEffectMysticWard, true
 	case 1587:
 		return replacementEffectMysticOrbitWard, true
+	case 597, 598:
+		return replacementEffectLavaPool, true
+	case 1039, 1040, 1041, 1042, 1043, 1044:
+		return replacementEffectMagicMoteRing, true
 	case 2976:
 		return replacementEffectTeleportGold, true
 	case 2977:
@@ -506,6 +541,12 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectStoneForm {
 		return stoneFormShader
 	}
+	if kind == replacementEffectLavaPool {
+		return lavaPoolShader
+	}
+	if kind == replacementEffectMagicMoteRing {
+		return magicMoteRingShader
+	}
 	if kind == replacementEffectCoinReward {
 		return coinRewardShader
 	}
@@ -520,7 +561,11 @@ func replacementEffectIsOneShot(kind replacementEffectKind) bool {
 // long as their source picture is present. Unlike a spell burst, they should
 // neither ease in nor linger at a stale position after that picture is gone.
 func replacementEffectIsPersistent(kind replacementEffectKind) bool {
-	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectMysticOrbitWard
+	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing
+}
+
+func replacementEffectUsesPlayerMask(kind replacementEffectKind) bool {
+	return kind != replacementEffectLavaPool
 }
 
 // replacementEffectFramePhase maps a legacy sprite frame to a position in the
@@ -541,7 +586,7 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 	if kind == replacementEffectFirePlume {
 		return 1.35
 	}
-	if kind == replacementEffectMysticOrbitWard {
+	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing {
 		return 0.8
 	}
 	return 1
@@ -560,7 +605,7 @@ func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16
 	}
 	duration := replacementEffectSequenceDuration(kind)
 	phase := replacementEffectFramePhase(frame, frames, duration)
-	if kind == replacementEffectMysticOrbitWard {
+	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing {
 		frame %= frames
 		if frame < 0 {
 			frame += frames
@@ -637,6 +682,13 @@ func replacementEffectWallTorchMirror(id uint16) float32 {
 func replacementEffectPathVariant(id uint16) float32 {
 	if id == 446 {
 		return 1
+	}
+	return 0
+}
+
+func replacementEffectMagicTheme(id uint16) float32 {
+	if id >= 1039 && id <= 1044 {
+		return float32(id - 1039)
 	}
 	return 0
 }
@@ -732,7 +784,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	// Coin rewards can appear in open world space as well as over a mobile.
 	// Keep their native group position stable instead of letting a transient
 	// nearest-mobile choice split or move the digits between updates.
-	effect.hasMobileAnchor = kind != replacementEffectCoinReward && kind != replacementEffectWallTorch && instanceKey != 0
+	effect.hasMobileAnchor = replacementEffectUsesPlayerMask(kind) && kind != replacementEffectCoinReward && kind != replacementEffectWallTorch && instanceKey != 0
 	if effect.hasMobileAnchor {
 		effect.mobileIndex = uint8(instanceKey)
 		effect.mobileOffsetX = effect.left - mobileX
@@ -889,6 +941,9 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		if effect.kind == replacementEffectHiddenPath {
 			state.uniforms["PathVariant"] = replacementEffectPathVariant(effect.pictID)
 		}
+		if effect.kind == replacementEffectMagicMoteRing {
+			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(effect.pictID)
+		}
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme
 		}
@@ -945,6 +1000,14 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectHiddenPath, label: "Hidden Path Fading", pictID: 445},
 	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
 	{kind: replacementEffectMysticOrbitWard, label: "Amber Orbit Ward", pictID: 1587},
+	{kind: replacementEffectLavaPool, label: "Lava Pool (compact)", pictID: 597},
+	{kind: replacementEffectLavaPool, label: "Lava Pool (large)", pictID: 598},
+	{kind: replacementEffectMagicMoteRing, label: "Neutral Magic Ring", pictID: 1039},
+	{kind: replacementEffectMagicMoteRing, label: "Green Magic Ring", pictID: 1040},
+	{kind: replacementEffectMagicMoteRing, label: "Red Magic Ring", pictID: 1041},
+	{kind: replacementEffectMagicMoteRing, label: "Magenta Magic Ring", pictID: 1042},
+	{kind: replacementEffectMagicMoteRing, label: "Yellow Magic Ring", pictID: 1043},
+	{kind: replacementEffectMagicMoteRing, label: "Cyan Magic Ring", pictID: 1044},
 	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
 	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
 	{kind: replacementEffectTeleportBlue, label: "Blue Teleport", pictID: 2977},
@@ -970,7 +1033,7 @@ func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
 // already-expired final state.
 func replacementEffectPreviewPhase(kind replacementEffectKind, elapsed float64) float32 {
 	switch kind {
-	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectMysticOrbitWard, replacementEffectStoneForm, replacementEffectCoinReward:
+	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectMysticOrbitWard, replacementEffectStoneForm, replacementEffectLavaPool, replacementEffectMagicMoteRing, replacementEffectCoinReward:
 		return float32(elapsed)
 	default:
 		return float32(math.Mod(elapsed, float64(replacementEffectSequenceDuration(kind))))
@@ -1128,6 +1191,9 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		if preview.kind == replacementEffectHiddenPath {
 			state.uniforms["PathVariant"] = replacementEffectPathVariant(preview.pictID)
+		}
+		if preview.kind == replacementEffectMagicMoteRing {
+			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(preview.pictID)
 		}
 		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme

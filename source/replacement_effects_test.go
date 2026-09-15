@@ -94,6 +94,22 @@ func TestMysticOrbitWardShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestLavaPoolShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(lavaPoolShaderSource)
+	if err != nil {
+		t.Fatalf("compile lava pool shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestMagicMoteRingShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(magicMoteRingShaderSource)
+	if err != nil {
+		t.Fatalf("compile magic mote ring shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
 func TestStoneFormShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(stoneFormShaderSource)
 	if err != nil {
@@ -168,6 +184,15 @@ func TestWavingFlagIsPersistent(t *testing.T) {
 	if !replacementEffectIsPersistent(replacementEffectMysticOrbitWard) {
 		t.Fatal("orbiting mystic ward must remain visible with its source sprite")
 	}
+	if !replacementEffectIsPersistent(replacementEffectLavaPool) {
+		t.Fatal("lava pool must remain visible with its source sprite")
+	}
+	if replacementEffectUsesPlayerMask(replacementEffectLavaPool) {
+		t.Fatal("lava pool must remain on the ground instead of pinning to a nearby player")
+	}
+	if !replacementEffectIsPersistent(replacementEffectMagicMoteRing) {
+		t.Fatal("magic mote ring must remain visible with its source sprite")
+	}
 }
 
 func TestReplacementEffectFramePhaseUsesSourceAnimationTimeline(t *testing.T) {
@@ -199,6 +224,12 @@ func TestReplacementEffectPreviewPhaseLoopsOneShots(t *testing.T) {
 	}
 	if got, want := replacementEffectSequenceDuration(replacementEffectMysticOrbitWard), float32(0.8); got != want {
 		t.Fatalf("orbit ward cycle = %v, want %v", got, want)
+	}
+	if got, want := replacementEffectSequenceDuration(replacementEffectLavaPool), float32(0.8); got != want {
+		t.Fatalf("lava pool cycle = %v, want %v", got, want)
+	}
+	if got, want := replacementEffectSequenceDuration(replacementEffectMagicMoteRing), float32(0.8); got != want {
+		t.Fatalf("magic mote ring cycle = %v, want %v", got, want)
 	}
 }
 
@@ -277,6 +308,14 @@ func TestHiddenPathVariants(t *testing.T) {
 	}
 }
 
+func TestMagicMoteRingThemes(t *testing.T) {
+	for id := uint16(1039); id <= 1044; id++ {
+		if got, want := replacementEffectMagicTheme(id), float32(id-1039); got != want {
+			t.Errorf("magic theme for %d = %v, want %v", id, got, want)
+		}
+	}
+}
+
 func TestConcurrentReplacementShaderInitializationDoesNotRepeatShaders(t *testing.T) {
 	replacementEffectsShaderInitMu.Lock()
 	originalReady := replacementEffectsShadersReady
@@ -342,6 +381,10 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		{id: 331, kind: replacementEffectWallTorch, ok: true},
 		{id: 1286, kind: replacementEffectMysticWard, ok: true},
 		{id: 1587, kind: replacementEffectMysticOrbitWard, ok: true},
+		{id: 597, kind: replacementEffectLavaPool, ok: true},
+		{id: 598, kind: replacementEffectLavaPool, ok: true},
+		{id: 1039, kind: replacementEffectMagicMoteRing, ok: true},
+		{id: 1044, kind: replacementEffectMagicMoteRing, ok: true},
 		{id: 445, kind: replacementEffectHiddenPath, ok: true},
 		{id: 446, kind: replacementEffectHiddenPath, ok: true},
 		{id: 2976, kind: replacementEffectTeleportGold, ok: true},
@@ -363,7 +406,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 885, 5647, 1286, 1587, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 597, 598, 885, 1039, 1044, 5647, 1286, 1587, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])
