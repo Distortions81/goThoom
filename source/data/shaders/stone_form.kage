@@ -29,42 +29,96 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := localPos/Size - vec2(0.5, 0.5)
 	p.x *= Size.x / Size.y
-	t := Phase * 1.45
+	t := Phase
+	r := length(vec2(p.x*0.94, p.y*1.08))
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		angle += 3.14159265
+	}
+
+	// Keep the petrified surface stable. The magic around it moves, but the
+	// protected character should feel heavy and completely immovable.
+	facetA := chip(p.x*31.0+p.y*19.0+0.7)
+	facetB := chip(p.x*17.0-p.y*37.0+2.1)
+	facets := min(1, facetA*0.62+facetB*0.48)
+	crackA := band(abs(p.x*0.74+p.y*0.48), 0.115, 0.014)
+	crackB := band(abs(p.x*0.44-p.y*0.82), 0.168, 0.012)
+	cracks := max(crackA*chip(p.y*27.0+1.2), crackB*chip(p.x*33.0-0.4))
+
+	body := float(0)
+	bodyEdge := float(0)
+	outerBodyEdge := float(0)
+	if HasMask > 0.5 {
+		body = maskAlpha(localPos)
+		left := maskAlpha(localPos+vec2(-2, 0))
+		right := maskAlpha(localPos+vec2(2, 0))
+		up := maskAlpha(localPos+vec2(0, -2))
+		down := maskAlpha(localPos+vec2(0, 2))
+		inside := min(min(left, right), min(up, down))
+		outside := max(max(left, right), max(up, down))
+		bodyEdge = max(0, body-inside)
+		outerBodyEdge = max(0, outside-body)
+	}
 
 	if SpriteLightOnly > 0.5 {
 		if HasMask <= 0.5 {
 			return vec4(0, 0, 0, 0)
 		}
-		body := maskAlpha(localPos)
-		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
-		pulse := 0.45 + 0.55*chip(t*5.0+p.y*9.0)
-		light := max(0, body*(0.025+0.045*pulse)+edge*0.16) * Alpha
-		return vec4(vec3(0.95, 0.025, 0.012)*light, light)
+		// Keep the stone detail, but bathe it in the original effect's red light.
+		hitPulse := chip(t*6.2831853-r*9.0)
+		stoneLight := body*(0.12+0.18*facets) + bodyEdge*0.46
+		warmLight := body*(0.035+0.045*hitPulse) + bodyEdge*hitPulse*0.17
+		light := min(0.70, stoneLight+warmLight) * Alpha
+		color := mix(vec3(0.66, 0.68, 0.70), vec3(1.0, 0.075, 0.025), min(1, 0.52+warmLight*5.0))
+		return vec4(color*light, light)
 	}
 
-	// Red, square-cut fragments hold in a restless defensive shell around the
-	// immobilized target, echoing the original stone-form sprite's blocky haze.
-	shell := length(vec2(p.x*0.92, p.y*1.12))
-	blockA := band(shell, 0.32, 0.050) * chip(p.x*38.0+p.y*29.0+t*7.0)
-	blockB := band(shell, 0.43, 0.040) * chip(p.x*53.0-p.y*41.0-t*9.0+1.4)
-	blockC := band(shell, 0.24, 0.034) * chip(p.x*67.0+p.y*47.0+t*11.0+2.8)
-	// A slow, uneven pressure wave makes the red haze feel solid and held.
-	pressure := max(0, 1-shell*1.85) * (0.05+0.07*chip(p.x*17.0-p.y*13.0+t*4.0))
-	cracks := band(abs(p.x)+abs(p.y)*0.55, 0.27, 0.028) * chip(p.x*31.0-p.y*37.0-t*6.0)
-	intensity := min(1, blockA*1.30+blockB+blockC*0.82+pressure+cracks*0.52)
+	// Successive stone shells grow from the center, echoing the original four
+	// frames. Their broken facets make the expansion feel assembled from stone
+	// plates instead of drawn as soft, perfectly round energy rings.
+	shellCycleA := fract(t)
+	shellCycleB := fract(t+0.50)
+	shellRadiusA := 0.035 + shellCycleA*0.355
+	shellRadiusB := 0.035 + shellCycleB*0.355
+	shellPiecesA := 0.28 + 0.72*chip(angle*8.0+p.x*21.0-p.y*13.0)
+	shellPiecesB := 0.28 + 0.72*chip(angle*7.0-p.x*17.0-p.y*19.0+1.8)
+	growingShellA := band(r, shellRadiusA, 0.050)*shellPiecesA*(1.0-shellCycleA*0.28)
+	growingShellB := band(r, shellRadiusB, 0.045)*shellPiecesB*(1.0-shellCycleB*0.28)
+	growingShells := min(1, growingShellA+growingShellB)
 
-	if HasMask > 0.5 {
-		body := maskAlpha(localPos)
-		right := maskAlpha(localPos+vec2(2, 0))
-		up := maskAlpha(localPos+vec2(0, -2))
-		edge := max(0, max(right, up)-body)
-		intensity *= 1.0-body*0.72
-		intensity += edge*0.30
-	}
+	// A thick outer barrier remains after each expanding shell locks into it.
+	// Black edging and small white catches match the game's outlined, glossy
+	// artwork and keep it readable on grass as well as dark backgrounds.
+	stoneBody := body*(0.58+facets*0.30)
+	stoneCracks := body*cracks*0.48
+	innerShell := band(r, 0.335, 0.062)*(0.42+facets*0.36)
+	stoneRim := band(r, 0.390, 0.052)*(0.82+facets*0.42)
+	blackRim := band(r, 0.430, 0.022)*0.92 + outerBodyEdge*0.52
+	whiteCatch := band(r, 0.372, 0.025)*(0.25+0.75*chip(angle*3.0-0.7))*0.82 + bodyEdge*(0.18+facets*0.42)
+	stone := min(1, stoneBody+growingShells*1.15+innerShell+stoneRim+stoneCracks+blackRim+whiteCatch)
+
+	// The red field pulses outward without orbiting the target. This keeps the
+	// original center-out motion and removes the unrelated spinning flare.
+	cycle := fract(t + 0.14)
+	waveRadius := 0.405 + cycle*0.090
+	wavePieces := 0.58 + 0.42*chip(angle*6.0+p.x*13.0-p.y*9.0)
+	repelWave := band(r, waveRadius, 0.034)*(1.0-cycle)*wavePieces
+	redPulse := 0.76 + 0.24*chip(t*6.2831853)
+	barrierHeat := band(r, 0.405, 0.074)*(0.23+0.16*chip(angle*9.0))*redPulse
+	magic := min(1, repelWave*2.25+barrierHeat*1.55)
+	intensity := min(1, stone+magic)
 	if intensity <= 0 {
 		return vec4(0, 0, 0, 0)
 	}
-	color := mix(vec3(0.42, 0.004, 0.003), vec3(1.0, 0.16, 0.045), min(1, intensity*1.6))
-	a := min(1, intensity*2.1) * Alpha
+
+	stoneColor := mix(vec3(0.38, 0.42, 0.46), vec3(0.82, 0.88, 0.93), facets)
+	shellColor := mix(vec3(0.56, 0.002, 0.008), vec3(1.0, 0.075, 0.022), facets)
+	shellCoverage := min(1, growingShells*1.35+innerShell*1.15+stoneRim*1.45)
+	color := mix(stoneColor, shellColor, shellCoverage)
+	color = mix(color, vec3(0.025, 0.018, 0.016), min(1, blackRim+stoneCracks*1.5))
+	color = mix(color, vec3(1.0, 0.90, 0.86), min(1, growingShells*0.24+whiteCatch*1.8))
+	magicColor := mix(vec3(0.88, 0.004, 0.012), vec3(1.0, 0.22, 0.075), min(1, magic*1.7))
+	color = mix(color, magicColor, min(1, magic*1.35))
+	a := min(1, stone*2.20+magic*2.90) * Alpha
 	return vec4(color*a, a)
 }

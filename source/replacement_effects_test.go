@@ -86,6 +86,21 @@ func TestHiddenPathShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestStoneFormShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(stoneFormShaderSource)
+	if err != nil {
+		t.Fatalf("compile stone form shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestStoneFormPreviewPhaseDoesNotRestart(t *testing.T) {
+	const elapsed = 3.25
+	if got := replacementEffectPreviewPhase(replacementEffectStoneForm, elapsed); got != elapsed {
+		t.Fatalf("stone form preview phase = %v, want %v", got, elapsed)
+	}
+}
+
 func TestReplacementEffectPreviewSelection(t *testing.T) {
 	originalSelection, originalMode, originalScale, originalUPS := replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS
 	t.Cleanup(func() {

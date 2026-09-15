@@ -937,7 +937,7 @@ func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
 // already-expired final state.
 func replacementEffectPreviewPhase(kind replacementEffectKind, elapsed float64) float32 {
 	switch kind {
-	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectCoinReward:
+	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectStoneForm, replacementEffectCoinReward:
 		return float32(elapsed)
 	default:
 		return float32(math.Mod(elapsed, float64(replacementEffectSequenceDuration(kind))))
