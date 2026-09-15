@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -52,6 +53,14 @@ func TestFirePlumeShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestWavingFlagShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(wavingFlagShaderSource)
+	if err != nil {
+		t.Fatalf("compile waving flag shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
 func TestReplacementEffectPreviewSelection(t *testing.T) {
 	originalSelection, originalMode, originalScale, originalUPS := replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS
 	t.Cleanup(func() {
@@ -82,12 +91,56 @@ func TestReplacementEffectPreviewSelection(t *testing.T) {
 	}
 }
 
+func TestReplacementEffectsPreviewGrassPatternIsStable(t *testing.T) {
+	first := replacementEffectsPreviewGrassPattern(4, 7)
+	if got := replacementEffectsPreviewGrassPattern(4, 7); got != first {
+		t.Fatalf("grass pattern changed between calls: %08x then %08x", first, got)
+	}
+	if other := replacementEffectsPreviewGrassPattern(5, 7); other == first {
+		t.Fatalf("adjacent grass tiles share pattern %08x", first)
+	}
+}
+
 func TestFirePlumeIsAnOverscannedOneShot(t *testing.T) {
 	if !replacementEffectIsOneShot(replacementEffectFirePlume) {
 		t.Fatal("fire plume should play as a brief impact")
 	}
 	if !replacementEffectNeedsOverscan(replacementEffectFirePlume) {
 		t.Fatal("fire plume needs room for rising embers")
+	}
+}
+
+func TestWavingFlagIsPersistent(t *testing.T) {
+	if replacementEffectIsPersistent(replacementEffectWavingFlag) == false {
+		t.Fatal("waving flags must remain visible with their source sprite")
+	}
+	if replacementEffectIsPersistent(replacementEffectFirePlume) {
+		t.Fatal("fire plume must remain a transient effect")
+	}
+}
+
+func TestReplacementEffectFramePhaseUsesSourceAnimationTimeline(t *testing.T) {
+	if got := replacementEffectFramePhase(0, 4, 1.35); got != 0 {
+		t.Fatalf("first frame phase = %v, want 0", got)
+	}
+	if got, want := replacementEffectFramePhase(3, 4, 1.35), float32(1.35); math.Abs(float64(got-want)) > 0.0001 {
+		t.Fatalf("last frame phase = %v, want %v", got, want)
+	}
+	if got, want := replacementEffectFramePhase(7, 4, 1), float32(1); got != want {
+		t.Fatalf("wrapped source frame phase = %v, want %v", got, want)
+	}
+}
+
+func TestWavingFlagThemes(t *testing.T) {
+	for _, test := range []struct {
+		id   uint16
+		want float32
+	}{
+		{885, 0}, {886, 1}, {887, 2}, {5645, 3}, {5646, 4}, {5647, 5},
+	} {
+		if got := replacementEffectFlagTheme(test.id); got != test.want {
+			t.Errorf("flag theme for %d = %v, want %v", test.id, got, test.want)
+		}
 	}
 }
 
@@ -147,6 +200,10 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 	}{
 		{id: 1759, kind: replacementEffectHealing, ok: true},
 		{id: 481, kind: replacementEffectFirePlume, ok: true},
+		{id: 482, kind: replacementEffectFirePlume, ok: true},
+		{id: 572, kind: replacementEffectFirePlume, ok: true},
+		{id: 885, kind: replacementEffectWavingFlag, ok: true},
+		{id: 5647, kind: replacementEffectWavingFlag, ok: true},
 		{id: 1286, kind: replacementEffectMysticWard, ok: true},
 		{id: 445, kind: replacementEffectMysticFade, ok: true},
 		{id: 2976, kind: replacementEffectTeleportGold, ok: true},
@@ -168,7 +225,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 445, 481, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 445, 481, 482, 572, 885, 5647, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])

@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"image"
 	"image/color"
 	"math"
 	"os"
@@ -28,6 +29,9 @@ var healingBurstShaderSource []byte
 //go:embed data/shaders/fire_plume.kage
 var firePlumeShaderSource []byte
 
+//go:embed data/shaders/waving_flag.kage
+var wavingFlagShaderSource []byte
+
 //go:embed data/shaders/mystic_ward.kage
 var mysticWardShaderSource []byte
 
@@ -45,6 +49,7 @@ var coinRewardShaderSource []byte
 
 var healingBurstShader *ebiten.Shader
 var firePlumeShader *ebiten.Shader
+var wavingFlagShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
 var teleportBurstShader *ebiten.Shader
@@ -88,6 +93,7 @@ type replacementEffectKind uint8
 const (
 	replacementEffectHealing replacementEffectKind = iota + 1
 	replacementEffectFirePlume
+	replacementEffectWavingFlag
 	replacementEffectMysticWard
 	replacementEffectMysticFade
 	replacementEffectTeleportGold
@@ -151,6 +157,7 @@ func init() {
 			"MaskOffset":      state.maskOffset[:],
 			"MaskInvScale":    float32(1),
 			"SpriteLightOnly": float32(0),
+			"FlagTheme":       float32(0),
 		}
 		if kind == replacementEffectFirePlume || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
@@ -210,6 +217,10 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	flagShader, err := compileReplacementEffectShaderForInit("waving_flag.kage", wavingFlagShaderSource)
+	if err != nil {
+		return err
+	}
 	wardShader, err := compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 	if err != nil {
 		return err
@@ -232,6 +243,7 @@ func ReloadReplacementEffectsShader() error {
 	}
 	healingBurstShader = healingShader
 	firePlumeShader = fireShader
+	wavingFlagShader = flagShader
 	mysticWardShader = wardShader
 	mysticFadeShader = fadeShader
 	teleportBurstShader = teleportShader
@@ -243,7 +255,7 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 7
+const replacementEffectsShaderCount = 8
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -303,26 +315,31 @@ func loadNextReplacementEffectShader() error {
 			firePlumeShader = shader
 		}
 	case 2:
+		shader, err = compileReplacementEffectShaderForInit("waving_flag.kage", wavingFlagShaderSource)
+		if err == nil {
+			wavingFlagShader = shader
+		}
+	case 3:
 		shader, err = compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 		if err == nil {
 			mysticWardShader = shader
 		}
-	case 3:
+	case 4:
 		shader, err = compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 		if err == nil {
 			mysticFadeShader = shader
 		}
-	case 4:
+	case 5:
 		shader, err = compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 		if err == nil {
 			teleportBurstShader = shader
 		}
-	case 5:
+	case 6:
 		shader, err = compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 		if err == nil {
 			stoneFormShader = shader
 		}
-	case 6:
+	case 7:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
@@ -367,8 +384,10 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 	switch id {
 	case 1759, 1760:
 		return replacementEffectHealing, true
-	case 481:
+	case 481, 482, 572:
 		return replacementEffectFirePlume, true
+	case 885, 886, 887, 5645, 5646, 5647:
+		return replacementEffectWavingFlag, true
 	case 1286:
 		return replacementEffectMysticWard, true
 	case 445:
@@ -390,6 +409,9 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectFirePlume {
 		return firePlumeShader
+	}
+	if kind == replacementEffectWavingFlag {
+		return wavingFlagShader
 	}
 	if kind == replacementEffectMysticWard {
 		return mysticWardShader
@@ -413,6 +435,48 @@ func replacementEffectIsOneShot(kind replacementEffectKind) bool {
 	return kind == replacementEffectFirePlume || kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
 }
 
+// Persistent overlays, such as flags carried by a player, are visible for as
+// long as their source picture is present. Unlike a spell burst, they should
+// neither ease in nor linger at a stale position after that picture is gone.
+func replacementEffectIsPersistent(kind replacementEffectKind) bool {
+	return kind == replacementEffectWavingFlag
+}
+
+// replacementEffectFramePhase maps a legacy sprite frame to a position in the
+// procedural effect's authored timeline. It is used once, when an effect is
+// created, to seed a smooth animation at the matching source-frame phase.
+func replacementEffectFramePhase(frame, frames int, duration float32) float32 {
+	if frames < 2 || duration <= 0 {
+		return 0
+	}
+	frame %= frames
+	if frame < 0 {
+		frame += frames
+	}
+	return duration * float32(frame) / float32(frames-1)
+}
+
+func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
+	if kind == replacementEffectFirePlume {
+		return 1.35
+	}
+	return 1
+}
+
+func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16, frame int) time.Duration {
+	if kind == replacementEffectWavingFlag || kind == replacementEffectCoinReward {
+		return 0
+	}
+	frames := 1
+	if clImages != nil {
+		frames = clImages.NumFrames(uint32(pictID))
+	}
+	if frames < 2 {
+		return 0
+	}
+	return time.Duration(float64(replacementEffectFramePhase(frame, frames, replacementEffectSequenceDuration(kind))) * float64(time.Second))
+}
+
 func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
 	switch kind {
 	case replacementEffectTeleportGold:
@@ -430,6 +494,25 @@ func replacementEffectNeedsOverscan(kind replacementEffectKind) bool {
 	return kind == replacementEffectFirePlume || kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
 }
 
+func replacementEffectFlagTheme(id uint16) float32 {
+	switch id {
+	case 885:
+		return 0 // aqua
+	case 886:
+		return 1 // red
+	case 887:
+		return 2 // yellow
+	case 5645:
+		return 3 // violet
+	case 5646:
+		return 4 // white
+	case 5647:
+		return 5 // gold
+	default:
+		return 0
+	}
+}
+
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
 // while deferring the visual to the procedural-effects world pass.
 func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanceKey uint64, left, top, width, height float64, alpha float32, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) bool {
@@ -444,9 +527,10 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	if now.IsZero() {
 		now = time.Now()
 	}
-	// 1759 and 1760 are two legacy representations of the same healing
-	// family. Prefer the pinned mobile identity so movement does not restart
-	// the effect; unpinned effects fall back to their world position.
+	// 1759/1760 healing and 481/482/572 fire are legacy alternate IDs for the
+	// same families. Prefer the pinned mobile identity so an ID handoff or
+	// movement does not restart the procedural effect; unpinned effects fall
+	// back to their world position.
 	var key uint64
 	if kind == replacementEffectCoinReward {
 		key = replacementCoinClusterKey(left, top, width, height, now)
@@ -461,7 +545,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	}
 	effect, ok := replacementEffectDraws[key]
 	if !ok || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
-		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now}
+		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now.Add(-replacementEffectFrameStartOffset(kind, pictID, frame))}
 	}
 	if kind == replacementEffectCoinReward {
 		if !effect.seen {
@@ -602,6 +686,9 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			}
 		}
 		fadeIn := replacementEffectEase(float32(now.Sub(effect.started)) / float32(replacementEffectFadeIn))
+		if replacementEffectIsPersistent(effect.kind) {
+			fadeIn = 1
+		}
 		if effect.kind == replacementEffectCoinReward {
 			// Reward digits may exist for only one server update. Draw them at
 			// full strength immediately; the normal fade-out still softens exit.
@@ -609,6 +696,10 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		}
 		fadeOut := float32(1)
 		if !effect.seen {
+			if replacementEffectIsPersistent(effect.kind) {
+				delete(replacementEffectDraws, key)
+				continue
+			}
 			age := now.Sub(effect.lastSeen)
 			if age >= replacementEffectFadeOut {
 				delete(replacementEffectDraws, key)
@@ -634,9 +725,7 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			continue
 		}
 		phase := globalPhase
-		if replacementEffectIsOneShot(effect.kind) {
-			// One-shot effects start their particle sequence when this sprite
-			// appears instead of inheriting the global shader phase.
+		if effect.kind != replacementEffectWavingFlag && effect.kind != replacementEffectCoinReward {
 			phase = float32(now.Sub(effect.started).Seconds())
 		}
 		shader := replacementEffectShader(effect.kind)
@@ -661,6 +750,9 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		state.uniforms["Energy"] = energy
 		state.uniforms["HasMask"] = hasMask
 		state.uniforms["MaskInvScale"] = effect.maskInvScale
+		if effect.kind == replacementEffectWavingFlag {
+			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(effect.pictID)
+		}
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme
 		}
@@ -704,6 +796,12 @@ type replacementEffectPreview struct {
 var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectHealing, label: "Healing", pictID: 1759},
 	{kind: replacementEffectFirePlume, label: "Fire Plume", pictID: 481},
+	{kind: replacementEffectWavingFlag, label: "Aqua Flag", pictID: 885},
+	{kind: replacementEffectWavingFlag, label: "Red Flag", pictID: 886},
+	{kind: replacementEffectWavingFlag, label: "Yellow Flag", pictID: 887},
+	{kind: replacementEffectWavingFlag, label: "Violet Flag", pictID: 5645},
+	{kind: replacementEffectWavingFlag, label: "White Flag", pictID: 5646},
+	{kind: replacementEffectWavingFlag, label: "Gold Flag", pictID: 5647},
 	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
 	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
 	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
@@ -769,6 +867,36 @@ func drawReplacementEffectOriginalPreview(screen *ebiten.Image, preview replacem
 	releaseDrawOpts(op)
 }
 
+// replacementEffectsPreviewGrassPattern is deliberately coordinate-based rather
+// than random so the preview backdrop remains still while an effect animates.
+func replacementEffectsPreviewGrassPattern(column, row int) uint32 {
+	value := uint32(column)*0x9e3779b9 ^ uint32(row)*0x85ebca6b
+	value ^= value >> 16
+	value *= 0x7feb352d
+	value ^= value >> 15
+	return value
+}
+
+func drawReplacementEffectsPreviewGrass(screen *ebiten.Image, bounds image.Rectangle) {
+	const tileSize = 20
+	screen.Fill(color.RGBA{R: 45, G: 91, B: 48, A: 255})
+	for top := bounds.Min.Y; top < bounds.Max.Y; top += tileSize {
+		for left := bounds.Min.X; left < bounds.Max.X; left += tileSize {
+			pattern := replacementEffectsPreviewGrassPattern(left/tileSize, top/tileSize)
+			shade := uint8(pattern & 7)
+			base := color.RGBA{R: 42 + shade, G: 94 + shade*2, B: 46 + shade, A: 255}
+			vector.FillRect(screen, float32(left), float32(top), tileSize, tileSize, base, false)
+
+			bladeX := left + 2 + int((pattern>>4)%15)
+			bladeY := top + 4 + int((pattern>>8)%11)
+			bladeHeight := 5 + int((pattern>>12)%7)
+			blade := color.RGBA{R: 74 + shade, G: 132 + shade*2, B: 63 + shade, A: 170}
+			vector.FillRect(screen, float32(bladeX), float32(bladeY), 1, float32(bladeHeight), blade, false)
+			vector.FillRect(screen, float32(bladeX+3), float32(bladeY+3), 1, float32(max(3, bladeHeight-3)), blade, false)
+		}
+	}
+}
+
 // drawReplacementEffectsPreview renders either the full shader gallery or one
 // enlarged effect. The selected display mode lets artists compare it directly
 // with the source sprite without changing live world replacement behavior.
@@ -780,7 +908,7 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 	if bounds.Dx() < 240 || bounds.Dy() < 180 {
 		return
 	}
-	vector.FillRect(screen, float32(bounds.Min.X), float32(bounds.Min.Y), float32(bounds.Dx()), float32(bounds.Dy()), color.Black, false)
+	drawReplacementEffectsPreviewGrass(screen, bounds)
 
 	previews := replacementEffectPreviewItems()
 	if len(previews) == 0 {
@@ -820,9 +948,6 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
 		top := float64(bounds.Min.Y) + float64(row)*cellH + 28
 		phase := float32(elapsed)
-		if replacementEffectIsOneShot(preview.kind) {
-			phase = float32(math.Mod(elapsed+float64(i)*0.23, 1.35))
-		}
 		drawW, drawH := effectW, effectH
 		drawLeft, drawTop := left, top
 		if replacementEffectsPreviewMode != replacementEffectPreviewNew {
@@ -839,6 +964,9 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		state.uniforms["HasMask"] = float32(0)
 		state.uniforms["MaskInvScale"] = float32(1)
 		state.uniforms["SpriteLightOnly"] = float32(0)
+		if preview.kind == replacementEffectWavingFlag {
+			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(preview.pictID)
+		}
 		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme
 		}

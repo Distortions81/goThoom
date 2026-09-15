@@ -1,0 +1,76 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var FlagTheme float
+var SpriteLightOnly float
+
+func flagColor(theme float, shade float) vec3 {
+	var dark vec3
+	var bright vec3
+	if theme < 0.5 {
+		dark, bright = vec3(0.01, 0.34, 0.37), vec3(0.08, 0.96, 0.94) // aqua
+	} else if theme < 1.5 {
+		dark, bright = vec3(0.55, 0.015, 0.004), vec3(1.0, 0.26, 0.015) // red
+	} else if theme < 2.5 {
+		dark, bright = vec3(0.82, 0.34, 0.005), vec3(1.0, 0.94, 0.10) // yellow
+	} else if theme < 3.5 {
+		dark, bright = vec3(0.10, 0.10, 0.12), vec3(0.82, 0.35, 0.88) // violet
+	} else if theme < 4.5 {
+		dark, bright = vec3(0.52, 0.59, 0.61), vec3(0.94, 1.0, 1.0) // white
+	} else {
+		dark, bright = vec3(0.86, 0.36, 0.005), vec3(1.0, 0.94, 0.10) // gold
+	}
+	return mix(dark, bright, shade)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	// Flags do not cast spell light on a nearby mobile. The generic effect
+	// renderer makes a separate additive pass only for shaders that use it.
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	// Two differently paced waves make the cloth snap and billow instead of
+	// following the old four-frame loop mechanically.
+	t := Phase * 6.2831853
+	clothX := (p.x + 0.47) / 0.79
+	wave := sin(clothX*6.2831853-t*1.9)*0.070 + sin(clothX*12.5663706+t*1.1)*0.022
+	// These are pennants: the free end is a narrow point at the left and the
+	// cloth widens continuously toward its full height at the pole.
+	middle := -0.04 + wave*0.38
+	halfHeight := 0.010 + clothX*(0.245+sin(clothX*9.424778+t*1.5)*0.018)
+	top := middle - halfHeight
+	bottom := middle + halfHeight
+
+	// The black pole and its blue finial are intentionally crisp; the moving
+	// cloth may overlap its left edge but never bends the pole itself.
+	pole := max(0, 1-abs(p.x-0.33)/0.025) * max(0, 1-abs(p.y+0.02)/0.52)
+	finial := max(0, 1-length(vec2((p.x-0.33)*1.15, (p.y+0.37)*1.0))*9.0)
+	if pole > 0 || finial > 0 {
+		poleColor := mix(vec3(0.025, 0.025, 0.035), vec3(0.20, 0.22, 0.25), pole*0.45)
+		if finial > pole {
+			poleColor = mix(vec3(0.08, 0.10, 0.52), vec3(0.52, 0.62, 1.0), finial)
+		}
+		a := max(pole, finial) * Alpha
+		return vec4(poleColor*a, a)
+	}
+
+	if clothX < 0 || clothX > 1 || p.y < top || p.y > bottom {
+		return vec4(0, 0, 0, 0)
+	}
+	vertical := (p.y - top) / max(0.01, bottom-top)
+	// A rolling diagonal highlight gives the otherwise flat icon real cloth
+	// depth. The free edge catches the most light as it snaps in the wind.
+	roll := 0.50 + 0.50*sin(clothX*12.5663706-vertical*4.0-t*2.4)
+	edge := max(0, 1-(1-clothX)*8.0)
+	shade := 0.30 + 0.38*roll + 0.16*(1-vertical) + 0.16*edge
+	color := flagColor(FlagTheme, min(1, shade))
+	a := Alpha
+	return vec4(color*a, a)
+}
