@@ -1,8 +1,10 @@
 package eui
 
 import (
+	"math"
 	"testing"
 
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -29,5 +31,40 @@ func TestAutosizedTextPreservesBlankLinesAndRefreshesMetrics(t *testing.T) {
 		if got := item.GetSize(); got.X <= line.X || got.Y <= line.Y {
 			t.Fatalf("scale %v: font size change retained stale metrics: %v", scale, got)
 		}
+	}
+}
+
+func TestUnconstrainedTextGrowsBeyondThemeDefault(t *testing.T) {
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatal(err)
+	}
+	previousScale := uiScale
+	uiScale = 1
+	t.Cleanup(func() { uiScale = previousScale })
+
+	item := &itemData{
+		ItemType: ITEM_TEXT,
+		FontSize: 12,
+		Size:     point{X: 128, Y: 24},
+		Text:     "Incorrect password. Please try again.",
+	}
+	width, _ := text.Measure(item.Text, itemFace(item, item.FontSize*uiScale+2), 0)
+	if got := item.GetSize().X; got < float32(math.Ceil(width)) {
+		t.Fatalf("unconstrained text width = %v, want at least measured width %v", got, width)
+	}
+
+	item.ConstrainToSize = true
+	if got := item.GetSize().X; got != 128 {
+		t.Fatalf("constrained text width = %v, want declared width 128", got)
+	}
+}
+
+func TestItemFaceHandlesTypedNilFace(t *testing.T) {
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatal(err)
+	}
+	item := &itemData{Face: (*text.GoTextFace)(nil)}
+	if face := itemFace(item, 14); face == nil {
+		t.Fatal("typed nil item face did not fall back to the font cache")
 	}
 }

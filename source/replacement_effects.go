@@ -29,6 +29,9 @@ var healingBurstShaderSource []byte
 //go:embed data/shaders/fire_plume.kage
 var firePlumeShaderSource []byte
 
+//go:embed data/shaders/blood_gush.kage
+var bloodGushShaderSource []byte
+
 //go:embed data/shaders/waving_flag.kage
 var wavingFlagShaderSource []byte
 
@@ -55,6 +58,7 @@ var coinRewardShaderSource []byte
 
 var healingBurstShader *ebiten.Shader
 var firePlumeShader *ebiten.Shader
+var bloodGushShader *ebiten.Shader
 var wavingFlagShader *ebiten.Shader
 var wallTorchShader *ebiten.Shader
 var hiddenPathShader *ebiten.Shader
@@ -101,6 +105,7 @@ type replacementEffectKind uint8
 const (
 	replacementEffectHealing replacementEffectKind = iota + 1
 	replacementEffectFirePlume
+	replacementEffectBloodGush
 	replacementEffectWavingFlag
 	replacementEffectWallTorch
 	replacementEffectHiddenPath
@@ -172,7 +177,7 @@ func init() {
 			"TorchMirror":     float32(0),
 			"PathVariant":     float32(0),
 		}
-		if kind == replacementEffectFirePlume || replacementEffectTeleportTheme(kind) >= 0 {
+		if kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
 			state.uniforms["TeleportTheme"] = float32(0)
 		}
@@ -262,6 +267,10 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	bloodShader, err := compileReplacementEffectShaderForInit("blood_gush.kage", bloodGushShaderSource)
+	if err != nil {
+		return err
+	}
 	healingBurstShader = healingShader
 	firePlumeShader = fireShader
 	wavingFlagShader = flagShader
@@ -272,13 +281,14 @@ func ReloadReplacementEffectsShader() error {
 	teleportBurstShader = teleportShader
 	stoneFormShader = stoneShader
 	coinRewardShader = coinShader
+	bloodGushShader = bloodShader
 	replacementEffectsShadersReady = true
 	replacementEffectsShaderInitAttempted = true
 	replacementEffectsShaderInitIndex = replacementEffectsShaderCount
 	return nil
 }
 
-const replacementEffectsShaderCount = 10
+const replacementEffectsShaderCount = 11
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -377,6 +387,11 @@ func loadNextReplacementEffectShader() error {
 		if err == nil {
 			coinRewardShader = shader
 		}
+	case 10:
+		shader, err = compileReplacementEffectShaderForInit("blood_gush.kage", bloodGushShaderSource)
+		if err == nil {
+			bloodGushShader = shader
+		}
 	default:
 		replacementEffectsShadersReady = true
 		replacementEffectsShaderInitAttempted = true
@@ -419,6 +434,8 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 		return replacementEffectHealing, true
 	case 481, 482, 572:
 		return replacementEffectFirePlume, true
+	case 33:
+		return replacementEffectBloodGush, true
 	case 885, 886, 887, 5645, 5646, 5647:
 		return replacementEffectWavingFlag, true
 	case 330, 331:
@@ -444,6 +461,9 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectFirePlume {
 		return firePlumeShader
+	}
+	if kind == replacementEffectBloodGush {
+		return bloodGushShader
 	}
 	if kind == replacementEffectWavingFlag {
 		return wavingFlagShader
@@ -473,7 +493,7 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 }
 
 func replacementEffectIsOneShot(kind replacementEffectKind) bool {
-	return kind == replacementEffectFirePlume || kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
+	return kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
 }
 
 // Persistent overlays, such as flags carried by a player, are visible for as
@@ -518,6 +538,20 @@ func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16
 	return time.Duration(float64(replacementEffectFramePhase(frame, frames, replacementEffectSequenceDuration(kind))) * float64(time.Second))
 }
 
+func replacementEffectInstanceStartOffset(kind replacementEffectKind, key uint64) time.Duration {
+	if kind != replacementEffectWallTorch {
+		return 0
+	}
+	// Mix the stable picture/mobile key into a broad phase range. A deterministic
+	// offset avoids synchronized flames without making them jump after redraws.
+	value := key + 0x9e3779b97f4a7c15
+	value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9
+	value = (value ^ (value >> 27)) * 0x94d049bb133111eb
+	value ^= value >> 31
+	fraction := float64(uint32(value>>32)) / float64(^uint32(0))
+	return time.Duration(fraction * float64(4*time.Second))
+}
+
 func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
 	switch kind {
 	case replacementEffectTeleportGold:
@@ -532,7 +566,7 @@ func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
 }
 
 func replacementEffectNeedsOverscan(kind replacementEffectKind) bool {
-	return kind == replacementEffectFirePlume || kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
+	return kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
 }
 
 func replacementEffectFlagTheme(id uint16) float32 {
@@ -607,7 +641,8 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	}
 	effect, ok := replacementEffectDraws[key]
 	if !ok || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
-		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now.Add(-replacementEffectFrameStartOffset(kind, pictID, frame))}
+		startOffset := replacementEffectFrameStartOffset(kind, pictID, frame) + replacementEffectInstanceStartOffset(kind, key)
+		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now.Add(-startOffset)}
 	}
 	if kind == replacementEffectCoinReward {
 		if !effect.seen {
@@ -865,6 +900,7 @@ type replacementEffectPreview struct {
 var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectHealing, label: "Healing", pictID: 1759},
 	{kind: replacementEffectFirePlume, label: "Fire Plume", pictID: 481},
+	{kind: replacementEffectBloodGush, label: "Critical Blood Gush", pictID: 33},
 	{kind: replacementEffectWavingFlag, label: "Aqua Flag", pictID: 885},
 	{kind: replacementEffectWavingFlag, label: "Red Flag", pictID: 886},
 	{kind: replacementEffectWavingFlag, label: "Yellow Flag", pictID: 887},

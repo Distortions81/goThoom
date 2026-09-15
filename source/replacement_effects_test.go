@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -49,6 +50,14 @@ func TestFirePlumeShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(firePlumeShaderSource)
 	if err != nil {
 		t.Fatalf("compile fire plume shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestBloodGushShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(bloodGushShaderSource)
+	if err != nil {
+		t.Fatalf("compile blood gush shader: %v", err)
 	}
 	shader.Deallocate()
 }
@@ -210,6 +219,23 @@ func TestWallTorchMirrors(t *testing.T) {
 	}
 }
 
+func TestWallTorchStartOffsetsAreStableAndDistinct(t *testing.T) {
+	first := replacementEffectInstanceStartOffset(replacementEffectWallTorch, 0x100020003)
+	if got := replacementEffectInstanceStartOffset(replacementEffectWallTorch, 0x100020003); got != first {
+		t.Fatalf("wall torch offset changed from %v to %v", first, got)
+	}
+	second := replacementEffectInstanceStartOffset(replacementEffectWallTorch, 0x100020004)
+	if second == first {
+		t.Fatalf("distinct wall torches share offset %v", first)
+	}
+	if first < 0 || first > 4*time.Second || second < 0 || second > 4*time.Second {
+		t.Fatalf("wall torch offsets outside phase range: %v, %v", first, second)
+	}
+	if got := replacementEffectInstanceStartOffset(replacementEffectHealing, 0x100020003); got != 0 {
+		t.Fatalf("healing received wall-torch phase offset %v", got)
+	}
+}
+
 func TestHiddenPathVariants(t *testing.T) {
 	if got := replacementEffectPathVariant(445); got != 0 {
 		t.Fatalf("path variant 445 = %v, want 0", got)
@@ -275,6 +301,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 	}{
 		{id: 1759, kind: replacementEffectHealing, ok: true},
 		{id: 481, kind: replacementEffectFirePlume, ok: true},
+		{id: 33, kind: replacementEffectBloodGush, ok: true},
 		{id: 482, kind: replacementEffectFirePlume, ok: true},
 		{id: 572, kind: replacementEffectFirePlume, ok: true},
 		{id: 885, kind: replacementEffectWavingFlag, ok: true},
@@ -303,7 +330,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 330, 331, 445, 446, 481, 482, 572, 885, 5647, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 33, 330, 331, 445, 446, 481, 482, 572, 885, 5647, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])

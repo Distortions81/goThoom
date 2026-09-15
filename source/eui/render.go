@@ -47,6 +47,11 @@ func itemFace(item *itemData, size float32) text.Face {
 	// cache so the supplied font size is honored.
 	if item != nil && item.Face != nil {
 		if gf, ok := item.Face.(*text.GoTextFace); ok {
+			// An interface can contain a typed nil face while itself comparing
+			// non-nil. Fall back to the cache instead of dereferencing it.
+			if gf == nil {
+				return textFace(size)
+			}
 			if gf.Size != float64(size) {
 				return textFace(size)
 			}

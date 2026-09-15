@@ -33,10 +33,10 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// A small wall holder grips a hand-torch-style wooden shaft. The stick runs
 	// up and away from the wall, widening toward the wrapped, burning end like
 	// the bat-shaped wedge in the source artwork.
-	holder := step(abs(p.x+0.35), 0.052) * step(abs(p.y-0.27), 0.090)
+	holder := step(abs(p.x+0.35), 0.064) * step(abs(p.y-0.27), 0.105)
 	shaftY := 0.27 - (p.x+0.35)*0.46
 	shaftProgress := min(1, max(0, (p.x+0.33)/0.49))
-	shaftHalfWidth := 0.018 + shaftProgress*0.062
+	shaftHalfWidth := 0.025 + shaftProgress*0.078
 	shaft := step(-0.33, p.x) * step(p.x, 0.16) * step(abs(p.y-shaftY), shaftHalfWidth)
 	metalColor := mix(vec3(0.020, 0.018, 0.015), vec3(0.26, 0.18, 0.09), holder*0.60)
 	woodColor := mix(vec3(0.16, 0.045, 0.010), vec3(0.34, 0.12, 0.020), shaftProgress)
@@ -48,18 +48,18 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	outerSway := sin(t*7.3)*0.050 + sin(t*13.7+0.8)*0.018
 	// Overlapping soft lobes make a rounded, turbulent silhouette. Their
 	// independently moving centers avoid the straight edges of a tapered cone.
-	baseLobe := flameLobe(p, flameBase+vec2(0, -0.035), vec2(0.145, 0.105))
-	midLobe := flameLobe(p, flameBase+vec2(outerSway*0.30, -0.135), vec2(0.115, 0.145))
-	upperLobe := flameLobe(p, flameBase+vec2(outerSway*0.72, -0.245), vec2(0.075, 0.125))
-	tipLobe := flameLobe(p, flameBase+vec2(outerSway, -0.345), vec2(0.034, 0.082))
-	leftTongue := flameLobe(p, flameBase+vec2(-0.085+sin(t*10.8)*0.028, -0.205), vec2(0.040, 0.115))
-	rightTongue := flameLobe(p, flameBase+vec2(0.085+sin(t*14.2+2.0)*0.024, -0.155), vec2(0.038, 0.095))
+	baseLobe := flameLobe(p, flameBase+vec2(0, -0.035), vec2(0.180, 0.125))
+	midLobe := flameLobe(p, flameBase+vec2(outerSway*0.30, -0.145), vec2(0.142, 0.165))
+	upperLobe := flameLobe(p, flameBase+vec2(outerSway*0.72, -0.270), vec2(0.092, 0.145))
+	tipLobe := flameLobe(p, flameBase+vec2(outerSway, -0.385), vec2(0.043, 0.092))
+	leftTongue := flameLobe(p, flameBase+vec2(-0.100+sin(t*10.8)*0.032, -0.225), vec2(0.052, 0.130))
+	rightTongue := flameLobe(p, flameBase+vec2(0.100+sin(t*14.2+2.0)*0.028, -0.175), vec2(0.050, 0.112))
 	flame := max(max(baseLobe, midLobe), max(upperLobe, tipLobe))
 	flame = max(flame, max(leftTongue*0.82, rightTongue*0.74))
 
-	innerBase := flameLobe(p, flameBase+vec2(0, -0.045), vec2(0.075, 0.075))
-	innerMid := flameLobe(p, flameBase+vec2(outerSway*0.18, -0.120), vec2(0.052, 0.095))
-	innerTip := flameLobe(p, flameBase+vec2(outerSway*0.42, -0.195), vec2(0.027, 0.070))
+	innerBase := flameLobe(p, flameBase+vec2(0, -0.050), vec2(0.092, 0.090))
+	innerMid := flameLobe(p, flameBase+vec2(outerSway*0.18, -0.135), vec2(0.064, 0.110))
+	innerTip := flameLobe(p, flameBase+vec2(outerSway*0.42, -0.225), vec2(0.035, 0.082))
 	inner := max(innerBase, max(innerMid, innerTip))
 
 	// A few tiny embers detach from the tip without turning into a continuous
@@ -67,12 +67,12 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	sparkA := softDisc(p, vec2(flameBase.x+sin(t*9.0)*0.09, -0.38+sin(t*5.0)*0.025), 0.018) * max(0, sin(t*12.0))
 	sparkB := softDisc(p, vec2(flameBase.x-0.08+sin(t*7.0)*0.035, -0.29), 0.013) * max(0, sin(t*17.0+2.5))
 	sparks := max(sparkA, sparkB)
-	glow := softDisc(p, vec2(flameBase.x, flameBase.y-0.15), 0.24) * 0.065
+	glow := softDisc(p, vec2(flameBase.x, flameBase.y-0.17), 0.31) * 0.090
 
 	if flame > 0 || sparks > 0 {
 		hot := min(1, inner*1.45+sparks)
-		flameColor := mix(vec3(0.92, 0.10, 0.002), vec3(1.0, 0.93, 0.18), hot)
-		a := min(1, max(flame, sparks)*1.35) * Alpha
+		flameColor := mix(vec3(1.0, 0.15, 0.003), vec3(1.0, 0.97, 0.24), hot)
+		a := min(1, max(flame, sparks)*1.50) * Alpha
 		return vec4(flameColor*a, a)
 	}
 	if holder > 0 || shaft > 0 {
@@ -84,5 +84,5 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		return vec4(0, 0, 0, 0)
 	}
 	a := glow * Alpha
-	return vec4(vec3(1.0, 0.20, 0.005)*a, a)
+	return vec4(vec3(1.0, 0.25, 0.008)*a, a)
 }

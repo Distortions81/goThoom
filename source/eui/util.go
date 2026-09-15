@@ -1211,6 +1211,26 @@ func (item *itemData) GetSize() Point {
 		sz.X += 18 * uiScale
 	}
 
+	// Text commonly changes after a window has been created (validation and
+	// status messages in particular). Unless the caller explicitly requests a
+	// constrained box, let the item grow beyond its theme default so the new
+	// content is not clipped by a stale fixed width.
+	if item.ItemType == ITEM_TEXT && !item.ConstrainToSize {
+		effFont := item.FontSize
+		if effFont <= 0 {
+			if st := item.themeStyle(); st != nil && st.FontSize > 0 {
+				effFont = st.FontSize
+			} else {
+				effFont = 12
+			}
+		}
+		face := itemFace(item, effFont*uiScale+2)
+		for line := range strings.SplitSeq(item.Text, "\n") {
+			width, _ := text.Measure(line, face, 0)
+			sz.X = max(sz.X, float32(math.Ceil(width)))
+		}
+	}
+
 	if !item.ConstrainToSize || item.Size.X <= 0 {
 		sz.X = max(sz.X, item.buttonContentWidth())
 	}

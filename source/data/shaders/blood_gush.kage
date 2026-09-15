@@ -1,0 +1,105 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var CanvasSize vec2
+var Phase float
+var Alpha float
+var SpriteLightOnly float
+
+func bloodDisc(p vec2, center vec2, radius float) float {
+	return max(0, 1-length(p-center)/radius)
+}
+
+func bloodJet(p vec2, start vec2, finish vec2, width float) float {
+	axis := finish - start
+	rel := p - start
+	h := min(1, max(0, dot(rel, axis)/max(0.0001, dot(axis, axis))))
+	return max(0, 1-length(rel-axis*h)/width)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	// Blood is an opaque hit cue, not a magical light cast onto the victim.
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	p := (localPos-CanvasSize*0.5)/Size
+	p.x *= Size.x / Size.y
+	t := min(1, max(0, Phase/0.72))
+	easeOut := 1 - (1-t)*(1-t)
+	// Let the impact register at full opacity for a brief beat before beginning
+	// the otherwise gradual fade.
+	fadeT := max(0, (t-0.14)/0.86)
+	life := max(0, 1-fadeT)
+
+	// A critical hit throws a handful of forceful, asymmetric jets. Their
+	// endpoints separate quickly, then gravity pulls the lower drops down.
+	endA := vec2(-0.48*easeOut, -0.30*easeOut+0.22*t*t)
+	endB := vec2(0.53*easeOut, -0.20*easeOut+0.18*t*t)
+	endC := vec2(-0.27*easeOut, 0.42*easeOut+0.12*t*t)
+	endD := vec2(0.31*easeOut, 0.47*easeOut+0.15*t*t)
+	endE := vec2(0.08*easeOut, -0.52*easeOut+0.20*t*t)
+	jets := bloodJet(p, vec2(0), endA, 0.072+0.030*life)
+	jets = max(jets, bloodJet(p, vec2(0), endB, 0.064+0.028*life))
+	jets = max(jets, bloodJet(p, vec2(0), endC, 0.058+0.027*life))
+	jets = max(jets, bloodJet(p, vec2(0), endD, 0.068+0.029*life))
+	jets = max(jets, bloodJet(p, vec2(0), endE, 0.052+0.024*life))
+	jets *= max(0, 1-t*1.35)
+	// Preserve the original sprite's unmistakable crossed splash during the
+	// impact beat while the moving jets begin to separate from it.
+	cross := bloodJet(p, vec2(-0.24, -0.22), vec2(0.25, 0.23), 0.070)
+	cross = max(cross, bloodJet(p, vec2(-0.23, 0.24), vec2(0.24, -0.23), 0.070))
+	cross *= max(0, 1-t*2.7)
+
+	drops := bloodDisc(p, endA, 0.078) + bloodDisc(p, endB, 0.070)
+	drops += bloodDisc(p, endC, 0.066) + bloodDisc(p, endD, 0.074)
+	drops += bloodDisc(p, endE, 0.058)
+	drops += bloodDisc(p, endB+vec2(-0.12, 0.09), 0.040)
+	drops += bloodDisc(p, endA+vec2(0.10, 0.13), 0.034)
+	drops *= max(0, 1-t*0.82)
+
+	impact := bloodDisc(p, vec2(0), 0.31+0.11*easeOut) * max(0, 1-t*2.5)
+	intensity := min(1, jets+drops+impact+cross)
+
+	// A thin black rim follows the visual language of the original game art and
+	// keeps the red silhouette separate from grass and pale scenery alike.
+	jetLife := max(0, 1-t*1.35)
+	rimJets := bloodJet(p, vec2(0), endA, 0.106+0.030*life)
+	rimJets = max(rimJets, bloodJet(p, vec2(0), endB, 0.098+0.028*life))
+	rimJets = max(rimJets, bloodJet(p, vec2(0), endC, 0.092+0.027*life))
+	rimJets = max(rimJets, bloodJet(p, vec2(0), endD, 0.102+0.029*life))
+	rimJets = max(rimJets, bloodJet(p, vec2(0), endE, 0.086+0.024*life))
+	rimJets *= jetLife
+	rimCross := max(
+		bloodJet(p, vec2(-0.24, -0.22), vec2(0.25, 0.23), 0.102),
+		bloodJet(p, vec2(-0.23, 0.24), vec2(0.24, -0.23), 0.102),
+	) * max(0, 1-t*2.7)
+	rimDrops := bloodDisc(p, endA, 0.108) + bloodDisc(p, endB, 0.100)
+	rimDrops += bloodDisc(p, endC, 0.096) + bloodDisc(p, endD, 0.104)
+	rimDrops += bloodDisc(p, endE, 0.088)
+	rimDrops *= max(0, 1-t*0.82)
+	rimImpact := bloodDisc(p, vec2(0), 0.345+0.11*easeOut) * max(0, 1-t*2.5)
+	rimShape := min(1, rimJets+rimDrops+rimImpact+rimCross)
+	outline := max(0, rimShape-intensity)
+
+	// Tiny hot reflections give the otherwise flat red droplets wet volume.
+	glints := bloodDisc(p, endA+vec2(-0.018, -0.018), 0.022)
+	glints += bloodDisc(p, endB+vec2(-0.014, -0.016), 0.020)
+	glints += bloodDisc(p, endD+vec2(-0.015, -0.016), 0.019)
+	glints *= max(0, 1-t*0.90)
+	if intensity <= 0 && outline <= 0 && glints <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+	highlight := min(1, impact*1.9+cross*0.65+drops*0.38)
+	color := mix(vec3(0.82, 0.006, 0.012), vec3(1.0, 0.20, 0.040), highlight)
+	outlineMix := min(1, outline*5.0)
+	color = mix(color, vec3(0.012, 0.002, 0.003), outlineMix)
+	shine := min(1, glints*3.2)
+	color = mix(color, vec3(1.0, 0.96, 0.88), shine)
+	bodyAlpha := min(1, intensity*4.0)
+	edgeAlpha := min(1, outline*5.0+glints*3.0)
+	a := max(bodyAlpha, edgeAlpha) * life * Alpha
+	return vec4(color*a, a)
+}
