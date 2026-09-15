@@ -1,0 +1,130 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var CanvasSize vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
+var SpriteLightOnly float
+
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
+func tongue(p vec2, center, width, height, phase float) float {
+	// p.y grows toward the ground. Each tongue is wide and bright at its base,
+	// then narrows into a constantly moving, asymmetric tip.
+	rise := 0.47 - p.y
+	if rise < 0 || rise > height {
+		return 0
+	}
+	progress := rise / height
+	// Competing frequencies keep the tip from tracing a calm, repeated arc.
+	// The higher the flame rises, the more violently it is pulled sideways.
+	sway := sin(phase*3.0+rise*11.0+center*17.0)*(0.022+progress*0.080)
+	sway += sin(phase*6.0-rise*19.0-center*29.0) * (0.008+progress*0.045)
+	halfWidth := max(0.008, width*(1-progress*0.88))
+	across := max(0, 1-abs(p.x-center-sway)/halfWidth)
+	return across * (0.58+0.42*(1-progress))
+}
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	v *= v
+	return v
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	// Overscan reserves room for sparks, so center coordinates on its complete
+	// canvas rather than the original sprite rectangle.
+	p := (localPos-CanvasSize*0.5)/Size
+	p.x *= Size.x / Size.y
+	// One complete impact beat takes the same 1.35 seconds used by the preview
+	// player. Every time-dependent frequency below is integral, so the plume
+	// returns to precisely the same shape instead of visibly snapping on loop.
+	cycle := fract(Phase / 1.35)
+	t := cycle * 6.2831853
+	turbulence := t * 2.0
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := maskAlpha(localPos)
+		right := maskAlpha(localPos+vec2(2, 0))
+		up := maskAlpha(localPos+vec2(0, -2))
+		edge := max(0, max(right, up)-body)
+		flicker := 0.48 + 0.52*spark(t*17.0-p.y*17.0+p.x*11.0)
+		light := (body*(0.045+0.095*flicker)+edge*(0.16+0.09*flicker))*Alpha
+		color := mix(vec3(0.82, 0.035, 0.002), vec3(1.0, 0.58, 0.07), flicker)
+		return vec4(color*light, light)
+	}
+
+	// The original 481 is a short, broad campfire-like plume. Retain that
+	// silhouette with several independently swaying tongues instead of a round
+	// particle burst.
+	main := tongue(p, 0.01, 0.33, 0.93, turbulence)
+	left := tongue(p, -0.18, 0.20, 0.65, turbulence+0.7)
+	right := tongue(p, 0.20, 0.18, 0.72, turbulence+1.3)
+	farLeft := tongue(p, -0.31, 0.12, 0.47, turbulence+2.8)
+	farRight := tongue(p, 0.30, 0.11, 0.54, turbulence+4.2)
+	inner := tongue(p, -0.045, 0.20, 0.55, turbulence+2.1)
+	flame := max(main, max(left, max(right, max(farLeft, farRight))))
+
+	// Hot yellow coals stay low; orange climbs higher through the wavering red
+	// edge. This preserves the old animation's red crown and yellow base while
+	// making the transition smooth at any scale.
+	base := max(0, 1-length(vec2(p.x*1.55, (p.y-0.30)*2.5)))
+	innerFire := inner * max(0, 1-(0.47-p.y)/0.70) + base*0.84
+	wave := 0.66 + 0.20*sin(p.x*21.0-p.y*15.0+t*31.0)
+	wave += 0.14*sin(p.x*37.0+p.y*23.0-t*47.0)
+	// Thin turbulent fissures eat irregular bites from the red exterior. The
+	// center stays fed by the coals, so the fire flickers instead of vanishing.
+	fissure := spark(p.x*31.0-p.y*27.0+t*59.0) * spark(p.x*17.0+p.y*39.0-t*37.0)
+	intensity := flame*max(0, 0.58+0.42*wave-fissure*0.38) + innerFire*0.70
+
+	// A few small embers lift off from the crown. They are deliberately sparse
+	// so the unmistakable flame shape remains the visual focus.
+	emberLife := fract(cycle * 2.0)
+	emberFade := sin(emberLife * 3.14159265)
+	emberY := -0.25 - emberLife*0.47
+	embers := max(0, 1-length(vec2((p.x-sin(t*7.0)*0.10)*2.3, (p.y-emberY)*5.4)))
+	embers *= spark(p.x*47.0+p.y*29.0-t*43.0) * emberFade
+	emberLife2 := fract(cycle*3.0 + 0.48)
+	emberFade2 := sin(emberLife2 * 3.14159265)
+	emberY2 := -0.16 - emberLife2*0.43
+	embers += max(0, 1-length(vec2((p.x+0.13+sin(t*11.0)*0.07)*3.4, (p.y-emberY2)*6.6))) * spark(p.x*59.0-p.y*37.0+t*53.0) * emberFade2
+	emberLife3 := fract(cycle*4.0 + 0.19)
+	emberFade3 := sin(emberLife3 * 3.14159265)
+	emberY3 := -0.08 - emberLife3*0.56
+	embers += max(0, 1-length(vec2((p.x-sin(t*13.0)*0.18+0.05)*4.5, (p.y-emberY3)*8.0))) * spark(p.x*71.0+p.y*43.0-t*61.0) * emberFade3
+	intensity = min(1, intensity+embers*0.66)
+
+	if HasMask > 0.5 {
+		body := maskAlpha(localPos)
+		right := maskAlpha(localPos+vec2(2, 0))
+		up := maskAlpha(localPos+vec2(0, -2))
+		edge := max(0, max(right, up)-body)
+		// Most flame passes behind the player, while the hot rim and occasional
+		// tongue stay visible in front, giving the effect depth around a mobile.
+		front := 0.34 + 0.66*spark(p.x*13.0-p.y*9.0+t*13.0)
+		intensity *= mix(1.0, front, body)
+		intensity += edge*max(0, 1-abs(p.y-0.12)*1.6)*0.28
+	}
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	hot := min(1, innerFire*1.45+base*0.48+embers*0.35)
+	color := mix(vec3(0.46, 0.008, 0.001), vec3(1.0, 0.18, 0.012), min(1, intensity*1.5))
+	color = mix(color, vec3(1.0, 0.82, 0.13), hot)
+	a := min(1, intensity*1.48) * Alpha
+	return vec4(color*a, a)
+}

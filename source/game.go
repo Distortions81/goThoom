@@ -1107,6 +1107,12 @@ func (g *Game) Update() error {
 	if updateSystemTheme(now) {
 		refreshThemePreview()
 	}
+	// Startup and download callbacks can reopen Login after a command-line
+	// preview was requested. Enforce preview ownership of the game view here,
+	// before EUI updates and draws its windows for this frame.
+	if replacementEffectsPreview {
+		closeLoginForReplacementEffectsPreview()
+	}
 
 	if classicSplashFilterPending && gs.ShowClanLordSplashImage {
 		prepareClassicSplash()

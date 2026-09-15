@@ -7,6 +7,46 @@ import (
 	"gothoom/eui"
 )
 
+func TestEffectsPreviewKeepsLoginHiddenAfterAssetsLoad(t *testing.T) {
+	originalPreview, originalMovie, originalPlaying, originalPCAP, originalFake := replacementEffectsPreview, clmov, playingMovie, pcapPath, fake
+	primarySession.transport.mu.Lock()
+	originalStatus := primarySession.transport.status
+	primarySession.transport.status = sessionDisconnected
+	primarySession.transport.mu.Unlock()
+	t.Cleanup(func() {
+		replacementEffectsPreview, clmov, playingMovie, pcapPath, fake = originalPreview, originalMovie, originalPlaying, originalPCAP, originalFake
+		primarySession.transport.mu.Lock()
+		primarySession.transport.status = originalStatus
+		primarySession.transport.mu.Unlock()
+	})
+
+	replacementEffectsPreview, clmov, playingMovie, pcapPath, fake = true, "", false, "", false
+	if loginMayOpenAfterAssetsLoad() {
+		t.Fatal("effects preview would reopen Login over the game viewport")
+	}
+}
+
+func TestEffectsPreviewClosesAnOpenLoginWindow(t *testing.T) {
+	if err := eui.Init(); err != nil {
+		t.Fatalf("initialize EUI: %v", err)
+	}
+	originalLogin := loginWin
+	t.Cleanup(func() {
+		if loginWin != nil && loginWin != originalLogin {
+			loginWin.RemoveWindow()
+		}
+		loginWin = originalLogin
+	})
+
+	loginWin = eui.NewWindow()
+	loginWin.AddWindow(false)
+	loginWin.MarkOpen()
+	closeLoginForReplacementEffectsPreview()
+	if loginWin.IsOpen() {
+		t.Fatal("effects preview left Login open over the game viewport")
+	}
+}
+
 func TestLoginWindowStartsCentered(t *testing.T) {
 	initFont()
 	originalWindow := loginWin

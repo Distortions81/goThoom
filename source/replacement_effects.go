@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -24,6 +25,9 @@ const (
 //go:embed data/shaders/healing_burst.kage
 var healingBurstShaderSource []byte
 
+//go:embed data/shaders/fire_plume.kage
+var firePlumeShaderSource []byte
+
 //go:embed data/shaders/mystic_ward.kage
 var mysticWardShaderSource []byte
 
@@ -40,6 +44,7 @@ var stoneFormShaderSource []byte
 var coinRewardShaderSource []byte
 
 var healingBurstShader *ebiten.Shader
+var firePlumeShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
 var teleportBurstShader *ebiten.Shader
@@ -47,15 +52,42 @@ var stoneFormShader *ebiten.Shader
 var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 var replacementEffectsPreview bool
+
+type replacementEffectPreviewMode uint8
+
+const (
+	replacementEffectPreviewNew replacementEffectPreviewMode = iota
+	replacementEffectPreviewOriginal
+	replacementEffectPreviewBoth
+)
+
+var replacementEffectsPreviewMode = replacementEffectPreviewNew
+var replacementEffectsPreviewSelection = -1 // -1 displays the complete gallery.
+
+type replacementEffectPreviewScale uint8
+
+const (
+	replacementEffectPreviewNativeSize replacementEffectPreviewScale = iota
+	replacementEffectPreviewDoubleSize
+	replacementEffectPreviewFullWindow
+)
+
+var replacementEffectsPreviewScale = replacementEffectPreviewFullWindow
+var replacementEffectsPreviewUPS = 5
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
 var replacementEffectsShaderInitIndex int
 var replacementEffectsShaderInitMu sync.Mutex
 
+// An empty directory resolves beside this source file. Tests can override it
+// to exercise reload behavior without touching a user's data directory.
+var replacementEffectsShaderSourceDir string
+
 type replacementEffectKind uint8
 
 const (
 	replacementEffectHealing replacementEffectKind = iota + 1
+	replacementEffectFirePlume
 	replacementEffectMysticWard
 	replacementEffectMysticFade
 	replacementEffectTeleportGold
@@ -120,7 +152,7 @@ func init() {
 			"MaskInvScale":    float32(1),
 			"SpriteLightOnly": float32(0),
 		}
-		if replacementEffectTeleportTheme(kind) >= 0 {
+		if kind == replacementEffectFirePlume || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
 			state.uniforms["TeleportTheme"] = float32(0)
 		}
@@ -164,13 +196,17 @@ const (
 	replacementEffectFadeOut = 280 * time.Millisecond
 )
 
-// ReloadReplacementEffectsShader recompiles the replacement-effects shader
-// from disk. The embedded source keeps release builds self-contained.
+// ReloadReplacementEffectsShader recompiles replacement shaders from the
+// checked-out source tree. Embedded source remains the release fallback.
 func ReloadReplacementEffectsShader() error {
 	replacementEffectsShaderInitMu.Lock()
 	defer replacementEffectsShaderInitMu.Unlock()
 
 	healingShader, err := compileReplacementEffectShaderForInit("healing_burst.kage", healingBurstShaderSource)
+	if err != nil {
+		return err
+	}
+	fireShader, err := compileReplacementEffectShaderForInit("fire_plume.kage", firePlumeShaderSource)
 	if err != nil {
 		return err
 	}
@@ -195,6 +231,7 @@ func ReloadReplacementEffectsShader() error {
 		return err
 	}
 	healingBurstShader = healingShader
+	firePlumeShader = fireShader
 	mysticWardShader = wardShader
 	mysticFadeShader = fadeShader
 	teleportBurstShader = teleportShader
@@ -206,12 +243,28 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 6
+const replacementEffectsShaderCount = 7
+
+func replacementEffectShaderSourcePath(name string) string {
+	dir := replacementEffectsShaderSourceDir
+	if dir == "" {
+		_, sourceFile, _, ok := runtime.Caller(0)
+		if !ok {
+			return ""
+		}
+		dir = filepath.Join(filepath.Dir(sourceFile), "data", "shaders")
+	}
+	return filepath.Join(dir, name)
+}
 
 func compileReplacementEffectShader(name string, embedded []byte) (*ebiten.Shader, error) {
 	source := embedded
-	if b, err := os.ReadFile(filepath.Join(dataDirPath, "shaders", name)); err == nil {
-		source = b
+	// Shader reload is deliberately a source-tree development feature. Never
+	// read user data here: user assets must not silently alter client rendering.
+	if path := replacementEffectShaderSourcePath(name); path != "" {
+		if b, err := os.ReadFile(path); err == nil {
+			source = b
+		}
 	}
 	return ebiten.NewShader(source)
 }
@@ -245,26 +298,31 @@ func loadNextReplacementEffectShader() error {
 			healingBurstShader = shader
 		}
 	case 1:
+		shader, err = compileReplacementEffectShaderForInit("fire_plume.kage", firePlumeShaderSource)
+		if err == nil {
+			firePlumeShader = shader
+		}
+	case 2:
 		shader, err = compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 		if err == nil {
 			mysticWardShader = shader
 		}
-	case 2:
+	case 3:
 		shader, err = compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 		if err == nil {
 			mysticFadeShader = shader
 		}
-	case 3:
+	case 4:
 		shader, err = compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 		if err == nil {
 			teleportBurstShader = shader
 		}
-	case 4:
+	case 5:
 		shader, err = compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 		if err == nil {
 			stoneFormShader = shader
 		}
-	case 5:
+	case 6:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
@@ -309,6 +367,8 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 	switch id {
 	case 1759, 1760:
 		return replacementEffectHealing, true
+	case 481:
+		return replacementEffectFirePlume, true
 	case 1286:
 		return replacementEffectMysticWard, true
 	case 445:
@@ -328,6 +388,9 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 }
 
 func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
+	if kind == replacementEffectFirePlume {
+		return firePlumeShader
+	}
 	if kind == replacementEffectMysticWard {
 		return mysticWardShader
 	}
@@ -347,7 +410,7 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 }
 
 func replacementEffectIsOneShot(kind replacementEffectKind) bool {
-	return kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
+	return kind == replacementEffectFirePlume || kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
 }
 
 func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
@@ -364,7 +427,7 @@ func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
 }
 
 func replacementEffectNeedsOverscan(kind replacementEffectKind) bool {
-	return kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
+	return kind == replacementEffectFirePlume || kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
@@ -633,23 +696,82 @@ func replacementEffectEase(t float32) float32 {
 type replacementEffectPreview struct {
 	kind           replacementEffectKind
 	label          string
+	pictID         uint16
 	coinDigits     [4]float32
 	coinDigitCount int
 }
 
 var replacementEffectsPreviews = []replacementEffectPreview{
-	{kind: replacementEffectHealing, label: "Healing"},
-	{kind: replacementEffectMysticWard, label: "Mystic Ward"},
-	{kind: replacementEffectMysticFade, label: "Ward Fading"},
-	{kind: replacementEffectTeleportGold, label: "Gold Teleport"},
-	{kind: replacementEffectTeleportBlue, label: "Blue Teleport"},
-	{kind: replacementEffectTeleportPrismatic, label: "Prismatic Teleport"},
-	{kind: replacementEffectStoneForm, label: "Stone Form"},
-	{kind: replacementEffectCoinReward, label: "Coin 123", coinDigits: [4]float32{1, 2, 3}, coinDigitCount: 3},
+	{kind: replacementEffectHealing, label: "Healing", pictID: 1759},
+	{kind: replacementEffectFirePlume, label: "Fire Plume", pictID: 481},
+	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
+	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
+	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
+	{kind: replacementEffectTeleportBlue, label: "Blue Teleport", pictID: 2977},
+	{kind: replacementEffectTeleportPrismatic, label: "Prismatic Teleport", pictID: 2978},
+	{kind: replacementEffectStoneForm, label: "Stone Form", pictID: 3125},
+	{kind: replacementEffectCoinReward, label: "Coin 123", pictID: coinRewardFirstPictID, coinDigits: [4]float32{1, 2, 3}, coinDigitCount: 3},
 }
 
-// drawReplacementEffectsPreview renders the actual effect shaders in a
-// looping gallery, so visual tuning does not require finding a movie event.
+func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
+	switch mode {
+	case replacementEffectPreviewOriginal:
+		return "Original animation"
+	case replacementEffectPreviewBoth:
+		return "Original + new effect"
+	default:
+		return "New effect"
+	}
+}
+
+func replacementEffectPreviewNativeDimensions(preview replacementEffectPreview) (int, int) {
+	if preview.pictID != 0 && clImages != nil {
+		width, height := clImages.Size(uint32(preview.pictID))
+		frames := max(1, clImages.NumFrames(uint32(preview.pictID)))
+		height /= frames
+		if width > 0 && height > 0 {
+			return width, height
+		}
+	}
+	return 64, 64
+}
+
+func replacementEffectPreviewItems() []replacementEffectPreview {
+	if replacementEffectsPreviewSelection >= 0 && replacementEffectsPreviewSelection < len(replacementEffectsPreviews) {
+		return replacementEffectsPreviews[replacementEffectsPreviewSelection : replacementEffectsPreviewSelection+1]
+	}
+	return replacementEffectsPreviews
+}
+
+func drawReplacementEffectOriginalPreview(screen *ebiten.Image, preview replacementEffectPreview, left, top float64, width, height int, elapsed float64) {
+	if preview.pictID == 0 || clImages == nil {
+		return
+	}
+	frames := max(1, clImages.NumFrames(uint32(preview.pictID)))
+	frame := int(elapsed*float64(max(1, replacementEffectsPreviewUPS))) % frames
+	image := loadImageFrameOriginal(preview.pictID, frame)
+	if image == nil {
+		return
+	}
+	bounds := image.Bounds()
+	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
+		return
+	}
+	scale := math.Min(float64(width)/float64(bounds.Dx()), float64(height)/float64(bounds.Dy()))
+	if scale <= 0 {
+		return
+	}
+	op := acquireDrawOpts()
+	op.Filter = ebiten.FilterNearest
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(left+(float64(width)-float64(bounds.Dx())*scale)/2, top+(float64(height)-float64(bounds.Dy())*scale)/2)
+	screen.DrawImage(image, op)
+	releaseDrawOpts(op)
+}
+
+// drawReplacementEffectsPreview renders either the full shader gallery or one
+// enlarged effect. The selected display mode lets artists compare it directly
+// with the source sprite without changing live world replacement behavior.
 func drawReplacementEffectsPreview(screen *ebiten.Image) {
 	if !replacementEffectsShadersReady {
 		return
@@ -660,19 +782,40 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 	}
 	vector.FillRect(screen, float32(bounds.Min.X), float32(bounds.Min.Y), float32(bounds.Dx()), float32(bounds.Dy()), color.Black, false)
 
-	const columns = 3
-	cellW := float64(bounds.Dx()) / columns
-	rows := (len(replacementEffectsPreviews) + columns - 1) / columns
+	previews := replacementEffectPreviewItems()
+	if len(previews) == 0 {
+		return
+	}
+	columns := 3
+	if len(previews) == 1 {
+		columns = 1
+	}
+	cellW := float64(bounds.Dx()) / float64(columns)
+	rows := (len(previews) + columns - 1) / columns
 	cellH := float64(bounds.Dy()) / float64(rows)
 	effectW := max(56, roundToInt(cellW*0.68))
 	effectH := max(56, roundToInt(cellH*0.66))
+	if len(previews) == 1 {
+		switch replacementEffectsPreviewScale {
+		case replacementEffectPreviewNativeSize:
+			effectW, effectH = replacementEffectPreviewNativeDimensions(previews[0])
+		case replacementEffectPreviewDoubleSize:
+			effectW, effectH = replacementEffectPreviewNativeDimensions(previews[0])
+			effectW *= 2
+			effectH *= 2
+		default:
+			// Leave room for the preview title while otherwise using the game view.
+			effectW = max(56, bounds.Dx()-32)
+			effectH = max(56, bounds.Dy()-64)
+		}
+	}
 	coinCanvasW, coinCanvasH := roundToInt(float64(effectW)*1.70), roundToInt(float64(effectH)*1.70)
 	now := drawFrameNow
 	if now.IsZero() {
 		now = time.Now()
 	}
 	elapsed := now.Sub(replacementEffectsStarted).Seconds()
-	for i, preview := range replacementEffectsPreviews {
+	for i, preview := range previews {
 		col, row := i%columns, i/columns
 		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
 		top := float64(bounds.Min.Y) + float64(row)*cellH + 28
@@ -682,6 +825,9 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		drawW, drawH := effectW, effectH
 		drawLeft, drawTop := left, top
+		if replacementEffectsPreviewMode != replacementEffectPreviewNew {
+			drawReplacementEffectOriginalPreview(screen, preview, left, top, effectW, effectH, elapsed)
+		}
 		state := &replacementEffectShaderStates[preview.kind]
 		state.size = [2]float32{float32(effectW), float32(effectH)}
 		state.canvasSize = [2]float32{float32(effectW), float32(effectH)}
@@ -706,14 +852,20 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 			state.uniforms["CoinValue"] = preview.coinDigits[0]
 			state.uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
 		}
-		state.op.Blend = ebiten.Blend{}
-		state.op.Images[0] = whiteImage
-		drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
+		if replacementEffectsPreviewMode != replacementEffectPreviewOriginal {
+			state.op.Blend = ebiten.Blend{}
+			state.op.Images[0] = whiteImage
+			drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
+		}
 
 		labelOpts := acquireTextDrawOpts()
 		labelOpts.GeoM.Translate(float64(bounds.Min.X)+float64(col)*cellW+8, float64(bounds.Min.Y)+float64(row)*cellH+8)
 		labelOpts.ColorScale.ScaleWithColor(color.RGBA{R: 224, G: 234, B: 255, A: 255})
-		text.Draw(screen, preview.label, mainFont, labelOpts)
+		label := preview.label
+		if len(previews) == 1 {
+			label += " — " + replacementEffectPreviewLabel(replacementEffectsPreviewMode)
+		}
+		text.Draw(screen, label, mainFont, labelOpts)
 		releaseTextDrawOpts(labelOpts)
 	}
 }

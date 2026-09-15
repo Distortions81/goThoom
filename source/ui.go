@@ -354,6 +354,7 @@ func initUI() {
 	makeNotificationsWindow()
 	makeBubbleWindow()
 	makeDebugWindow()
+	makeReplacementEffectsPreviewWindow()
 	initHelpUI()
 	initAboutUI()
 	makeWindowsWindow()
@@ -3180,9 +3181,16 @@ func refreshLoginAfterAssetsAvailable() {
 	// character was already selected.
 	updateCharacterButtons()
 	loginWin.Refresh()
-	if !primarySession.transport.connected() && clmov == "" && !playingMovie && pcapPath == "" && !fake {
+	if loginMayOpenAfterAssetsLoad() {
 		loginWin.MarkOpen()
 	}
+}
+
+// Keep command-line visual previews visible once their assets are ready. The
+// login window normally returns after startup, but it would otherwise cover
+// the preview rendered in the shared game viewport.
+func loginMayOpenAfterAssetsLoad() bool {
+	return !primarySession.transport.connected() && clmov == "" && !playingMovie && pcapPath == "" && !fake && !replacementEffectsPreview
 }
 
 func updateCharacterButtons() {
@@ -6178,13 +6186,13 @@ func makeDebugWindow() {
 	shaderSection.AddItem(shaderRow)
 
 	previewEffectsBtn, previewEffectsEvents := eui.NewButton()
-	previewEffectsBtn.Text = "Toggle Effects Preview"
+	previewEffectsBtn.Text = "Open Effects Preview"
 	setMaterialButtonIcon(previewEffectsBtn, "visibility")
 	previewEffectsBtn.Size = eui.Point{X: width, Y: 24}
-	previewEffectsBtn.SetTooltip("Preview every replacement effect.")
+	previewEffectsBtn.SetTooltip("Open the effect gallery and comparison controls.")
 	previewEffectsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			replacementEffectsPreview = !replacementEffectsPreview
+			openReplacementEffectsPreview()
 		}
 	}
 	shaderSection.AddItem(previewEffectsBtn)

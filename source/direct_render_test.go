@@ -43,6 +43,7 @@ func TestReplacementEffectKinds(t *testing.T) {
 	}{
 		{1759, replacementEffectHealing, true},
 		{1760, replacementEffectHealing, true},
+		{481, replacementEffectFirePlume, true},
 		{1286, replacementEffectMysticWard, true},
 		{1, 0, false},
 	}

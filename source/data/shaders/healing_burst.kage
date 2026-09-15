@@ -40,17 +40,21 @@ func maskAlpha(localPos vec2) float {
 }
 
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
-	// A continuous reinterpretation of the original healing animation: motes
-	// gather at the center, spiral outward, and dissolve into a luminous halo.
+	// A continuous version of the original 1759 healing animation: a blue core
+	// blooms into evenly spaced cyan motes, then settles back into the caster.
+	// The legacy frames have a distinctly radial, dotted silhouette, so keep
+	// that readable before adding only a little motion between the frames.
 	windScale := 0.68 + 0.32*Energy
 	localPos := srcPos - imageSrc0Origin()
 	p := (localPos/Size - vec2(0.5, 0.5)) / windScale
 	p.x *= Size.x / Size.y
 	r := length(p)
 	angle := polarAngle(p)
-	// This is intentionally driven by elapsed render time rather than the
-	// source sprite's four animation frames.
-	t := Phase * 2.4
+	// Interpolate the old four-frame pulse over a little more than one second.
+	// Its smooth return makes a sustained heal feel active without becoming a
+	// fast, unrelated particle storm.
+	t := Phase
+	pulse := 0.5 - 0.5*cos(t*5.1)
 
 	// Illuminate only the opaque pixels of the pinned mobile in a dedicated
 	// additive pass. Moving bands and the brighter inner rim make the light
@@ -66,45 +70,34 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		upAlpha := maskAlpha(localPos+vec2(0, -2))
 		insideAlpha := min(rightAlpha, min(leftAlpha, min(downAlpha, upAlpha)))
 		innerEdge := max(0, body-insideAlpha)
-		arcaneWave := 0.5 + 0.5*sin(t*2.15-p.y*13.0+angle*2.0)
+		arcaneWave := 0.5 + 0.5*sin(t*3.1-p.y*11.0+angle*2.0)
 		centerLight := max(0, 1-r*1.35)
-		light := body*(0.14+0.20*arcaneWave+0.09*centerLight)
-		light += innerEdge*(0.22+0.12*arcaneWave)
+		light := body*(0.10+0.16*arcaneWave+0.13*centerLight)
+		light += innerEdge*(0.20+0.11*arcaneWave)
 		light *= Alpha
-		color := mix(vec3(0.015, 0.22, 1.0), vec3(0.20, 0.80, 1.0), arcaneWave*0.65+innerEdge*0.35)
+		color := mix(vec3(0.02, 0.16, 0.88), vec3(0.30, 0.94, 1.0), arcaneWave*0.65+innerEdge*0.35)
 		return vec4(color*light, light)
 	}
 
-	// Three staggered swarms hide their radial wrap by fading at both ends.
-	lifeA := fract(t*0.23)
-	lifeB := fract(t*0.23+0.333)
-	lifeC := fract(t*0.23+0.666)
-	fadeA := sin(lifeA*3.14159265)
-	fadeB := sin(lifeB*3.14159265)
-	fadeC := sin(lifeC*3.14159265)
-	radiusA := 0.055 + lifeA*0.47 + sin(angle*3.0-t*2.8)*0.026
-	radiusB := 0.055 + lifeB*0.47 + sin(angle*4.0+t*2.2)*0.022
-	radiusC := 0.055 + lifeC*0.47 + sin(angle*5.0-t*1.7)*0.018
-	swarmA := band(r, radiusA, 0.017) * mote(angle*13.0-t*8.0+r*18.0) * fadeA
-	swarmB := band(r, radiusB, 0.015) * mote(angle*17.0+t*6.2-r*14.0) * fadeB
-	swarmC := band(r, radiusC, 0.013) * mote(angle*23.0-t*4.8+r*11.0) * fadeC
+	// The two broad rings reproduce the 1759 frames' dotted cyan flower.
+	// A slightly offset middle ring prevents the procedural interpolation from
+	// looking too mechanically perfect.
+	innerRadius := 0.12 + pulse*0.15
+	outerRadius := 0.20 + pulse*0.31
+	innerDots := band(r, innerRadius, 0.019) * mote(angle*12.0+t*1.1+r*9.0)
+	outerDots := band(r, outerRadius, 0.018) * mote(angle*18.0-t*0.75+r*12.0)
+	middleDots := band(r, 0.16+pulse*0.27, 0.013) * mote(angle*24.0+t*1.7)
 
-	// Fine orbiting dust fills the gaps between the larger outward motes.
-	orbitRadius := 0.25 + sin(t*1.4)*0.035
-	orbit := band(r, orbitRadius, 0.010) * mote(angle*19.0+t*9.0)
-	orbit += band(r, 0.38+sin(t*1.1+angle*2.0)*0.025, 0.009) * mote(angle*29.0-t*7.0)
-
-	corePulse := 0.76 + 0.24*sin(t*3.8)
-	core := max(0, 1-r*(7.4+sin(t*2.5)*0.8)) * corePulse
-	spiralGlow := 0.5 + 0.5*sin(angle*4.0-r*18.0-t*3.0)
-	// A quiet rotating sigil beneath the swarm gives the burst an arcane
-	// healing identity without becoming a visibly segmented animation.
-	sigilRing := band(r, 0.17+sin(t*1.3)*0.008, 0.012)
-	sigilGlyphs := 0.32 + 0.68*mote(angle*8.0+t*2.0)
-	sigil := sigilRing*sigilGlyphs + band(r, 0.115, 0.009)*(0.24+0.24*sin(angle*4.0-t*2.6))
-	aura := max(0, 1-r*2.0) * (0.16 + 0.10*spiralGlow)
-	outerHalo := band(r, 0.44+sin(t*1.15)*0.025, 0.035) * (0.12 + 0.08*spiralGlow)
-	intensity := min(1, core + 0.75*sigil + 1.45*swarmA + 1.35*swarmB + 1.25*swarmC + 0.8*orbit + aura + outerHalo)
+	// Tiny flecks bridge the rings as the bloom grows. They add depth without
+	// obscuring the familiar, clean dotted outline.
+	fleckRadius := 0.09 + pulse*0.47
+	flecks := band(r, fleckRadius, 0.010) * mote(angle*31.0-t*2.6+r*16.0)
+	core := max(0, 1-r*(8.8-pulse*2.2)) * (0.68+0.32*pulse)
+	innerGlow := max(0, 1-r*3.4) * (0.07+0.10*pulse)
+	// A restrained eight-point glimmer is the embellishment: it appears only
+	// near the peak, behind the cyan motes, and never reads as a hard sigil.
+	star := band(r, outerRadius*0.72, 0.022) * mote(angle*8.0-t*0.45) * pulse * 0.28
+	intensity := min(1, core + innerGlow + 1.32*innerDots + 1.55*outerDots + 0.72*middleDots + 0.58*flecks + star)
 
 	// Use the nearby player's alpha silhouette as a depth mask. A slowly
 	// rotating depth wave lets some motes pass in front while most recede
@@ -119,15 +112,15 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		edge := max(0, edgeAlpha-body)
 		insideAlpha := min(rightAlpha, min(leftAlpha, min(downAlpha, upAlpha)))
 		innerEdge := max(0, body-insideAlpha)
-		depth := 0.5 + 0.5*sin(angle*3.0+r*13.0-t*2.2)
+		depth := 0.5 + 0.5*sin(angle*3.0+r*13.0-t*1.7)
 		front := smoothstep(0.58, 0.88, depth)
 		bodyVisibility := 0.16 + 0.84*front
 		intensity *= mix(1.0, bodyVisibility, body)
 		intensity += edge*max(0, 1-r*1.7)*0.42
 		// Leave just enough body light in this pass to visually join the motes
 		// to the dedicated additive sprite-light pass.
-		bodyPulse := 0.5 + 0.5*sin(t*2.7-r*7.0)
-		bodyGlow := body*max(0, 1-r*1.55)*(0.025+0.030*bodyPulse)
+		bodyPulse := 0.5 + 0.5*sin(t*3.1-r*7.0)
+		bodyGlow := body*max(0, 1-r*1.55)*(0.030+0.035*bodyPulse)
 		intensity += bodyGlow + innerEdge*0.12
 		intensity = min(1, intensity)
 	}
@@ -137,7 +130,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 
 	// The effect is composited after scene lighting. Boost its opacity here so
 	// thin rings retain an emissive, full-bright read against dusk-darkened art.
-	color := mix(vec3(0.005, 0.12, 0.95), vec3(0.52, 1.0, 1.0), min(1, intensity*2.15))
-	a := min(1, intensity*2.25) * Alpha
+	color := mix(vec3(0.02, 0.16, 0.95), vec3(0.36, 0.98, 1.0), min(1, intensity*1.85))
+	a := min(1, intensity*2.10) * Alpha
 	return vec4(color*a, a)
 }

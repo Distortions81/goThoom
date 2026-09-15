@@ -869,6 +869,13 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	if replacementEffectReplacesPict(id) {
 		return nil
 	}
+	return loadImageFrameOriginal(id, frame)
+}
+
+// loadImageFrameOriginal bypasses procedural replacement selection. It is used
+// only by the effects preview so artists can compare the original animation to
+// its replacement without changing normal world rendering.
+func loadImageFrameOriginal(id uint16, frame int) *ebiten.Image {
 	origKey := makeImageKey(id, frame)
 	imageMu.Lock()
 	if img, ok := imageCache[origKey]; ok {

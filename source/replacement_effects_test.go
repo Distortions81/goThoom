@@ -1,12 +1,95 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+func TestHealingBurstShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(healingBurstShaderSource)
+	if err != nil {
+		t.Fatalf("compile healing burst shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestReplacementShaderReloadUsesSourceTreeNotUserData(t *testing.T) {
+	originalSourceDir, originalDataDir := replacementEffectsShaderSourceDir, dataDirPath
+	replacementEffectsShaderSourceDir = t.TempDir()
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() {
+		replacementEffectsShaderSourceDir, dataDirPath = originalSourceDir, originalDataDir
+	})
+
+	const source = "package main\nfunc Fragment(_ vec4, _ vec2, _ vec4) vec4 { return vec4(1) }\n"
+	if err := os.WriteFile(filepath.Join(replacementEffectsShaderSourceDir, "reload-test.kage"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dataDirPath, "shaders"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dataDirPath, "shaders", "reload-test.kage"), []byte("not valid kage"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	shader, err := compileReplacementEffectShader("reload-test.kage", []byte("not valid kage"))
+	if err != nil {
+		t.Fatalf("reload should use the source-tree shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestFirePlumeShaderCompiles(t *testing.T) {
+	shader, err := ebiten.NewShader(firePlumeShaderSource)
+	if err != nil {
+		t.Fatalf("compile fire plume shader: %v", err)
+	}
+	shader.Deallocate()
+}
+
+func TestReplacementEffectPreviewSelection(t *testing.T) {
+	originalSelection, originalMode, originalScale, originalUPS := replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS
+	t.Cleanup(func() {
+		replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS = originalSelection, originalMode, originalScale, originalUPS
+	})
+
+	replacementEffectsPreviewSelection = 1
+	items := replacementEffectPreviewItems()
+	if len(items) != 1 || items[0].kind != replacementEffectFirePlume || items[0].pictID != 481 {
+		t.Fatalf("selected preview = %#v, want fire plume 481", items)
+	}
+	replacementEffectsPreviewMode = replacementEffectPreviewBoth
+	if got := replacementEffectPreviewLabel(replacementEffectsPreviewMode); got != "Original + new effect" {
+		t.Fatalf("both preview label = %q", got)
+	}
+	replacementEffectsPreviewScale = replacementEffectPreviewDoubleSize
+	if replacementEffectsPreviewScale != replacementEffectPreviewDoubleSize {
+		t.Fatal("preview scale did not retain the selected 200% mode")
+	}
+	replacementEffectsPreviewUPS = 2
+	if replacementEffectsPreviewUPS != 2 {
+		t.Fatal("preview did not retain the selected animation rate")
+	}
+
+	replacementEffectsPreviewSelection = -1
+	if got := len(replacementEffectPreviewItems()); got != len(replacementEffectsPreviews) {
+		t.Fatalf("gallery has %d effects, want %d", got, len(replacementEffectsPreviews))
+	}
+}
+
+func TestFirePlumeIsAnOverscannedOneShot(t *testing.T) {
+	if !replacementEffectIsOneShot(replacementEffectFirePlume) {
+		t.Fatal("fire plume should play as a brief impact")
+	}
+	if !replacementEffectNeedsOverscan(replacementEffectFirePlume) {
+		t.Fatal("fire plume needs room for rising embers")
+	}
+}
 
 func TestConcurrentReplacementShaderInitializationDoesNotRepeatShaders(t *testing.T) {
 	replacementEffectsShaderInitMu.Lock()
@@ -63,6 +146,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 		ok   bool
 	}{
 		{id: 1759, kind: replacementEffectHealing, ok: true},
+		{id: 481, kind: replacementEffectFirePlume, ok: true},
 		{id: 1286, kind: replacementEffectMysticWard, ok: true},
 		{id: 445, kind: replacementEffectMysticFade, ok: true},
 		{id: 2976, kind: replacementEffectTeleportGold, ok: true},
@@ -84,7 +168,7 @@ func TestReplacementEffectKindLookup(t *testing.T) {
 var benchmarkReplacementEffectKind replacementEffectKind
 
 func BenchmarkReplacementEffectKindLookup(b *testing.B) {
-	ids := [...]uint16{1, 445, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
+	ids := [...]uint16{1, 445, 481, 1286, 1759, 1847, 2976, 2977, 2978, 3125, 5000}
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		kind, _ := replacementEffectKindForPict(ids[i%len(ids)])
