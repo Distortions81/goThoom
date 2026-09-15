@@ -442,6 +442,9 @@ func TestTownPuddleMobileMotionIgnoresCameraShift(t *testing.T) {
 	if got := townPuddleMobileMotion(frameMobile{Index: 7, H: 40, V: 43}, previous, 5, 3); got <= 0 {
 		t.Fatalf("mobile movement relative to ground produced no ripples: %v", got)
 	}
+	if got := townPuddleMobileMotion(frameMobile{Index: 7, H: 36, V: 43}, previous, 5, 3); got <= 0 {
+		t.Fatalf("one-pixel game movement produced no ripples: %v", got)
+	}
 	if got := townPuddleMobileMotion(frameMobile{Index: 8, H: 40, V: 43}, previous, 5, 3); got != 0 {
 		t.Fatalf("mobile without previous position produced foot ripples: %v", got)
 	}
@@ -450,24 +453,32 @@ func TestTownPuddleMobileMotionIgnoresCameraShift(t *testing.T) {
 	}
 }
 
-func TestTownPuddleFootRippleFollowsMovementAndLingers(t *testing.T) {
+func TestTownPuddleFootRippleEmitsOncePerGameUpdateAndLingers(t *testing.T) {
 	originalScale := gs.GameScale
 	gs.GameScale = 2
 	t.Cleanup(func() { gs.GameScale = originalScale })
 	now := time.Unix(1_000, 0)
 	var effect replacementEffectDraw
-	effect.recordTownPuddleFoot(7, 30, 5, 1, now)
-	effect.recordTownPuddleFoot(7, 31, 5, 1, now.Add(16*time.Millisecond))
+	effect.recordTownPuddleFoot(7, 20, 30, 5, 30, 5, 1, 0, now)
+	effect.recordTownPuddleFoot(7, 20, 32, 5, 32, 5, 1, 0, now.Add(16*time.Millisecond))
 	if !effect.puddleRipples[0].started.IsZero() {
-		t.Fatal("stationary/subpixel foot motion emitted a ripple")
+		t.Fatal("render interpolation emitted a ripple without a game update")
 	}
-	effect.recordTownPuddleFoot(7, 32, 5, 1, now.Add(32*time.Millisecond))
-	if effect.puddleRipples[0].started.IsZero() || effect.puddleRipples[0].x != 32 {
-		t.Fatal("moving foot did not start a ripple at its contact point")
+	effect.recordTownPuddleFoot(7, 21, 34, 5, 34, 5, 1, 0.5, now.Add(32*time.Millisecond))
+	if effect.puddleRipples[0].started.IsZero() || effect.puddleRipples[0].x != 34 {
+		t.Fatal("moving game frame did not start a ripple at the foot")
 	}
-	effect.recordTownPuddleFoot(7, 32, 5, 1, now.Add(48*time.Millisecond))
+	effect.recordTownPuddleFoot(7, 21, 38, 5, 38, 5, 1, 0.5, now.Add(48*time.Millisecond))
 	if effect.puddleRippleNext != 1 {
-		t.Fatal("stationary foot restarted its ripple")
+		t.Fatal("multiple renders of one game frame emitted extra ripples")
+	}
+	effect.recordTownPuddleFoot(7, 22, 40, 5, 40, 5, 1, 0, now.Add(64*time.Millisecond))
+	if effect.puddleRippleNext != 2 {
+		t.Fatal("next moving game frame did not emit its ripple")
+	}
+	effect.recordTownPuddleFoot(7, 23, 40, 5, 40, 5, 1, 0, now.Add(80*time.Millisecond))
+	if effect.puddleRippleNext != 2 {
+		t.Fatal("stationary game frame emitted a ripple")
 	}
 	var state replacementEffectShaderState
 	populateTownPuddleRippleUniforms(&effect, now.Add(432*time.Millisecond), &state)
@@ -479,8 +490,8 @@ func TestTownPuddleFootRippleFollowsMovementAndLingers(t *testing.T) {
 	if state.rippleMotion[0] != 0 {
 		t.Fatal("expired foot ripple remained active")
 	}
-	effect.recordTownPuddleFoot(7, 200, 5, 1, now.Add(60*time.Millisecond))
-	if effect.puddleRippleNext != 1 {
+	effect.recordTownPuddleFoot(7, 24, 200, 5, 200, 5, 1, 0, now.Add(96*time.Millisecond))
+	if effect.puddleRippleNext != 2 {
 		t.Fatal("teleport emitted a puddle ripple")
 	}
 }

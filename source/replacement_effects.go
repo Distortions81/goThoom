@@ -174,8 +174,9 @@ type replacementEffectDraw struct {
 }
 
 type townPuddleFootTrack struct {
-	x, y     float32
-	lastSeen time.Time
+	anchorX, anchorY float32
+	logicalFrame     int
+	lastSeen         time.Time
 }
 
 type townPuddleRippleEvent struct {
@@ -977,15 +978,15 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 	drawReplacementEffectsLayer(screen, ox, oy, mobiles, prevMobiles, shiftX, shiftY, alpha, false)
 }
 
-func drawReplacementEffectsBelowMobiles(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, viewport *viewportRenderState) {
-	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, true, viewport)
+func drawReplacementEffectsBelowMobiles(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, viewport *viewportRenderState) {
+	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, logicalFrame, true, viewport)
 }
 
 func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, belowMobiles bool) {
-	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, nil, prevMobiles, shiftX, shiftY, alpha, belowMobiles, nil)
+	drawReplacementEffectsLayerWithPuddleReflections(screen, ox, oy, mobiles, nil, prevMobiles, shiftX, shiftY, alpha, 0, belowMobiles, nil)
 }
 
-func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, belowMobiles bool, viewport *viewportRenderState) {
+func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, belowMobiles bool, viewport *viewportRenderState) {
 	if !replacementEffectsEnabled() {
 		return
 	}
@@ -1127,7 +1128,7 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		}
 		state.op.Images[0], state.op.Images[1] = effect.maskImage, nil
 		if effect.kind == replacementEffectTownPuddle && !gs.hideMobiles && len(descriptors) != 0 {
-			surface := drawTownPuddleMobileReflections(&effect, w, h, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, now, viewport)
+			surface := drawTownPuddleMobileReflections(&effect, w, h, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, logicalFrame, now, viewport)
 			populateTownPuddleRippleUniforms(&effect, now, state)
 			replacementEffectDraws[key] = effect
 			if reflection := surface.image; reflection != nil {
@@ -1158,7 +1159,7 @@ type townPuddleMobileSurface struct {
 	image *ebiten.Image
 }
 
-func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, height, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, now time.Time, viewport *viewportRenderState) townPuddleMobileSurface {
+func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, height, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, now time.Time, viewport *viewportRenderState) townPuddleMobileSurface {
 	var surface townPuddleMobileSurface
 	if width <= 0 || height <= 0 || len(mobiles) == 0 {
 		return surface
@@ -1214,12 +1215,8 @@ func drawTownPuddleMobileReflections(effect *replacementEffectDraw, width, heigh
 			continue
 		}
 		localFootX, localFootY := float32(mobileX-effect.left), float32(footY-effect.top)
-		if effect.puddleFeet == nil || effect.puddleFeet[mobile.Index].lastSeen.IsZero() {
-			if motion := townPuddleMobileMotion(mobile, prevMobiles, shiftX, shiftY); motion > 0 {
-				effect.addTownPuddleRipple(localFootX, localFootY, max(0.75, motion)*float32(proximity), mobile.Index, now)
-			}
-		}
-		effect.recordTownPuddleFoot(mobile.Index, localFootX, localFootY, float32(proximity), now)
+		localAnchorX, localAnchorY := float32(mobileX-effect.left), float32(mobileY-effect.top)
+		effect.recordTownPuddleFoot(mobile.Index, logicalFrame, localAnchorX, localAnchorY, localFootX, localFootY, float32(proximity), townPuddleMobileMotion(mobile, prevMobiles, shiftX, shiftY), now)
 		if reflectionCount == 3 {
 			continue
 		}
@@ -1263,27 +1260,25 @@ func (effect *replacementEffectDraw) addTownPuddleRipple(x, y, strength float32,
 	effect.puddleRippleNext++
 }
 
-func (effect *replacementEffectDraw) recordTownPuddleFoot(mobileIndex uint8, x, y, proximity float32, now time.Time) {
+func (effect *replacementEffectDraw) recordTownPuddleFoot(mobileIndex uint8, logicalFrame int, anchorX, anchorY, footX, footY, proximity, frameMotion float32, now time.Time) {
 	if effect.puddleFeet == nil {
 		effect.puddleFeet = make(map[uint8]townPuddleFootTrack)
 	}
 	previous, hadPrevious := effect.puddleFeet[mobileIndex]
-	if hadPrevious && now.Sub(previous.lastSeen) <= 350*time.Millisecond {
-		dx, dy := float64(x-previous.x), float64(y-previous.y)
+	if hadPrevious && now.Sub(previous.lastSeen) <= 350*time.Millisecond && previous.logicalFrame != logicalFrame {
+		dx, dy := float64(anchorX-previous.anchorX), float64(anchorY-previous.anchorY)
 		distance := math.Hypot(dx, dy)
 		scale := max(1, gs.GameScale)
-		if distance >= 0.9*scale && distance <= maxMobileInterpPixels*scale {
-			strength := float32(math.Min(1, math.Max(0.75, distance/(8*scale)))) * proximity
-			effect.addTownPuddleRipple(x, y, strength, mobileIndex, now)
-			previous.x, previous.y = x, y
-		} else if distance > maxMobileInterpPixels*scale {
-			previous.x, previous.y = x, y
+		if (frameMotion > 0 || distance >= 0.9*scale) && distance <= maxMobileInterpPixels*scale {
+			strength := max(0.75, frameMotion, float32(math.Min(1, distance/(8*scale)))) * proximity
+			effect.addTownPuddleRipple(footX, footY, strength, mobileIndex, now)
 		}
-		previous.lastSeen = now
-		effect.puddleFeet[mobileIndex] = previous
-		return
+	} else if (!hadPrevious || now.Sub(previous.lastSeen) > 350*time.Millisecond) && frameMotion > 0 {
+		effect.addTownPuddleRipple(footX, footY, max(0.75, frameMotion)*proximity, mobileIndex, now)
 	}
-	effect.puddleFeet[mobileIndex] = townPuddleFootTrack{x: x, y: y, lastSeen: now}
+	effect.puddleFeet[mobileIndex] = townPuddleFootTrack{
+		anchorX: anchorX, anchorY: anchorY, logicalFrame: logicalFrame, lastSeen: now,
+	}
 }
 
 func populateTownPuddleRippleUniforms(effect *replacementEffectDraw, now time.Time, state *replacementEffectShaderState) {
@@ -1307,7 +1302,7 @@ func townPuddleMobileMotion(mobile frameMobile, previous map[uint8]frameMobile, 
 	dh := int(mobile.H) - int(prev.H) - shiftX
 	dv := int(mobile.V) - int(prev.V) - shiftY
 	distanceSquared := dh*dh + dv*dv
-	if distanceSquared < 4 || distanceSquared > maxMobileInterpPixels*maxMobileInterpPixels {
+	if distanceSquared == 0 || distanceSquared > maxMobileInterpPixels*maxMobileInterpPixels {
 		return 0
 	}
 	return float32(math.Min(1, math.Sqrt(float64(distanceSquared))/12))

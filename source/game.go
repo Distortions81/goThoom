@@ -2278,7 +2278,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 		}
 	}
-	drawReplacementEffectsBelowMobiles(screen, ox, oy, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, viewport)
+	drawReplacementEffectsBelowMobiles(screen, ox, oy, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, snap.logicalFrame, viewport)
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
