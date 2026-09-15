@@ -898,9 +898,9 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	return loadImageFrameOriginal(id, frame)
 }
 
-// loadImageFrameOriginal bypasses procedural replacement selection. It is used
-// only by the effects preview so artists can compare the original animation to
-// its replacement without changing normal world rendering.
+// loadImageFrameOriginal bypasses procedural replacement selection. The
+// effects preview uses it for comparison, and the lava-pool shader uses a
+// source frame's alpha to keep its footprint fixed.
 func loadImageFrameOriginal(id uint16, frame int) *ebiten.Image {
 	origKey := makeImageKey(id, frame)
 	imageMu.Lock()

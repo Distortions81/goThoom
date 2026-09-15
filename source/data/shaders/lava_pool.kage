@@ -10,6 +10,8 @@ var HasMask float
 var MaskOffset vec2
 var MaskInvScale float
 var SpriteLightOnly float
+var HasPoolOutline float
+var OutlineSize vec2
 
 func spark(value float) float {
 	v := max(0, sin(value))
@@ -39,14 +41,26 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	q := vec2(p.x*2.0, p.y*2.0)
 	r := length(q)
 	angle := polarAngle(q)
-	t := Phase * 7.8539816 // Four source frames at the game's five UPS.
+	t := Phase * 1.3089969 // A smooth 4.8-second cycle for the four source frames.
 
-	// The originals have a lumpy, breathing outline rather than a clean oval.
+	// The pool's first source frame fixes its shoreline. Only the molten
+	// surface moves; its native silhouette and scale stay attached to the tile.
 	boundary := 0.91
-	boundary += sin(angle*5.0+t)*0.030
-	boundary += sin(angle*9.0-t*2.0+1.7)*0.018
-	boundary += sin(angle*13.0+t*3.0+0.4)*0.010
+	boundary += sin(angle*5.0+0.5)*0.030
+	boundary += sin(angle*9.0+1.7)*0.018
+	boundary += sin(angle*13.0+0.4)*0.010
 	coverage := clamp((boundary+0.025-r)/0.050, 0, 1)
+	rim := 1-smoothstep(0.015, 0.090, boundary-r)
+	if HasPoolOutline > 0.5 {
+		outlinePos := imageSrc0Origin() + localPos/Size*OutlineSize
+		coverage = imageSrc0At(outlinePos).a
+		// A dark edge follows the actual sprite contour, including the wide
+		// pool's irregular lobes, rather than the fallback oval above.
+		nearby := min(imageSrc0At(outlinePos+vec2(-1, 0)).a, imageSrc0At(outlinePos+vec2(1, 0)).a)
+		nearby = min(nearby, imageSrc0At(outlinePos+vec2(0, -1)).a)
+		nearby = min(nearby, imageSrc0At(outlinePos+vec2(0, 1)).a)
+		rim = 1-smoothstep(0.15, 0.95, nearby)
+	}
 	if coverage <= 0 {
 		return vec4(0, 0, 0, 0)
 	}
@@ -82,7 +96,6 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 
 	// Retain a crisp near-black rim like the source artwork so the replacement
 	// remains readable against similarly colored ground.
-	rim := 1-smoothstep(0.015, 0.090, boundary-r)
 	color = mix(color, vec3(0.035, 0.001, 0), rim*0.90)
 	a := coverage * Alpha
 	return vec4(color*a, a)

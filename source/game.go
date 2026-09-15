@@ -2266,11 +2266,19 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
+		if replacementEffectPictureDrawsBelowMobiles(p.PictID) {
+			kind, _ := replacementEffectKindForPict(p.PictID)
+			instanceKey := uint64(0)
+			if kind == replacementEffectTownPuddle {
+				instanceKey = replacementEffectGroundPictureInstanceKey(p)
+			}
+			key := replacementEffectWorldKey(kind, p.H, p.V, instanceKey)
+			drawReplacementEffectInlineGround(screen, key, ox, oy, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, snap.logicalFrame, viewport)
+		}
 	}
-	// Ground replacement pictures on zero or positive planes must be queued
-	// before character drawing. Their originals are skipped in the normal
-	// interleaved pass below, and the replacement layer is painted beneath
-	// shadows and mobiles regardless of the source picture's plane.
+	// Ground replacements on zero or positive planes still queue before
+	// characters, so their shaders sit below shadows and mobiles. Negative-
+	// plane ground pictures have already drawn in scenery order above.
 	for _, pictures := range [...][]framePicture{zeroPics, posPics} {
 		for _, p := range pictures {
 			if replacementEffectPictureDrawsBelowMobiles(p.PictID) {

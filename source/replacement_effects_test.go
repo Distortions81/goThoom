@@ -102,6 +102,24 @@ func TestLavaPoolShaderCompiles(t *testing.T) {
 	shader.Deallocate()
 }
 
+func TestLavaPoolPreviewKeepsNativeAspect(t *testing.T) {
+	for _, test := range []struct {
+		nativeW, nativeH int
+		cellW, cellH     int
+		wantW, wantH     int
+	}{
+		{79, 48, 79, 48, 79, 48},
+		{79, 48, 158, 96, 158, 96},
+		{231, 176, 462, 352, 462, 352},
+		{231, 176, 500, 500, 500, 381},
+	} {
+		left, top, width, height := replacementEffectPreviewLavaBounds(10, 20, test.cellW, test.cellH, test.nativeW, test.nativeH)
+		if width != test.wantW || height != test.wantH || left != 10+float64(test.cellW-width)/2 || top != 20+float64(test.cellH-height)/2 {
+			t.Errorf("native %dx%d in %dx%d preview = (%v, %v, %d, %d), want centered %dx%d", test.nativeW, test.nativeH, test.cellW, test.cellH, left, top, width, height, test.wantW, test.wantH)
+		}
+	}
+}
+
 func TestMagicMoteRingShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(magicMoteRingShaderSource)
 	if err != nil {
@@ -253,7 +271,7 @@ func TestReplacementEffectPreviewPhaseLoopsOneShots(t *testing.T) {
 	if got, want := replacementEffectSequenceDuration(replacementEffectMysticOrbitWard), float32(0.8); got != want {
 		t.Fatalf("orbit ward cycle = %v, want %v", got, want)
 	}
-	if got, want := replacementEffectSequenceDuration(replacementEffectLavaPool), float32(0.8); got != want {
+	if got, want := replacementEffectSequenceDuration(replacementEffectLavaPool), float32(4.8); got != want {
 		t.Fatalf("lava pool cycle = %v, want %v", got, want)
 	}
 	if got, want := replacementEffectSequenceDuration(replacementEffectMagicMoteRing), float32(0.8); got != want {

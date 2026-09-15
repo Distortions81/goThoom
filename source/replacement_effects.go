@@ -159,6 +159,7 @@ type replacementEffectDraw struct {
 	coinGroupBottom             float64
 	started, lastSeen           time.Time
 	seen                        bool
+	drawnInline                 bool
 	mobileIndex                 uint8
 	hasMobileAnchor             bool
 	mobileOffsetX               float64
@@ -195,6 +196,7 @@ type replacementEffectShaderState struct {
 	size         [2]float32
 	canvasSize   [2]float32
 	maskOffset   [2]float32
+	outlineSize  [2]float32
 	coinDigits   [4]float32
 	rippleFeet   [12]float32
 	rippleMotion [6]float32
@@ -217,6 +219,8 @@ func init() {
 			"MaskOffset":      state.maskOffset[:],
 			"MaskInvScale":    float32(1),
 			"SpriteLightOnly": float32(0),
+			"HasPoolOutline":  float32(0),
+			"OutlineSize":     state.outlineSize[:],
 			"FlagTheme":       float32(0),
 			"FlagMirror":      float32(0),
 			"TorchMirror":     float32(0),
@@ -523,6 +527,7 @@ func beginReplacementEffects() {
 	}
 	for key, effect := range replacementEffectDraws {
 		effect.seen = false
+		effect.drawnInline = false
 		replacementEffectDraws[key] = effect
 	}
 }
@@ -676,6 +681,9 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 		if kind == replacementEffectShoreWave {
 			return 12.8
 		}
+		if kind == replacementEffectLavaPool {
+			return 4.8
+		}
 		return 0.8
 	}
 	return 1
@@ -809,6 +817,13 @@ func replacementEffectGroundPictureInstanceKey(p framePicture) uint64 {
 	return uint64(p.PictID)<<33 | pictureLightInstanceKey(p)
 }
 
+func replacementEffectWorldKey(kind replacementEffectKind, h, v int16, instanceKey uint64) uint64 {
+	if instanceKey != 0 {
+		return instanceKey | uint64(kind)<<56
+	}
+	return uint64(uint16(h))<<16 | uint64(uint16(v)) | uint64(kind)<<48
+}
+
 func replacementEffectWaveDirection(id uint16) float32 {
 	switch id {
 	case 3571:
@@ -844,13 +859,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	if kind == replacementEffectCoinReward {
 		key = replacementCoinClusterKey(left, top, width, height, now)
 	} else {
-		key = instanceKey
-		if key != 0 {
-			key |= uint64(kind) << 56
-		} else {
-			key = uint64(uint16(h))<<16 | uint64(uint16(v))
-			key |= uint64(kind) << 48
-		}
+		key = replacementEffectWorldKey(kind, h, v, instanceKey)
 	}
 	effect, ok := replacementEffectDraws[key]
 	if !ok || (!replacementEffectIsPersistent(kind) && now.Sub(effect.lastSeen) > replacementEffectFadeOut) {
@@ -910,6 +919,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	effect.frame = frame
 	effect.lastSeen = now
 	effect.seen = true
+	effect.drawnInline = false
 	// Coin rewards can appear in open world space as well as over a mobile.
 	// Keep their native group position stable instead of letting a transient
 	// nearest-mobile choice split or move the digits between updates.
@@ -987,13 +997,33 @@ func drawReplacementEffectsLayer(screen *ebiten.Image, ox, oy int, mobiles []fra
 }
 
 func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, belowMobiles bool, viewport *viewportRenderState) {
+	drawReplacementEffectsLayerSelected(screen, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, logicalFrame, belowMobiles, viewport, 0)
+}
+
+// Negative-plane floor pictures draw at their exact place among scenery. The
+// later floor pass must not paint the same shader a second time over pictures
+// that followed it in the source order.
+func drawReplacementEffectInlineGround(screen *ebiten.Image, key uint64, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, viewport *viewportRenderState) {
+	drawReplacementEffectsLayerSelected(screen, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, logicalFrame, true, viewport, key)
+}
+
+func drawReplacementEffectsLayerSelected(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descriptors map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, logicalFrame int, belowMobiles bool, viewport *viewportRenderState, onlyKey uint64) {
 	if !replacementEffectsEnabled() {
 		return
 	}
 	if belowMobiles && !gs.hideMobiles && len(descriptors) != 0 {
 		maxWidth, maxHeight := 0, 0
-		for _, effect := range replacementEffectDraws {
+		if onlyKey != 0 {
+			effect := replacementEffectDraws[onlyKey]
 			if effect.kind == replacementEffectTownPuddle && effect.seen {
+				maxWidth = int(math.Ceil(effect.width))
+				maxHeight = int(math.Ceil(effect.height))
+			}
+		} else {
+			for _, effect := range replacementEffectDraws {
+				if effect.kind != replacementEffectTownPuddle || !effect.seen {
+					continue
+				}
 				maxWidth = max(maxWidth, int(math.Ceil(effect.width)))
 				maxHeight = max(maxHeight, int(math.Ceil(effect.height)))
 			}
@@ -1011,9 +1041,12 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		now = time.Now()
 	}
 	globalPhase := float32(now.Sub(replacementEffectsStarted).Seconds())
-	for key, effect := range replacementEffectDraws {
+	drawEffect := func(key uint64, effect replacementEffectDraw) {
+		if onlyKey == 0 && effect.drawnInline {
+			return
+		}
 		if replacementEffectDrawsBelowMobiles(effect.kind) != belowMobiles {
-			continue
+			return
 		}
 		if effect.hasMobileAnchor {
 			for _, mobile := range mobiles {
@@ -1039,18 +1072,22 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		if !effect.seen {
 			if replacementEffectIsPersistent(effect.kind) {
 				delete(replacementEffectDraws, key)
-				continue
+				return
 			}
 			age := now.Sub(effect.lastSeen)
 			if age >= replacementEffectFadeOut {
 				delete(replacementEffectDraws, key)
-				continue
+				return
 			}
 			fadeOut = 1 - replacementEffectEase(float32(age)/float32(replacementEffectFadeOut))
 		}
 		energy := fadeIn * fadeOut
 		if energy <= 0 {
-			continue
+			return
+		}
+		if onlyKey != 0 {
+			effect.drawnInline = true
+			replacementEffectDraws[key] = effect
 		}
 		visualAlpha := effect.alpha * energy
 		if effect.kind == replacementEffectCoinReward {
@@ -1063,7 +1100,7 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		// reserve an oversized canvas so their stars can extend beyond the face.
 		w, h := int(math.Ceil(effect.width)), int(math.Ceil(effect.height))
 		if w <= 0 || h <= 0 {
-			continue
+			return
 		}
 		phase := globalPhase
 		if effect.kind != replacementEffectWavingFlag && effect.kind != replacementEffectShoreWave && effect.kind != replacementEffectCoinReward {
@@ -1091,6 +1128,7 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		state.uniforms["Energy"] = energy
 		state.uniforms["HasMask"] = hasMask
 		state.uniforms["HasReflection"] = float32(0)
+		state.uniforms["HasPoolOutline"] = float32(0)
 		state.uniforms["MaskInvScale"] = effect.maskInvScale
 		if effect.kind == replacementEffectWavingFlag {
 			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(effect.pictID)
@@ -1127,6 +1165,14 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 			state.uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
 		}
 		state.op.Images[0], state.op.Images[1] = effect.maskImage, nil
+		if effect.kind == replacementEffectLavaPool {
+			if outline := loadImageFrameOriginal(effect.pictID, 0); outline != nil {
+				bounds := outline.Bounds()
+				state.outlineSize = [2]float32{float32(bounds.Dx()), float32(bounds.Dy())}
+				state.uniforms["HasPoolOutline"] = float32(1)
+				state.op.Images[0] = outline
+			}
+		}
 		if effect.kind == replacementEffectTownPuddle && !gs.hideMobiles && len(descriptors) != 0 {
 			surface := drawTownPuddleMobileReflections(&effect, w, h, ox, oy, mobiles, descriptors, prevMobiles, shiftX, shiftY, alpha, logicalFrame, now, viewport)
 			populateTownPuddleRippleUniforms(&effect, now, state)
@@ -1150,6 +1196,15 @@ func drawReplacementEffectsLayerWithPuddleReflections(screen *ebiten.Image, ox, 
 		state.op.Blend = ebiten.Blend{}
 		state.uniforms["SpriteLightOnly"] = float32(0)
 		drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
+	}
+	if onlyKey != 0 {
+		if effect, ok := replacementEffectDraws[onlyKey]; ok {
+			drawEffect(onlyKey, effect)
+		}
+		return
+	}
+	for key, effect := range replacementEffectDraws {
+		drawEffect(key, effect)
 	}
 }
 
@@ -1429,6 +1484,13 @@ func replacementEffectPreviewNativeDimensions(preview replacementEffectPreview) 
 	return 64, 64
 }
 
+func replacementEffectPreviewLavaBounds(left, top float64, width, height, nativeW, nativeH int) (float64, float64, int, int) {
+	scale := math.Min(float64(width)/float64(nativeW), float64(height)/float64(nativeH))
+	drawW := max(1, roundToInt(float64(nativeW)*scale))
+	drawH := max(1, roundToInt(float64(nativeH)*scale))
+	return left + float64(width-drawW)/2, top + float64(height-drawH)/2, drawW, drawH
+}
+
 func replacementEffectPreviewItems() []replacementEffectPreview {
 	if replacementEffectsPreviewSelection >= 0 && replacementEffectsPreviewSelection < len(replacementEffectsPreviews) {
 		return replacementEffectsPreviews[replacementEffectsPreviewSelection : replacementEffectsPreviewSelection+1]
@@ -1545,12 +1607,16 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		phase := replacementEffectPreviewPhase(preview.kind, elapsed)
 		drawW, drawH := effectW, effectH
 		drawLeft, drawTop := left, top
+		if preview.kind == replacementEffectLavaPool {
+			nativeW, nativeH := replacementEffectPreviewNativeDimensions(preview)
+			drawLeft, drawTop, drawW, drawH = replacementEffectPreviewLavaBounds(left, top, effectW, effectH, nativeW, nativeH)
+		}
 		if replacementEffectsPreviewMode != replacementEffectPreviewNew {
 			drawReplacementEffectOriginalPreview(screen, preview, left, top, effectW, effectH, elapsed)
 		}
 		state := &replacementEffectShaderStates[preview.kind]
-		state.size = [2]float32{float32(effectW), float32(effectH)}
-		state.canvasSize = [2]float32{float32(effectW), float32(effectH)}
+		state.size = [2]float32{float32(drawW), float32(drawH)}
+		state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
 		state.maskOffset = [2]float32{}
 		state.coinDigits = preview.coinDigits
 		state.uniforms["Phase"] = phase
@@ -1558,6 +1624,7 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		state.uniforms["Energy"] = float32(1)
 		state.uniforms["HasMask"] = float32(0)
 		state.uniforms["HasReflection"] = float32(0)
+		state.uniforms["HasPoolOutline"] = float32(0)
 		state.uniforms["MaskInvScale"] = float32(1)
 		state.uniforms["SpriteLightOnly"] = float32(0)
 		if preview.kind == replacementEffectWavingFlag {
@@ -1611,6 +1678,14 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		if replacementEffectsPreviewMode != replacementEffectPreviewOriginal {
 			state.op.Blend = ebiten.Blend{}
 			state.op.Images[0], state.op.Images[1] = whiteImage, nil
+			if preview.kind == replacementEffectLavaPool {
+				if outline := loadImageFrameOriginal(preview.pictID, 0); outline != nil {
+					outlineBounds := outline.Bounds()
+					state.outlineSize = [2]float32{float32(outlineBounds.Dx()), float32(outlineBounds.Dy())}
+					state.uniforms["HasPoolOutline"] = float32(1)
+					state.op.Images[0] = outline
+				}
+			}
 			drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
 		}
 
