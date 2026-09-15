@@ -36,6 +36,10 @@ type viewportRenderFrame struct {
 	finalize    bool
 }
 
+func viewportPreviewNeedsContinuousRender(request viewportRenderRequest) bool {
+	return request.selected && replacementEffectsPreview
+}
+
 func prepareViewportRenderFrame(request viewportRenderRequest, now time.Time, assetTrace *assetLoadFrameTrace) viewportRenderFrame {
 	frame := viewportRenderFrame{request: request}
 	if request.target == nil || request.session == nil || request.state == nil {
@@ -48,7 +52,7 @@ func prepareViewportRenderFrame(request viewportRenderRequest, now time.Time, as
 		assetTrace.setWorldContext(bufW, bufH, frame.renderScale)
 	}
 	frame.worldKey = currentSessionWorldRenderKey(request.session, bufW, bufH)
-	if viewportWorldRenderCanBeReused(request.state, frame.worldKey) {
+	if !viewportPreviewNeedsContinuousRender(request) && viewportWorldRenderCanBeReused(request.state, frame.worldKey) {
 		if request.selected {
 			layoutActiveGameOverlays(frame.result.viewRect, clientActivityNone, request.session)
 		}

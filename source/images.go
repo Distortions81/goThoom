@@ -445,17 +445,28 @@ func markArtworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) {
 // Ebitengine images are created only after the batch finishes, on the caller's
 // render goroutine.
 func prepareArtworkSheets(keys []sheetKey) int {
-	return prepareArtworkSheetsInternal(keys, false)
+	return prepareArtworkSheetsInternal(keys, false, false)
 }
 
 // prepareBaseArtworkSheets decodes and uploads only the requested sheets. It
 // deliberately skips pose processing, upscaling, metrics, and recolor masks so
 // broad boot-time mobile preloads remain quick and memory-bounded.
 func prepareBaseArtworkSheets(keys []sheetKey) int {
-	return prepareArtworkSheetsInternal(keys, true)
+	return prepareArtworkSheetsInternal(keys, true, false)
 }
 
-func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
+// prepareOriginalEffectArtworkSheets is intentionally limited to the effects
+// preview. Normal world loading skips replacement sprites, but artists need
+// their source sheets available for an original-animation comparison.
+func prepareOriginalEffectArtworkSheets(keys []sheetKey) int {
+	return prepareArtworkSheetsInternal(keys, false, true)
+}
+
+func shouldSkipArtworkSheet(key sheetKey, includeReplacementEffects bool) bool {
+	return key.id == 0xffff || (!includeReplacementEffects && replacementEffectReplacesPict(key.id))
+}
+
+func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly, includeReplacementEffects bool) int {
 	if clImages == nil || len(keys) == 0 {
 		return 0
 	}
@@ -479,7 +490,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 	seen := make(map[sheetKey]struct{}, len(keys))
 	work := make([]preparedArtworkSheet, 0, len(keys))
 	for _, key := range keys {
-		if key.id == 0xffff || replacementEffectReplacesPict(key.id) {
+		if shouldSkipArtworkSheet(key, includeReplacementEffects) {
 			continue
 		}
 		if _, ok := seen[key]; ok {
@@ -755,6 +766,21 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 	return img
 }
 
+func loadOriginalEffectSheet(id uint16) *ebiten.Image {
+	key := makeSheetKey(id, nil, false)
+	imageMu.Lock()
+	img, cached := sheetCache[key]
+	imageMu.Unlock()
+	if cached {
+		return img
+	}
+	prepareOriginalEffectArtworkSheets([]sheetKey{key})
+	imageMu.Lock()
+	img = sheetCache[key]
+	imageMu.Unlock()
+	return img
+}
+
 func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	if isWASM {
 		return
@@ -884,7 +910,7 @@ func loadImageFrameOriginal(id uint16, frame int) *ebiten.Image {
 	}
 	imageMu.Unlock()
 
-	sheet := loadSheet(id, nil, false)
+	sheet := loadOriginalEffectSheet(id)
 	if sheet == nil {
 		imageMu.Lock()
 		imageCache[origKey] = nil

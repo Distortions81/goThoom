@@ -47,3 +47,16 @@ func TestWorldRenderIsContinuousWithMotionSmoothing(t *testing.T) {
 		t.Fatal("motion-smoothed world reused a frame")
 	}
 }
+
+func TestEffectsPreviewBypassesWorldRenderCache(t *testing.T) {
+	originalPreview := replacementEffectsPreview
+	t.Cleanup(func() { replacementEffectsPreview = originalPreview })
+
+	replacementEffectsPreview = true
+	if !viewportPreviewNeedsContinuousRender(viewportRenderRequest{selected: true}) {
+		t.Fatal("selected effects preview must redraw each display frame")
+	}
+	if viewportPreviewNeedsContinuousRender(viewportRenderRequest{selected: false}) {
+		t.Fatal("unselected viewport must not redraw for the effects preview")
+	}
+}

@@ -32,6 +32,12 @@ var firePlumeShaderSource []byte
 //go:embed data/shaders/waving_flag.kage
 var wavingFlagShaderSource []byte
 
+//go:embed data/shaders/wall_torch.kage
+var wallTorchShaderSource []byte
+
+//go:embed data/shaders/hidden_path.kage
+var hiddenPathShaderSource []byte
+
 //go:embed data/shaders/mystic_ward.kage
 var mysticWardShaderSource []byte
 
@@ -50,6 +56,8 @@ var coinRewardShaderSource []byte
 var healingBurstShader *ebiten.Shader
 var firePlumeShader *ebiten.Shader
 var wavingFlagShader *ebiten.Shader
+var wallTorchShader *ebiten.Shader
+var hiddenPathShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
 var teleportBurstShader *ebiten.Shader
@@ -94,6 +102,8 @@ const (
 	replacementEffectHealing replacementEffectKind = iota + 1
 	replacementEffectFirePlume
 	replacementEffectWavingFlag
+	replacementEffectWallTorch
+	replacementEffectHiddenPath
 	replacementEffectMysticWard
 	replacementEffectMysticFade
 	replacementEffectTeleportGold
@@ -158,6 +168,9 @@ func init() {
 			"MaskInvScale":    float32(1),
 			"SpriteLightOnly": float32(0),
 			"FlagTheme":       float32(0),
+			"FlagMirror":      float32(0),
+			"TorchMirror":     float32(0),
+			"PathVariant":     float32(0),
 		}
 		if kind == replacementEffectFirePlume || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
@@ -221,6 +234,14 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	torchShader, err := compileReplacementEffectShaderForInit("wall_torch.kage", wallTorchShaderSource)
+	if err != nil {
+		return err
+	}
+	pathShader, err := compileReplacementEffectShaderForInit("hidden_path.kage", hiddenPathShaderSource)
+	if err != nil {
+		return err
+	}
 	wardShader, err := compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 	if err != nil {
 		return err
@@ -244,6 +265,8 @@ func ReloadReplacementEffectsShader() error {
 	healingBurstShader = healingShader
 	firePlumeShader = fireShader
 	wavingFlagShader = flagShader
+	wallTorchShader = torchShader
+	hiddenPathShader = pathShader
 	mysticWardShader = wardShader
 	mysticFadeShader = fadeShader
 	teleportBurstShader = teleportShader
@@ -255,7 +278,7 @@ func ReloadReplacementEffectsShader() error {
 	return nil
 }
 
-const replacementEffectsShaderCount = 8
+const replacementEffectsShaderCount = 10
 
 func replacementEffectShaderSourcePath(name string) string {
 	dir := replacementEffectsShaderSourceDir
@@ -320,26 +343,36 @@ func loadNextReplacementEffectShader() error {
 			wavingFlagShader = shader
 		}
 	case 3:
+		shader, err = compileReplacementEffectShaderForInit("wall_torch.kage", wallTorchShaderSource)
+		if err == nil {
+			wallTorchShader = shader
+		}
+	case 4:
+		shader, err = compileReplacementEffectShaderForInit("hidden_path.kage", hiddenPathShaderSource)
+		if err == nil {
+			hiddenPathShader = shader
+		}
+	case 5:
 		shader, err = compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 		if err == nil {
 			mysticWardShader = shader
 		}
-	case 4:
+	case 6:
 		shader, err = compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 		if err == nil {
 			mysticFadeShader = shader
 		}
-	case 5:
+	case 7:
 		shader, err = compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 		if err == nil {
 			teleportBurstShader = shader
 		}
-	case 6:
+	case 8:
 		shader, err = compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 		if err == nil {
 			stoneFormShader = shader
 		}
-	case 7:
+	case 9:
 		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
@@ -388,10 +421,12 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 		return replacementEffectFirePlume, true
 	case 885, 886, 887, 5645, 5646, 5647:
 		return replacementEffectWavingFlag, true
+	case 330, 331:
+		return replacementEffectWallTorch, true
+	case 445, 446:
+		return replacementEffectHiddenPath, true
 	case 1286:
 		return replacementEffectMysticWard, true
-	case 445:
-		return replacementEffectMysticFade, true
 	case 2976:
 		return replacementEffectTeleportGold, true
 	case 2977:
@@ -412,6 +447,12 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	}
 	if kind == replacementEffectWavingFlag {
 		return wavingFlagShader
+	}
+	if kind == replacementEffectWallTorch {
+		return wallTorchShader
+	}
+	if kind == replacementEffectHiddenPath {
+		return hiddenPathShader
 	}
 	if kind == replacementEffectMysticWard {
 		return mysticWardShader
@@ -439,7 +480,7 @@ func replacementEffectIsOneShot(kind replacementEffectKind) bool {
 // long as their source picture is present. Unlike a spell burst, they should
 // neither ease in nor linger at a stale position after that picture is gone.
 func replacementEffectIsPersistent(kind replacementEffectKind) bool {
-	return kind == replacementEffectWavingFlag
+	return kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch
 }
 
 // replacementEffectFramePhase maps a legacy sprite frame to a position in the
@@ -464,7 +505,7 @@ func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 }
 
 func replacementEffectFrameStartOffset(kind replacementEffectKind, pictID uint16, frame int) time.Duration {
-	if kind == replacementEffectWavingFlag || kind == replacementEffectCoinReward {
+	if kind == replacementEffectWavingFlag || kind == replacementEffectWallTorch || kind == replacementEffectCoinReward {
 		return 0
 	}
 	frames := 1
@@ -511,6 +552,27 @@ func replacementEffectFlagTheme(id uint16) float32 {
 	default:
 		return 0
 	}
+}
+
+func replacementEffectFlagMirror(id uint16) float32 {
+	if id == 5645 || id == 5646 || id == 5647 {
+		return 1
+	}
+	return 0
+}
+
+func replacementEffectWallTorchMirror(id uint16) float32 {
+	if id == 330 {
+		return 1
+	}
+	return 0
+}
+
+func replacementEffectPathVariant(id uint16) float32 {
+	if id == 446 {
+		return 1
+	}
+	return 0
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
@@ -603,7 +665,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	// Coin rewards can appear in open world space as well as over a mobile.
 	// Keep their native group position stable instead of letting a transient
 	// nearest-mobile choice split or move the digits between updates.
-	effect.hasMobileAnchor = kind != replacementEffectCoinReward && instanceKey != 0
+	effect.hasMobileAnchor = kind != replacementEffectCoinReward && kind != replacementEffectWallTorch && instanceKey != 0
 	if effect.hasMobileAnchor {
 		effect.mobileIndex = uint8(instanceKey)
 		effect.mobileOffsetX = effect.left - mobileX
@@ -752,6 +814,13 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		state.uniforms["MaskInvScale"] = effect.maskInvScale
 		if effect.kind == replacementEffectWavingFlag {
 			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(effect.pictID)
+			state.uniforms["FlagMirror"] = replacementEffectFlagMirror(effect.pictID)
+		}
+		if effect.kind == replacementEffectWallTorch {
+			state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(effect.pictID)
+		}
+		if effect.kind == replacementEffectHiddenPath {
+			state.uniforms["PathVariant"] = replacementEffectPathVariant(effect.pictID)
 		}
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme
@@ -802,6 +871,10 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectWavingFlag, label: "Violet Flag", pictID: 5645},
 	{kind: replacementEffectWavingFlag, label: "White Flag", pictID: 5646},
 	{kind: replacementEffectWavingFlag, label: "Gold Flag", pictID: 5647},
+	{kind: replacementEffectWallTorch, label: "Wall Torch", pictID: 330},
+	{kind: replacementEffectWallTorch, label: "Wall Torch (mirrored)", pictID: 331},
+	{kind: replacementEffectHiddenPath, label: "Hidden Path Sparkles", pictID: 446},
+	{kind: replacementEffectHiddenPath, label: "Hidden Path Fading", pictID: 445},
 	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
 	{kind: replacementEffectMysticFade, label: "Ward Fading", pictID: 445},
 	{kind: replacementEffectTeleportGold, label: "Gold Teleport", pictID: 2976},
@@ -819,6 +892,19 @@ func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
 		return "Original + new effect"
 	default:
 		return "New effect"
+	}
+}
+
+// One-shot shaders consume Phase as their age and deliberately fade to
+// transparent. In the preview they need a local loop rather than application
+// uptime, otherwise opening the gallery after startup displays only their
+// already-expired final state.
+func replacementEffectPreviewPhase(kind replacementEffectKind, elapsed float64) float32 {
+	switch kind {
+	case replacementEffectHealing, replacementEffectWavingFlag, replacementEffectWallTorch, replacementEffectCoinReward:
+		return float32(elapsed)
+	default:
+		return float32(math.Mod(elapsed, float64(replacementEffectSequenceDuration(kind))))
 	}
 }
 
@@ -947,7 +1033,7 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		col, row := i%columns, i/columns
 		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
 		top := float64(bounds.Min.Y) + float64(row)*cellH + 28
-		phase := float32(elapsed)
+		phase := replacementEffectPreviewPhase(preview.kind, elapsed)
 		drawW, drawH := effectW, effectH
 		drawLeft, drawTop := left, top
 		if replacementEffectsPreviewMode != replacementEffectPreviewNew {
@@ -966,6 +1052,13 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		state.uniforms["SpriteLightOnly"] = float32(0)
 		if preview.kind == replacementEffectWavingFlag {
 			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(preview.pictID)
+			state.uniforms["FlagMirror"] = replacementEffectFlagMirror(preview.pictID)
+		}
+		if preview.kind == replacementEffectWallTorch {
+			state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(preview.pictID)
+		}
+		if preview.kind == replacementEffectHiddenPath {
+			state.uniforms["PathVariant"] = replacementEffectPathVariant(preview.pictID)
 		}
 		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
 			state.uniforms["TeleportTheme"] = theme

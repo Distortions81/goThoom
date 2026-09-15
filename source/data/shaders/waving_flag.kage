@@ -6,6 +6,7 @@ var Size vec2
 var Phase float
 var Alpha float
 var FlagTheme float
+var FlagMirror float
 var SpriteLightOnly float
 
 func flagColor(theme float, shade float) vec3 {
@@ -36,10 +37,15 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := localPos/Size - vec2(0.5, 0.5)
 	p.x *= Size.x / Size.y
+	if FlagMirror > 0.5 {
+		p.x = -p.x
+	}
 	// Two differently paced waves make the cloth snap and billow instead of
 	// following the old four-frame loop mechanically.
 	t := Phase * 6.2831853
-	clothX := (p.x + 0.47) / 0.79
+	// The originals run from the free point at the left edge all the way to a
+	// pole just inside the right edge of the 20px canvas.
+	clothX := (p.x + 0.48) / 0.89
 	wave := sin(clothX*6.2831853-t*1.9)*0.070 + sin(clothX*12.5663706+t*1.1)*0.022
 	// These are pennants: the free end is a narrow point at the left and the
 	// cloth widens continuously toward its full height at the pole.
@@ -50,8 +56,10 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 
 	// The black pole and its blue finial are intentionally crisp; the moving
 	// cloth may overlap its left edge but never bends the pole itself.
-	pole := max(0, 1-abs(p.x-0.33)/0.025) * max(0, 1-abs(p.y+0.02)/0.52)
-	finial := max(0, 1-length(vec2((p.x-0.33)*1.15, (p.y+0.37)*1.0))*9.0)
+	// Keep the thin iron shaft pixel-crisp; a soft distance falloff makes a
+	// two-pixel pole read as a blurry gray seam at enlarged preview scales.
+	pole := step(abs(p.x-0.41), 0.048) * step(abs(p.y-0.05), 0.45)
+	finial := max(0, 1-length(vec2((p.x-0.41)*1.15, (p.y+0.37)*1.0))*9.0)
 	if pole > 0 || finial > 0 {
 		poleColor := mix(vec3(0.025, 0.025, 0.035), vec3(0.20, 0.22, 0.25), pole*0.45)
 		if finial > pole {

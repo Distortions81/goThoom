@@ -1,0 +1,58 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var PathVariant float
+var SpriteLightOnly float
+
+func sparkle(p vec2, center vec2, radius float) float {
+	d := abs(p-center)
+	return max(0, 1-(d.x+d.y*1.15)/radius)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	if SpriteLightOnly > 0.5 {
+		return vec4(0, 0, 0, 0)
+	}
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	t := Phase
+	progress := min(1, max(0, t))
+	// 445 grows from a tiny glint to the full 38px field; 446 is its reverse.
+	// Preserve that visual envelope while interpolating smoothly between frames.
+	extent := mix(0.24, 1.0, progress)
+	if PathVariant > 0.5 {
+		extent = mix(1.0, 0.48, progress)
+	}
+	q := p / max(0.20, extent)
+	life := max(0, 1-t*0.70)
+	if PathVariant > 0.5 {
+		life = max(0, 1-t*0.56)
+	}
+	brightness := mix(0.62, 1.0, extent)
+
+	// Deliberately uneven motes suggest a route or a magical clue, rather than
+	// a combat ring. They drift upward gently while their individual glints pop.
+	a := sparkle(q, vec2(-0.34+sin(t*3.0)*0.025, 0.22-t*0.08), 0.050) * (0.45+0.55*max(0, sin(t*13.0)))
+	b := sparkle(q, vec2(-0.11+sin(t*4.0+1.5)*0.030, 0.07-t*0.10), 0.060) * (0.42+0.58*max(0, sin(t*17.0+1.2)))
+	c := sparkle(q, vec2(0.16+sin(t*3.4+2.8)*0.028, -0.17-t*0.07), 0.052) * (0.45+0.55*max(0, sin(t*15.0+2.7)))
+	d := sparkle(q, vec2(0.36+sin(t*4.6+4.1)*0.022, 0.18-t*0.07), 0.045) * (0.45+0.55*max(0, sin(t*19.0+4.0)))
+	trail := max(max(a, b), max(c, d))
+	if PathVariant > 0.5 {
+		e := sparkle(q, vec2(-0.39+sin(t*5.1)*0.020, -0.06-t*0.06), 0.040) * max(0, sin(t*21.0+2.0))
+		f := sparkle(q, vec2(0.04+sin(t*3.7+5.0)*0.025, 0.36-t*0.08), 0.044) * max(0, sin(t*18.0+4.4))
+		trail = max(trail, max(e, f))
+	}
+	glow := max(0, 1-length(vec2(q.x*1.08, q.y*0.94))*2.15) * 0.22
+	intensity := (trail + glow) * life * brightness
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+	color := mix(vec3(0.72, 0.18, 0.005), vec3(1.0, 0.92, 0.30), min(1, trail*1.5))
+	aOut := min(1, intensity*3.6) * Alpha
+	return vec4(color*aOut, aOut)
+}
