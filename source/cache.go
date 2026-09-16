@@ -24,7 +24,11 @@ func clearCaches() {
 	for _, img := range sheetCache {
 		deallocateImage(img)
 	}
+	for _, img := range hdPictureCache {
+		deallocateImage(img)
+	}
 	imageCache = make(map[imageKey]*ebiten.Image)
+	hdPictureCache = make(map[uint16]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
@@ -56,6 +60,9 @@ func clearCaches() {
 	// corresponding window is resized.
 	inventoryDirty = true
 	playersDirty = true
+	if hdPicturePreviewWin != nil && hdPicturePreviewWin.IsOpen() {
+		refreshHDPicturePreview()
+	}
 }
 
 func clearScaledArtworkCachesLocked() {

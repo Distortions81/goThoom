@@ -11,7 +11,8 @@ import (
 
 // Floor reflections attach to ordinary scenery pictures; their source artwork
 // remains unchanged. Add another ID and profile here to reuse the same mobile
-// projection without a full-tile shader or reflection texture.
+// projection without a full-tile shader or reflection texture. Pictures 160
+// and 178 are water-area tiles reserved for a separate water shader.
 type floorReflectionProfile struct {
 	red, green, blue float32
 	alpha            float32
@@ -23,7 +24,7 @@ func floorReflectionProfileForPict(id uint16) (floorReflectionProfile, bool) {
 		return floorReflectionProfile{}, false
 	}
 	switch id {
-	case 160, 178, 249, 8006:
+	case 44, 249, 303, 309, 477, 988, 989, 990, 991, 992, 993, 994, 995, 1197, 5163, 8006:
 		return floorReflectionProfile{
 			red: 0.55, green: 0.76, blue: 0.90, alpha: 0.32,
 			heightScale: 0.72,

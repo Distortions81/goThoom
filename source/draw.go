@@ -560,7 +560,8 @@ func drawScriptOverlaysForSession(session *Session, worldView *ebiten.Image, sca
 			if img := loadImage(op.id); img != nil {
 				di := acquireDrawOpts()
 				di.Filter = ebiten.FilterLinear
-				di.GeoM.Scale(scale, scale)
+				sourceScaleX, sourceScaleY := hdPictureDrawScale(op.id, img)
+				di.GeoM.Scale(scale*sourceScaleX, scale*sourceScaleY)
 				di.GeoM.Translate(originX+float64(op.x)*scale, originY+float64(op.y)*scale)
 				worldView.DrawImage(img, di)
 				releaseDrawOpts(di)

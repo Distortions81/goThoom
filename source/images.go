@@ -914,6 +914,9 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	if replacementEffectReplacesPict(id) {
 		return nil
 	}
+	if hd := loadHDPicture(id); hd != nil {
+		return hd
+	}
 	return loadImageFrameOriginal(id, frame)
 }
 
@@ -1635,7 +1638,7 @@ func cacheScaledPictureFramesWithReader(id uint16, requestedFrame, frameCount, f
 }
 
 func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {
-	if img == nil || !artworkUpscaleEnabled() {
+	if img == nil || isHDPictureImage(id, img) || !artworkUpscaleEnabled() {
 		return img
 	}
 	for {

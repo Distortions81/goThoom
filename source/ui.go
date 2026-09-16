@@ -2021,21 +2021,17 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	var toolFontSize float32 = 10
 	var buttonHeight float32 = 24
 	var buttonWidth float32 = 88
+	handHeight := int(buttonHeight * 2)
 	if docked {
 		buttonWidth = 84
 	}
 
 	controls := eui.NewRow()
 	if hands := toolbarHandsSource(); hands != nil {
-		w, h := hands.Bounds().Dx(), hands.Bounds().Dy()
+		w, h := toolbarHandsSize(hands.Bounds().Dx(), hands.Bounds().Dy(), handHeight)
 		handsRow := eui.NewRow()
-		var leftBacking, rightBacking *ebiten.Image
-		leftHandImg, leftBacking = eui.NewImageItem(w/2, h)
-		rightHandImg, rightBacking = eui.NewImageItem(w-w/2, h)
-		leftBacking.Deallocate()
-		rightBacking.Deallocate()
-		leftHandImg.Image = nil
-		rightHandImg.Image = nil
+		leftHandImg = eui.NewImageReferenceItem(w/2, h)
+		rightHandImg = eui.NewImageReferenceItem(w-w/2, h)
 		handsRow.AddItem(leftHandImg)
 		handsRow.AddItem(rightHandImg)
 		handsColumn := eui.NewColumn()
@@ -2056,7 +2052,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	}
 	toolbarHeight := buttonHeight * 2
 	if hands := toolbarHandsSource(); hands != nil {
-		toolbarHeight = float32(hands.Bounds().Dy())
+		toolbarHeight = float32(handHeight)
 		if gs.ToolbarStatusBars {
 			toolbarHeight += toolbarStatusBarsHeight
 		}
@@ -2243,31 +2239,50 @@ func loadToolbarHands() {
 	}
 }
 
+func toolbarHandsSize(sourceWidth, sourceHeight, targetHeight int) (int, int) {
+	if sourceWidth <= 0 || sourceHeight <= 0 || targetHeight <= 0 {
+		return 0, 0
+	}
+	return roundToInt(float64(sourceWidth) * float64(targetHeight) / float64(sourceHeight)), targetHeight
+}
+
 var (
 	overlayHandOpts = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, DisableMipmaps: true}
 	overlayItemOpts = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, DisableMipmaps: true}
 )
 
-func overlayItemOnHand(hand, item *ebiten.Image) *ebiten.Image {
+func overlayItemOnHand(hand, item *ebiten.Image, itemScaleX, itemScaleY float64) *ebiten.Image {
 	if hand == nil {
 		return item
 	}
 	if item == nil {
 		return hand
 	}
-	w := max(hand.Bounds().Dx(), item.Bounds().Dx())
-	h := max(hand.Bounds().Dy(), item.Bounds().Dy())
+	if itemScaleX <= 0 || itemScaleY <= 0 {
+		itemScaleX, itemScaleY = 1, 1
+	}
+	// Keep the held item's source detail: an HD picture makes a higher-density
+	// composite, while EUI alone decides its displayed size and UI scaling.
+	density := max(1.0, 1/itemScaleX, 1/itemScaleY)
+	itemWidth := float64(item.Bounds().Dx()) * itemScaleX * density
+	itemHeight := float64(item.Bounds().Dy()) * itemScaleY * density
+	handWidth := float64(hand.Bounds().Dx()) * density
+	handHeight := float64(hand.Bounds().Dy()) * density
+	w := max(roundToInt(handWidth), roundToInt(itemWidth))
+	h := max(roundToInt(handHeight), roundToInt(itemHeight))
 	out := newUnmanagedImage(w, h)
 	opHand := overlayHandOpts
 	opHand.ColorScale.Reset()
 	opHand.ColorScale.ScaleAlpha(0.5)
 	opHand.GeoM.Reset()
-	opHand.GeoM.Translate(float64((w-hand.Bounds().Dx())/2), float64((h-hand.Bounds().Dy())/2))
+	opHand.GeoM.Scale(density, density)
+	opHand.GeoM.Translate((float64(w)-handWidth)/2, (float64(h)-handHeight)/2)
 	out.DrawImage(hand, opHand)
 	opItem := overlayItemOpts
 	opItem.ColorScale.Reset()
 	opItem.GeoM.Reset()
-	opItem.GeoM.Translate(float64((w-item.Bounds().Dx())/2), float64((h-item.Bounds().Dy())/2))
+	opItem.GeoM.Scale(itemScaleX*density, itemScaleY*density)
+	opItem.GeoM.Translate((float64(w)-itemWidth)/2, (float64(h)-itemHeight)/2)
 	out.DrawImage(item, opItem)
 	return out
 }
@@ -2299,24 +2314,24 @@ func updateToolbarHands() {
 	rightImage := rightHand
 	if rightID != 0 {
 		if item := loadImage(rightID); item != nil {
-			toolbarRightComposite = overlayItemOnHand(rightHand, item)
+			scaleX, scaleY := hdPictureDrawScale(rightID, item)
+			toolbarRightComposite = overlayItemOnHand(rightHand, item, scaleX, scaleY)
 			rightImage = toolbarRightComposite
 		}
 	}
 	leftImage := leftHand
 	if leftID != 0 {
 		if item := loadImage(leftID); item != nil {
+			scaleX, scaleY := hdPictureDrawScale(leftID, item)
 			mirrored := mirrorImage(item)
-			toolbarLeftComposite = overlayItemOnHand(leftHand, mirrored)
+			toolbarLeftComposite = overlayItemOnHand(leftHand, mirrored, scaleX, scaleY)
 			mirrored.Deallocate()
 			leftImage = toolbarLeftComposite
 		}
 	}
 	leftHandImg.Image = leftImage
-	leftHandImg.Size = eui.Point{X: float32(leftImage.Bounds().Dx()), Y: float32(leftImage.Bounds().Dy())}
 	leftHandImg.Dirty = true
 	rightHandImg.Image = rightImage
-	rightHandImg.Size = eui.Point{X: float32(rightImage.Bounds().Dx()), Y: float32(rightImage.Bounds().Dy())}
 	rightHandImg.Dirty = true
 	toolbarHandsRendered = true
 	toolbarHandsRightID = rightID
@@ -6098,9 +6113,11 @@ func makeDebugWindow() {
 	diagnosticsSection := eui.NewSection("Diagnostics", width)
 	sceneSection := eui.NewSection("Scene Overrides", width)
 	shaderSection := eui.NewSection("Shader Tools", width)
+	artworkSection := eui.NewSection("HD Artwork", width)
 	debugFlow.AddItem(diagnosticsSection)
 	debugFlow.AddItem(sceneSection)
 	debugFlow.AddItem(shaderSection)
+	debugFlow.AddItem(artworkSection)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"
@@ -6196,6 +6213,30 @@ func makeDebugWindow() {
 		}
 	}
 	shaderSection.AddItem(previewEffectsBtn)
+
+	previewHDButton, previewHDEvents := eui.NewButton()
+	previewHDButton.Text = "Open HD Sprite Preview"
+	setMaterialButtonIcon(previewHDButton, "visibility")
+	previewHDButton.Size = eui.Point{X: width, Y: 24}
+	previewHDButton.SetTooltip("Compare an original single-frame picture with its HD replacement.")
+	previewHDEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			openHDPicturePreview()
+		}
+	}
+	artworkSection.AddItem(previewHDButton)
+
+	reloadHDButton, reloadHDEvents := eui.NewButton()
+	reloadHDButton.Text = "Reload HD Sprites"
+	setMaterialButtonIcon(reloadHDButton, "restart_alt")
+	reloadHDButton.Size = eui.Point{X: width, Y: 24}
+	reloadHDButton.SetTooltip("Read PNGs and ZIPs in the checked-out data/hdimg folder again.")
+	reloadHDEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			reloadHDPictureDebug()
+		}
+	}
+	artworkSection.AddItem(reloadHDButton)
 
 	// Force Night dropdown in Debug: Auto/Day/25/50/75/100
 	forceNightDD, forceNightEv := eui.NewDropdown()

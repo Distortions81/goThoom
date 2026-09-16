@@ -11,13 +11,13 @@ func TestFloorReflectionProfilesAndGroundOrder(t *testing.T) {
 	oldEnabled := gs.ReplacementEffects
 	gs.ReplacementEffects = true
 	t.Cleanup(func() { gs.ReplacementEffects = oldEnabled })
-	for _, id := range []uint16{160, 178, 249, 8006} {
+	for _, id := range []uint16{44, 249, 303, 309, 477, 988, 989, 990, 991, 992, 993, 994, 995, 1197, 5163, 8006} {
 		profile, ok := floorReflectionProfileForPict(id)
 		if !ok || profile.alpha <= 0 || profile.heightScale <= 0 || !groundPictureDrawsBelowMobiles(id) {
 			t.Errorf("floor %d has no usable reflection profile or ground draw order", id)
 		}
 	}
-	for _, id := range []uint16{20, 185, 1260, 2632, 2994, 2995, 2996, 3529, 3558, 3575, 3721, 3946, 4716, 4808, 4966, 5334, 5975, 8007} {
+	for _, id := range []uint16{20, 160, 178, 185, 1260, 2632, 2994, 2995, 2996, 3529, 3558, 3575, 3721, 3946, 4716, 4808, 4966, 5334, 5975, 8007} {
 		if pictureUsesFloorReflection(id) {
 			t.Errorf("unregistered floor %d unexpectedly reflects mobiles", id)
 		}
