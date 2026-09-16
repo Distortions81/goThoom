@@ -10,20 +10,23 @@ import (
 
 func TestHDPictureBundleAndSourceScale(t *testing.T) {
 	for _, item := range []struct {
-		id    uint16
-		label string
+		id     uint16
+		label  string
+		size   int
+		opaque bool
 	}{
-		{23, "data/hdimg/held/23.png"},
-		{208, "data/hdimg/held/208.png"},
-		{210, "data/hdimg/held/210.png"},
-		{417, "data/hdimg/held/417.png"},
-		{626, "data/hdimg/held/626.png"},
-		{635, "data/hdimg/held/635.png"},
-		{738, "data/hdimg/held/738.png"},
-		{1068, "data/hdimg/held/1068.png"},
-		{1279, "data/hdimg/held/1279.png"},
-		{2252, "data/hdimg/held/2252.png"},
-		{4495, "data/hdimg/held/4495.png"},
+		{23, "data/hdimg/held/23.png", 168, false},
+		{208, "data/hdimg/held/208.png", 168, false},
+		{210, "data/hdimg/held/210.png", 168, false},
+		{417, "data/hdimg/held/417.png", 168, false},
+		{626, "data/hdimg/held/626.png", 168, false},
+		{635, "data/hdimg/held/635.png", 168, false},
+		{738, "data/hdimg/held/738.png", 168, false},
+		{1068, "data/hdimg/held/1068.png", 168, false},
+		{1279, "data/hdimg/held/1279.png", 168, false},
+		{2252, "data/hdimg/held/2252.png", 168, false},
+		{4495, "data/hdimg/held/4495.png", 168, false},
+		{5764, "data/hdimg/ground/5764.png", 800, true},
 	} {
 		source, ok := hdPictureSources[item.id]
 		if !ok || source.label != item.label {
@@ -38,10 +41,12 @@ func TestHDPictureBundleAndSourceScale(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := img.Bounds().Size(); got.X != 168 || got.Y != 168 {
-			t.Fatalf("HD picture %d size = %v, want 168x168", item.id, got)
+		if got := img.Bounds().Size(); got.X != item.size || got.Y != item.size {
+			t.Fatalf("HD picture %d size = %v, want %dx%d", item.id, got, item.size, item.size)
 		}
-		if _, _, _, alpha := img.At(0, 0).RGBA(); alpha != 0 {
+		if _, _, _, alpha := img.At(0, 0).RGBA(); item.opaque && alpha != 0xffff {
+			t.Fatalf("HD picture %d has a transparent tile edge", item.id)
+		} else if !item.opaque && alpha != 0 {
 			t.Fatalf("HD picture %d lost its transparent background", item.id)
 		}
 	}
