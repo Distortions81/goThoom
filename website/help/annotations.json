@@ -23,8 +23,8 @@
   ],
   "tiled-separate": [
     {
-      "control": "Message split",
-      "explanation": "Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game."
+      "control": "Move selected pane",
+      "explanation": "Here Chat is selected and Above is chosen. Clicking Console in the preview will put Chat above Console. Choosing an action alone does not move a pane; click a source and then a target. Undo restores the previous editor arrangement, and the real workspace dividers control the final sizes."
     }
   ],
   "settings-text": [
@@ -86,13 +86,25 @@
   "settings-network": [
     {
       "control": "NLSPT safety (%)",
-      "explanation": "This adjusts the safety margin for Network Latency & Server Phase Timing, not your internet connection speed. It is a session-only adjustment: it starts at 10% when the client launches and is not saved with your profile. Leave the default in place unless you are deliberately comparing timing behavior."
+      "explanation": "This adjusts the safety margin for Network Latency & Server Phase Timing, not your internet connection speed. It is a session-only adjustment: it starts at 10% when the client launches and is not saved in settings. Leave the default in place unless you are deliberately comparing timing behavior."
     }
   ],
   "settings-performance": [
     {
       "control": "Quality preset",
       "explanation": "A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere."
+    }
+  ],
+  "performance-artwork": [
+    {
+      "control": "Use sprite pack files",
+      "explanation": "This uses replacement PNGs you have installed in an hdimg folder; enabling it does not download a pack. The original picture size and placement stay the same. Turn it off to compare with the original artwork. Animated Replacement Effects have their own switch in Lighting & Effects."
+    }
+  ],
+  "effects-preview": [
+    {
+      "control": "Animation rate",
+      "explanation": "Use this to match the original sprite’s animation cadence when comparing it with a shader. UPS means original-animation updates per second, not displayed frames per second. The shader remains smooth between updates, and this preview setting does not change live gameplay."
     }
   ],
   "performance-motion": [

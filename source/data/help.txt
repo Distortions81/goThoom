@@ -7,9 +7,10 @@ Movement
 Communication
 -------------
 - The input bar is open by default. Type a message and press Enter to send it.
-- Use :smile:, :thumbs_up:, or pasted emoji. Emoji travel as readable names and appear in color in chat and speech bubbles. Unknown names stay unchanged.
-- With "Show :smile: as emoji" enabled, the emoji button on the right of the input bar opens a picker. Choose a group on the left or search by name; selecting an emoji inserts its shortcode into your draft.
-- Press Esc to close the input bar; press Enter to open it again. If "Input bar always open" is disabled, press Enter before typing and Enter again to send.
+- Use :smile:, :thumbs_up:, or pasted emoji. Emoji travel as readable names and, when emoji display is enabled, appear in color in chat and speech bubbles. Unknown names stay unchanged.
+- The command icon on the right of the input bar lists input-bar shortcuts plus available client, script, macro, and server commands by source, with a short explanation of each. Argument syntax appears in dimmed text on the command and in the input bar after you select or finish typing it. Its popup grows to fit the display and wraps long shortcut help. Select a command to start it in your draft.
+- "Show :smile: as emoji" is off by default. When enabled, the emoji button beside the command icon opens a picker. Choose a group on the left or search by name; selecting an emoji inserts its shortcode into your draft.
+- "Input bar always open" keeps the draft available after sending and while using other controls. With it off, Esc closes the bar, Enter opens it, and Enter again sends your message.
 - Up/Down browse previous messages.
 - While typing: Ctrl-V pastes, Ctrl-C copies selected text or the whole line, Ctrl-Left/Right moves one word, and Ctrl-Backspace deletes the previous word. Use Command and Option for the corresponding shortcuts on macOS.
 - Right-click the input bar for Paste, Copy Line, or Clear Line. Paste and Clear return you to typing mode.
@@ -17,12 +18,12 @@ Communication
 
 UI Navigation
 -------------
-- Use Settings → Display to show or hide the Inventory, Chat, Console, and Players panes.
+- Windows opens the layout editor in tiled mode and the pane visibility selector in floating mode. These are also under Settings → Display.
 - Click the "Actions" button on the toolbar for hotkeys, shortcuts, keybindings, scripts, macros, and saved script data.
 - Click "Tools" for live Stats, the command Palette, the online manual, Snap captures, and local Stream output.
 - Click the "Audio" button to open the Mixer.
-- Click Tools → Palette or press Ctrl-Shift-P to search settings, windows, scripts, player actions, and commands. Type to filter, use Up/Down to select, and press Enter to run.
-- Click the toolbar "Help" button to open the online user manual. The palette's "Window: Help" action opens this compact built-in guide.
+- Click Tools → Palette or press Ctrl-Shift-P (Command-Shift-P on macOS) to search settings, windows, scripts, player actions, and commands. Type to filter, use Up/Down to select, and press Enter to run.
+- Click Tools → Help to open the online user manual. The palette's "Window: Help" action opens this compact built-in guide.
 - Mouse wheel scrolls lists and text windows.
 - Window positions, sizes, and open/closed state persist between runs.
 - Sliders: hold Shift to snap to integers; hold Ctrl for fine adjustment at 1/8 speed.
@@ -41,13 +42,16 @@ Tiled Window Mode
 - Tiled window mode is enabled by default. The Game fills the center, Inventory is on the left, and Players is on the right.
 - Chat and Console output are combined in the Console by default. The Console uses the lower-left tile; if separated, Chat uses the lower-right tile.
 - Drag a visible divider to resize adjacent tiles. With "Auto-size side panels" enabled, dragging either side of the Game moves the Game pane and both dividers together.
-- Open Settings → Display → Window Layout to choose the layout, swap Inventory and Players, swap Console and Chat, combine their output, or choose which side holds the Game in the alternate layout.
+- Open Settings → Display → Window Layout and use "Start with" for a starting arrangement. To rearrange it, choose Swap, Left of, Right of, Above, or Below under "Move selected pane", then click the source pane and its target in the preview.
+- Click the selected preview pane again to cancel its selection. Clicking a target applies the move immediately. Undo reverses editor changes; Even splits rebalances sizes while allowing room for the game and toolbar.
+- Custom layouts appear as "Current arrangement" and save automatically. They use manual sizing: drag dividers in the workspace, not the preview, to adjust them.
+- "Messages left, lists right" places messages on the left and stacks Inventory and Players on the right. Separate Chat and Console stack with their own height divider.
 - The toolbar stays inside Inventory or Players in tiled mode. Utility windows outside the main tile set remain normal movable windows.
 - Turn off "Use tiled window layout" in Window Layout to return the main windows to freeform movement and resizing.
 
 Chat & Console
 --------------
-- Chat and Console are combined by default. Change "Combine chat + console" in Window Layout to show separate panes.
+- Chat and Console are combined by default. Change "Combine chat + console" in Window Layout to show separate panes. Custom layouts remember Chat's place when combined, so separating it restores that position.
 - The input bar auto-expands as you type. Use the right-click menu for paste, copy, or clear.
 - Messages with `@<your name>` or `@<profession>` highlight in blue and play a tink sound.
 
@@ -73,6 +77,19 @@ Other Windows
 - Audio/Mixer: adjust overall, game, music, TTS, and notification volumes; toggle channels and audio enhancement.
 - Settings/Performance: adjust the window layout, UI scale, visuals, sound, notifications, and quality presets.
 
+Artwork & Effects
+-----------------
+- Settings → Performance → Artwork controls artwork scale and filtering. Quality presets preserve your artwork scale and the separate sprite-pack and replacement-effect switches.
+- Optional sprite packs are off by default. Put numeric PNGs such as 1068.png, subfolders, or ZIP packs in the user data folder's hdimg directory, then enable "Use sprite pack files" under Experimental. Game-folder data/hdimg packs are also supported and take priority over matching user-folder IDs.
+- Replacement Effects under Experimental adds animated shaders to supported effects and scenery. It is independent of sprite packs and defaults off; View Experimental Effects lets you compare them and choose the effect families to use.
+- View HD Sprite Replacements opens a scrolling, zoomable original/HD gallery with a checkbox for each installed replacement. Choose one ZIP from Sprite pack, or choose Loose files for PNGs outside ZIPs. Reload HD Sprites rescans pack files. The online manual includes installation and artwork-authoring guides.
+
+Movie Playback
+--------------
+- Disconnect all sessions before opening Settings → Files → Play movie file [clMov]. A movie uses its own temporary tab and needs one free tab slot.
+- Use the movie controls to pause, seek, or change speed. Closing the movie controls or its tab ends playback; the previous tab is restored if the movie was selected.
+- On Linux, file dialogs need Zenity or Qarma.
+
 Local Streaming
 ---------------
 - In the desktop client, open Tools → Stream to create a local Browser Source for OBS.
@@ -89,4 +106,5 @@ Extras
 
 Low-end Hardware
 ----------------
-For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (4096px Limit)" under Settings → Performance → Caching can use unmanaged textures. It defaults off; enable it only if needed.
+Start with a lower Quality preset under Settings → Performance. If the rate stays capped, check VSync and Power Saving before reducing quality further.
+"Potato GPU (4096px Limit)" under Performance → Caching is for GPUs with small texture limits. It uses standalone textures instead of the shared atlas; it defaults off and is not a general quality or memory-saving preset.

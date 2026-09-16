@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"image/png"
 	"math"
 	"os"
@@ -71,7 +72,7 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 	}
 	for _, scale := range []float32{1, 2} {
 		eui.SetUIScale(scale)
-		for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+		for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
 			for _, stacked := range []bool{false, true} {
 				for _, combined := range []bool{false, true} {
 					gs = gsdef
@@ -105,6 +106,27 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 			}
 		}
 	}
+	// Custom moves can put all panes in a row. Even on a small workspace the
+	// native windows must use their assigned rectangles instead of overlapping.
+	eui.SetScreenSize(640, 360)
+	eui.SetUIScale(2)
+	gs = gsdef
+	gs.MessagesToConsole = false
+	gs.TiledCustomLayout = tiledLeaf("Chat")
+	for _, name := range []string{"Console", "Players", "Game", "Inventory"} {
+		gs.TiledCustomLayout = tiledBranch("x", .5, tiledLeaf(name), gs.TiledCustomLayout)
+	}
+	applyTiledWindowStates()
+	for i, state := range []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow} {
+		want := *state
+		applyWindowState(windows[i], state)
+		pos, size := windows[i].GetPos(), windows[i].GetSize()
+		if math.Abs(float64(pos.X)-want.Position.X*640) > 1.1 || math.Abs(float64(pos.Y)-want.Position.Y*360) > 1.1 || math.Abs(float64(size.X)-want.Size.X*640) > 1.1 || math.Abs(float64(size.Y)-want.Size.Y*360) > 1.1 {
+			return fmt.Errorf("custom %s pane escaped its assigned rectangle on a small screen", windows[i].Title)
+		}
+	}
+	eui.SetScreenSize(1920, 1080)
+	gs = gsdef
 	for _, win := range windows {
 		win.Close()
 	}
@@ -112,11 +134,11 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 	makeTileLayoutWindow()
 	tileLayoutWin.MarkOpen()
 	for _, scale := range []float32{1, 2} {
-		for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+		eui.SetUIScale(scale)
+		for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
 			for _, combined := range []bool{false, true} {
 				gs.TiledLayout, gs.MessagesToConsole = layout, combined
 				refreshWindowSettingsControls()
-				eui.SetUIScale(scale)
 				tileLayoutWin.Refresh()
 				screen.Clear()
 				eui.Draw(screen)
@@ -133,7 +155,7 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 						if it.Invisible {
 							continue
 						}
-						if it.Name == "tiled-layout-preview" && (it.DrawRect.X0 < pos.X || it.DrawRect.X1 > pos.X+size.X-8*scale || it.DrawRect.Y1 > pos.Y+size.Y-8*scale) {
+						if it.Name == "tiled-workspace-preview" && (it.DrawRect.X0 < pos.X || it.DrawRect.X1 > pos.X+size.X-8*scale || it.DrawRect.Y1 > pos.Y+size.Y-8*scale) {
 							return fmt.Errorf("preview %d is clipped at %gx", it.Selected, scale)
 						}
 						if err := checkPreviews(it.Contents); err != nil {
@@ -151,9 +173,45 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 			}
 		}
 	}
+	for _, scale := range []float32{1, 2} {
+		eui.SetUIScale(scale)
+		selectTiledStarter(TiledLayoutSideColumns)
+		for _, combined := range []bool{false, true} {
+			gs.MessagesToConsole = combined
+			applyTiledWindowStates()
+			gs.TiledCustomLayout = editTiledTree(currentTiledTree(), "Console", "Chat", "Swap")
+			refreshWindowSettingsControls()
+			tileWorkspaceEditor.selected = "Console"
+			tileWorkspaceEditor.refresh()
+			tileLayoutWin.Refresh()
+			screen.Clear()
+			eui.Draw(screen)
+			if err := checkRenderedControlText(tileLayoutWin.Contents, scale); err != nil {
+				return err
+			}
+			if err := g.save(screen, fmt.Sprintf("editor-custom-combined-%t-%gx.png", combined, scale)); err != nil {
+				return err
+			}
+		}
+	}
+	eui.SetUIScale(1)
+	gs.MessagesToConsole = false
+	selectTiledStarter(TiledLayoutSideColumns)
+	applyTiledWindowStates()
+	gs.TiledCustomLayout = editTiledTree(currentTiledTree(), "Chat", "Console", "Swap")
+	tileWorkspaceEditor.selected = "Chat"
+	refreshWindowSettingsControls()
+	tileLayoutWin.Refresh()
+	screen.Clear()
+	eui.Draw(screen)
+	pos, size := tileLayoutWin.GetPos(), tileLayoutWin.GetSize()
+	bounds := image.Rect(int(pos.X), int(pos.Y), int(math.Ceil(float64(pos.X+size.X))), int(math.Ceil(float64(pos.Y+size.Y))))
+	if err := g.save(screen.SubImage(bounds), "workspace-editor.png"); err != nil {
+		return err
+	}
 	return nil
 }
-func (g *tiledLayoutRenderGame) save(screen *ebiten.Image, name string) error {
+func (g *tiledLayoutRenderGame) save(screen image.Image, name string) error {
 	f, err := os.Create(filepath.Join(g.dir, name))
 	if err != nil {
 		return err

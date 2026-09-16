@@ -11,6 +11,30 @@ func replacementEffectsEnabled() bool {
 	return gs.ReplacementEffects
 }
 
+func replacementEffectEnabled(kind replacementEffectKind) bool {
+	for _, disabled := range gs.DisabledReplacementEffects {
+		if disabled == kind {
+			return false
+		}
+	}
+	return true
+}
+
+func setReplacementEffectEnabled(kind replacementEffectKind, enabled bool) {
+	for index, disabled := range gs.DisabledReplacementEffects {
+		if disabled != kind {
+			continue
+		}
+		if enabled {
+			gs.DisabledReplacementEffects = append(gs.DisabledReplacementEffects[:index], gs.DisabledReplacementEffects[index+1:]...)
+		}
+		return
+	}
+	if !enabled {
+		gs.DisabledReplacementEffects = append(gs.DisabledReplacementEffects, kind)
+	}
+}
+
 func characterShadowCompositeEnabled() bool {
 	return true
 }

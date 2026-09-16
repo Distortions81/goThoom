@@ -40,7 +40,7 @@ func TestHDPictureSourcesFindSubfoldersAndZIPEntries(t *testing.T) {
 		"data/hdimg/tiles/477.png":      {Data: pngData},
 		"data/hdimg/bundles/staffs.zip": {Data: zipped.Bytes()},
 	}
-	sources := indexHDPictureSources(files)
+	sources, packs := indexHDPictureCatalogInFolder(files, "data/hdimg", "test folder")
 	for id, want := range map[uint16]string{
 		1068: "data/hdimg/1068.png",
 		477:  "data/hdimg/alpha/477.png",
@@ -53,6 +53,18 @@ func TestHDPictureSourcesFindSubfoldersAndZIPEntries(t *testing.T) {
 	}
 	if _, ok := sources[0]; ok {
 		t.Fatal("non-numeric ZIP entry was indexed as a picture")
+	}
+	if len(packs) != 2 {
+		t.Fatalf("HD picture packs = %d, want loose files and one ZIP", len(packs))
+	}
+	if packs[0].label != "Loose files" || !packs[0].loose || len(packs[0].sources) != 2 {
+		t.Fatalf("first HD picture pack = %#v, want two loose-file pictures", packs[0])
+	}
+	if packs[1].label != "bundles/staffs.zip (test folder)" || packs[1].loose || len(packs[1].sources) != 3 {
+		t.Fatalf("second HD picture pack = %#v, want the three-picture ZIP", packs[1])
+	}
+	if packs[1].sources[1068].label != "data/hdimg/bundles/staffs.zip!1068.png" {
+		t.Fatal("ZIP pack did not retain a picture hidden by a loose-file winner")
 	}
 	reader, err := sources[309].open()
 	if err != nil {
@@ -97,6 +109,17 @@ func TestHDPictureAvailabilityRequiresSpritePackSetting(t *testing.T) {
 	gs.UseSpritePackFiles = true
 	if !hdPictureAvailableLocked(42) {
 		t.Fatal("single-frame sprite pack image was unavailable after enabling sprite packs")
+	}
+	setHDPictureEnabled(42, false)
+	if hdPictureAvailableLocked(42) {
+		t.Fatal("disabled sprite pack image remained available")
+	}
+	if !hdPictureCompatibleLocked(42) {
+		t.Fatal("disabled sprite pack image should remain available to the preview")
+	}
+	setHDPictureEnabled(42, true)
+	if !hdPictureAvailableLocked(42) {
+		t.Fatal("re-enabled sprite pack image remained unavailable")
 	}
 }
 

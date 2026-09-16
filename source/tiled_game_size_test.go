@@ -22,7 +22,7 @@ func isolateTiledGameSize(t *testing.T) {
 }
 
 func TestKeepGameLargeOffKeepsSizeAndUnlocksDividers(t *testing.T) {
-	for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+	for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
 		if layout == TiledLayoutSide {
 			continue
 		}
@@ -103,6 +103,7 @@ func TestUnlockedGameSizeSurvivesReload(t *testing.T) {
 }
 
 func TestKeepGameLargeControlsStaySynchronized(t *testing.T) {
+	initFont()
 	isolateTiledGameSize(t)
 	oldTile, oldWizard := tileKeepGameLargeCB, wizardKeepGameLargeCB
 	t.Cleanup(func() { tileKeepGameLargeCB, wizardKeepGameLargeCB = oldTile, oldWizard })

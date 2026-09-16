@@ -179,7 +179,7 @@ func TestChatWindowAfterCombinedMode(t *testing.T) {
 	})
 	makeConsoleWindow()
 	combine := newCombineMessagesCheckbox(310)
-	for layout := TiledLayout(-1); layout <= TiledLayoutFullMessagesAbove; layout++ {
+	for layout := TiledLayout(-1); layout <= TiledLayoutSideColumns; layout++ {
 		tiled := layout >= TiledLayoutCenter
 		gs.TiledWindows = tiled
 		gs.TiledLayout = max(layout, TiledLayoutCenter)

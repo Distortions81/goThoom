@@ -16,17 +16,22 @@ import (
 )
 
 type snapshotRequest struct {
-	name         string
-	fullWindow   bool
-	hideNameTags bool
-	jpeg         bool
-	done         func(error)
+	name              string
+	fullWindow        bool
+	hideNameTags      bool
+	hideSpeechBubbles bool
+	jpeg              bool
+	done              func(error)
 }
 
 var pendingSnapshot *snapshotRequest
 
 func snapshotHidesNameTags() bool {
 	return pendingSnapshot != nil && pendingSnapshot.hideNameTags
+}
+
+func snapshotHidesSpeechBubbles() bool {
+	return pendingSnapshot != nil && pendingSnapshot.hideSpeechBubbles
 }
 
 func defaultSnapshotName() string {

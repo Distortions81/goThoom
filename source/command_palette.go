@@ -613,7 +613,7 @@ func applySettingRuntimeEffects(entry settingsSchemaEntry) {
 		updatePlayersWindow()
 		refreshMessageTextWindows()
 		updateDimmedScreenBG()
-	case "ToolbarPlacement", "BarPlacement", "ToolbarStatusBars":
+	case "ToolbarPlacement", "BarPlacement":
 		placeToolbar(gs.ToolbarPlacement, true)
 	case "SpriteUpscaleMode":
 		setArtworkUpscaleMode(gs.SpriteUpscaleMode)

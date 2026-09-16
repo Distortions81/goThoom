@@ -40,10 +40,19 @@ func TestToolbarWindowsControlFollowsTiledMode(t *testing.T) {
 	originalSettings := gs
 	originalButton := toolbarWindowsBtn
 	originalRecord := recordBtn
+	originalWindows, originalTileLayout := windowsWin, tileLayoutWin
 	t.Cleanup(func() {
+		if windowsWin != nil && windowsWin != originalWindows {
+			windowsWin.RemoveWindow()
+		}
+		if tileLayoutWin != nil && tileLayoutWin != originalTileLayout {
+			tileLayoutWin.RemoveWindow()
+		}
 		gs = originalSettings
 		toolbarWindowsBtn = originalButton
 		recordBtn = originalRecord
+		windowsWin = originalWindows
+		tileLayoutWin = originalTileLayout
 	})
 
 	findWindows := func(root *eui.ItemData) *eui.ItemData {
@@ -62,15 +71,28 @@ func TestToolbarWindowsControlFollowsTiledMode(t *testing.T) {
 		return visit(root.Contents)
 	}
 
-	for _, tiled := range []bool{true, false} {
-		gs.TiledWindows = tiled
-		toolbar := buildToolbar(10, 84, 24)
-		button := findWindows(toolbar)
-		if button == nil || toolbarWindowsBtn != button {
-			t.Fatal("toolbar is missing the Windows control")
-		}
-		if button.Disabled != tiled {
-			t.Fatalf("Windows control disabled = %t with tiled mode %t", button.Disabled, tiled)
-		}
+	gs.TiledWindows = true
+	toolbar := buildToolbar(10, 84, 24)
+	button := findWindows(toolbar)
+	if button == nil || toolbarWindowsBtn != button || button.Disabled {
+		t.Fatal("tiled workspace control is missing or disabled")
+	}
+	windowsWin, tileLayoutWin = nil, nil
+	button.Handler.Emit(eui.UIEvent{Item: button, Type: eui.EventClick})
+	if tileLayoutWin == nil || !tileLayoutWin.IsOpen() || windowsWin != nil {
+		t.Fatal("Windows control did not open the tiled layout settings")
+	}
+	tileLayoutWin.RemoveWindow()
+	tileLayoutWin = nil
+
+	gs.TiledWindows = false
+	toolbar = buildToolbar(10, 84, 24)
+	button = findWindows(toolbar)
+	if button == nil || button.Disabled {
+		t.Fatal("floating Windows control is missing or disabled")
+	}
+	button.Handler.Emit(eui.UIEvent{Item: button, Type: eui.EventClick})
+	if windowsWin == nil || !windowsWin.IsOpen() || tileLayoutWin != nil {
+		t.Fatal("Windows control did not open the floating window picker")
 	}
 }

@@ -25,6 +25,14 @@ declare -A FRIENDLY_NAMES=(
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+test_sign_dir=""
+cleanup_test_sign_dir() {
+  if [ -n "${test_sign_dir:-}" ] && [ -d "$test_sign_dir" ]; then
+    rm -rf -- "$test_sign_dir"
+  fi
+}
+trap cleanup_test_sign_dir EXIT
+
 ensure_cmd() {
   local cmd="$1"
   local pkg="${2:-$1}"
@@ -101,6 +109,23 @@ for platform in "${platforms[@]}"; do
   if [ "$GOOS" = "windows" ]; then
     cert_file="${WINDOWS_CERT_FILE:-${SCRIPT_DIR}/fullchain.pem}"
     key_file="${WINDOWS_KEY_FILE:-${SCRIPT_DIR}/privkey.pem}"
+    test_sign_dir=""
+    # Match the macOS ad-hoc-signing fallback for test builds. A configured
+    # Windows certificate takes precedence; the generated identity is removed
+    # before packaging and is not trusted by Windows on other computers.
+    if [ ! -f "$cert_file" ] || [ ! -f "$key_file" ]; then
+      ensure_cmd openssl openssl
+      test_sign_dir="$(mktemp -d)"
+      cert_file="${test_sign_dir}/windows-test-cert.pem"
+      key_file="${test_sign_dir}/windows-test-key.pem"
+      echo "Generating an ephemeral self-signed Windows test certificate..."
+      openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 7 \
+        -subj "/CN=goThoom Test Signing Certificate/OU=TEST ONLY/O=goThoom" \
+        -addext "basicConstraints=critical,CA:FALSE" \
+        -addext "keyUsage=critical,digitalSignature" \
+        -addext "extendedKeyUsage=codeSigning" \
+        -keyout "$key_file" -out "$cert_file" >/dev/null 2>&1
+    fi
     ensure_cmd osslsigncode osslsigncode
     if command -v osslsigncode >/dev/null 2>&1 && [ -f "$cert_file" ] && [ -f "$key_file" ]; then
       echo "Signing ${BIN_NAME}..."
@@ -116,6 +141,10 @@ for platform in "${platforms[@]}"; do
       mv "$signed_tmp" "${OUTPUT_DIR}/${BIN_NAME}"
     else
       echo "Skipping Windows signing; osslsigncode or certificate not configured." >&2
+    fi
+    if [ -n "$test_sign_dir" ]; then
+      rm -rf "$test_sign_dir"
+      test_sign_dir=""
     fi
     rm -f rsrc*.syso
   fi

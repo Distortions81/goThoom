@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -18,8 +19,8 @@ import (
 )
 
 var (
-	hdPictureSources, hdPicturePackLocation = externalHDPictureSources()
-	hdPictureCache                          = make(map[uint16]*ebiten.Image)
+	hdPictureSources, hdPicturePacks, hdPicturePackLocation = externalHDPictureCatalog()
+	hdPictureCache                                          = make(map[uint16]*ebiten.Image)
 )
 
 type hdPictureSource struct {
@@ -28,6 +29,13 @@ type hdPictureSource struct {
 	filePath string
 	zipEntry *zip.File
 	priority int
+}
+
+type hdPicturePack struct {
+	key     string
+	label   string
+	loose   bool
+	sources map[uint16]hdPictureSource
 }
 
 func (source hdPictureSource) open() (io.ReadCloser, error) {
@@ -42,16 +50,23 @@ func indexHDPictureSources(files fs.FS) map[uint16]hdPictureSource {
 }
 
 func indexHDPictureSourcesInFolder(files fs.FS, folder string) map[uint16]hdPictureSource {
+	sources, _ := indexHDPictureCatalogInFolder(files, folder, folder)
+	return sources
+}
+
+func indexHDPictureCatalogInFolder(files fs.FS, folder, origin string) (map[uint16]hdPictureSource, []hdPicturePack) {
 	sources := make(map[uint16]hdPictureSource)
 	if files == nil {
-		return sources
+		return sources, nil
 	}
-	add := func(id uint16, candidate hdPictureSource) {
-		current, exists := sources[id]
+	add := func(collection map[uint16]hdPictureSource, id uint16, candidate hdPictureSource) {
+		current, exists := collection[id]
 		if !exists || candidate.priority < current.priority || candidate.priority == current.priority && candidate.label < current.label {
-			sources[id] = candidate
+			collection[id] = candidate
 		}
 	}
+	loose := hdPicturePack{key: origin + ":loose", label: "Loose files", loose: true, sources: make(map[uint16]hdPictureSource)}
+	archives := make([]hdPicturePack, 0)
 	err := fs.WalkDir(files, folder, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -64,7 +79,9 @@ func indexHDPictureSourcesInFolder(files fs.FS, folder string) map[uint16]hdPict
 			if path.Dir(filePath) == folder {
 				priority = 0
 			}
-			add(id, hdPictureSource{files: files, label: filePath, filePath: filePath, priority: priority})
+			candidate := hdPictureSource{files: files, label: filePath, filePath: filePath, priority: priority}
+			add(sources, id, candidate)
+			add(loose.sources, id, candidate)
 			return nil
 		}
 		if !strings.EqualFold(path.Ext(filePath), ".zip") {
@@ -80,20 +97,46 @@ func indexHDPictureSourcesInFolder(files fs.FS, folder string) map[uint16]hdPict
 			log.Printf("HD image bundle %s: %v", filePath, err)
 			return nil
 		}
+		pack := hdPicturePack{
+			key:     origin + ":" + filePath,
+			label:   hdPictureArchivePackLabel(filePath, folder, origin),
+			sources: make(map[uint16]hdPictureSource),
+		}
 		for _, zipped := range archive.File {
 			if zipped.FileInfo().IsDir() {
 				continue
 			}
 			if id, ok := hdPictureIDFromFilename(zipped.Name); ok {
-				add(id, hdPictureSource{files: files, label: filePath + "!" + zipped.Name, filePath: filePath, zipEntry: zipped, priority: 2})
+				candidate := hdPictureSource{files: files, label: filePath + "!" + zipped.Name, filePath: filePath, zipEntry: zipped, priority: 2}
+				add(sources, id, candidate)
+				add(pack.sources, id, candidate)
 			}
+		}
+		if len(pack.sources) > 0 {
+			archives = append(archives, pack)
 		}
 		return nil
 	})
 	if err != nil {
 		log.Printf("HD image folder: %v", err)
 	}
-	return sources
+	sort.Slice(archives, func(i, j int) bool {
+		if archives[i].label == archives[j].label {
+			return archives[i].key < archives[j].key
+		}
+		return archives[i].label < archives[j].label
+	})
+	packs := make([]hdPicturePack, 0, len(archives)+1)
+	if len(loose.sources) > 0 {
+		packs = append(packs, loose)
+	}
+	packs = append(packs, archives...)
+	return sources, packs
+}
+
+func hdPictureArchivePackLabel(filePath, folder, origin string) string {
+	relative := strings.TrimPrefix(filePath, strings.TrimSuffix(folder, "/")+"/")
+	return relative + " (" + origin + ")"
 }
 
 func hdPictureIDFromFilename(name string) (uint16, bool) {
@@ -112,13 +155,58 @@ func hdPictureAvailable(id uint16) bool {
 }
 
 func hdPictureAvailableLocked(id uint16) bool {
-	if !gs.UseSpritePackFiles {
+	if !gs.UseSpritePackFiles || !hdPictureEnabled(id) {
 		return false
 	}
+	return hdPictureCompatibleLocked(id)
+}
+
+func hdPictureCompatibleLocked(id uint16) bool {
 	if _, ok := hdPictureSources[id]; !ok {
 		return false
 	}
 	return clImages == nil || clImages.NumFrames(uint32(id)) == 1
+}
+
+func hdPictureCompatible(id uint16) bool {
+	imageCacheLifecycleMu.RLock()
+	defer imageCacheLifecycleMu.RUnlock()
+	return hdPictureCompatibleLocked(id)
+}
+
+func hdPictureSourceLabel(id uint16) string {
+	imageCacheLifecycleMu.RLock()
+	defer imageCacheLifecycleMu.RUnlock()
+	return hdPictureSources[id].label
+}
+
+func hdPictureEnabled(id uint16) bool {
+	for _, disabledID := range gs.DisabledHDPictures {
+		if disabledID == id {
+			return false
+		}
+	}
+	return true
+}
+
+func setHDPictureEnabled(id uint16, enabled bool) {
+	disabled := make([]uint16, 0, len(gs.DisabledHDPictures)+1)
+	found := false
+	for _, disabledID := range gs.DisabledHDPictures {
+		if disabledID == id {
+			found = true
+			if !enabled {
+				disabled = append(disabled, disabledID)
+			}
+			continue
+		}
+		disabled = append(disabled, disabledID)
+	}
+	if !enabled && !found {
+		disabled = append(disabled, id)
+	}
+	sort.Slice(disabled, func(i, j int) bool { return disabled[i] < disabled[j] })
+	gs.DisabledHDPictures = disabled
 }
 
 func loadHDPicture(id uint16) *ebiten.Image {
@@ -127,6 +215,22 @@ func loadHDPicture(id uint16) *ebiten.Image {
 	if !hdPictureAvailableLocked(id) {
 		return nil
 	}
+	return loadHDPictureSourceLocked(id)
+}
+
+// loadHDPicturePreview loads a compatible replacement even when that picture
+// is unchecked. The gallery remains useful while choosing which replacements
+// the live game should use.
+func loadHDPicturePreview(id uint16) *ebiten.Image {
+	imageCacheLifecycleMu.RLock()
+	defer imageCacheLifecycleMu.RUnlock()
+	if !hdPictureCompatibleLocked(id) {
+		return nil
+	}
+	return loadHDPictureSourceLocked(id)
+}
+
+func loadHDPictureSourceLocked(id uint16) *ebiten.Image {
 	imageMu.Lock()
 	if img, cached := hdPictureCache[id]; cached {
 		imageMu.Unlock()
@@ -135,20 +239,12 @@ func loadHDPicture(id uint16) *ebiten.Image {
 	imageMu.Unlock()
 
 	source := hdPictureSources[id]
-	reader, err := source.open()
+	img, err := decodeHDPictureSource(source)
 	if err != nil {
 		log.Printf("HD picture %d (%s): %v", id, source.label, err)
 		cacheMissingHDPicture(id)
 		return nil
 	}
-	decoded, err := png.Decode(reader)
-	reader.Close()
-	if err != nil {
-		log.Printf("HD picture %d (%s): %v", id, source.label, err)
-		cacheMissingHDPicture(id)
-		return nil
-	}
-	img := ebiten.NewImageFromImage(decoded)
 	imageMu.Lock()
 	if cached, exists := hdPictureCache[id]; exists {
 		imageMu.Unlock()
@@ -158,6 +254,19 @@ func loadHDPicture(id uint16) *ebiten.Image {
 	hdPictureCache[id] = img
 	imageMu.Unlock()
 	return img
+}
+
+func decodeHDPictureSource(source hdPictureSource) (*ebiten.Image, error) {
+	reader, err := source.open()
+	if err != nil {
+		return nil, err
+	}
+	decoded, err := png.Decode(reader)
+	reader.Close()
+	if err != nil {
+		return nil, err
+	}
+	return ebiten.NewImageFromImage(decoded), nil
 }
 
 func cacheMissingHDPicture(id uint16) {
@@ -186,7 +295,7 @@ func isHDPictureImage(id uint16, img *ebiten.Image) bool {
 // reloadHDPictures rescans external sprite packs in the game and user-data
 // directories. The game pack wins when both provide the same sprite ID.
 func reloadHDPictures() (string, int) {
-	sources, location := externalHDPictureSources()
+	sources, packs, location := externalHDPictureCatalog()
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
 	for _, img := range hdPictureCache {
@@ -194,6 +303,7 @@ func reloadHDPictures() (string, int) {
 	}
 	hdPictureCache = make(map[uint16]*ebiten.Image)
 	hdPictureSources = sources
+	hdPicturePacks = packs
 	hdPicturePackLocation = location
 	imageMu.Unlock()
 	imageCacheLifecycleMu.Unlock()
@@ -203,9 +313,25 @@ func reloadHDPictures() (string, int) {
 	return location, len(sources)
 }
 
-func externalHDPictureSources() (map[uint16]hdPictureSource, string) {
+func externalHDPictureCatalog() (map[uint16]hdPictureSource, []hdPicturePack, string) {
 	gameFiles, gameLocation := gameHDPictureFiles()
-	sources := indexHDPictureSources(gameFiles)
+	sources, gamePacks := indexHDPictureCatalogInFolder(gameFiles, "data/hdimg", "game folder")
+	packs := make([]hdPicturePack, 0, len(gamePacks)+1)
+	loose := hdPicturePack{key: "loose", label: "Loose files", loose: true, sources: make(map[uint16]hdPictureSource)}
+	mergePacks := func(indexed []hdPicturePack) {
+		for _, pack := range indexed {
+			if !pack.loose {
+				packs = append(packs, pack)
+				continue
+			}
+			for id, source := range pack.sources {
+				if _, exists := loose.sources[id]; !exists {
+					loose.sources[id] = source
+				}
+			}
+		}
+	}
+	mergePacks(gamePacks)
 	locations := make([]string, 0, 2)
 	if gameFiles != nil {
 		locations = append(locations, gameLocation)
@@ -213,17 +339,29 @@ func externalHDPictureSources() (map[uint16]hdPictureSource, string) {
 
 	userFolder := filepath.Join(dataDirPath, "hdimg")
 	if info, err := os.Stat(userFolder); err == nil && info.IsDir() {
-		for id, source := range indexHDPictureSourcesInFolder(os.DirFS(dataDirPath), "hdimg") {
+		userSources, userPacks := indexHDPictureCatalogInFolder(os.DirFS(dataDirPath), "hdimg", "user folder")
+		for id, source := range userSources {
 			if _, gamePackHasID := sources[id]; !gamePackHasID {
 				sources[id] = source
 			}
 		}
+		mergePacks(userPacks)
 		locations = append(locations, userFolder)
 	}
-	if len(locations) == 0 {
-		return sources, "data/hdimg or user-data hdimg (not found)"
+	sortFrom := 0
+	if len(loose.sources) > 0 {
+		packs = append([]hdPicturePack{loose}, packs...)
+		sortFrom = 1
 	}
-	return sources, strings.Join(locations, "; ")
+	if len(packs)-sortFrom > 1 {
+		sort.Slice(packs[sortFrom:], func(i, j int) bool {
+			return packs[sortFrom+i].label < packs[sortFrom+j].label
+		})
+	}
+	if len(locations) == 0 {
+		return sources, packs, "data/hdimg or user-data hdimg (not found)"
+	}
+	return sources, packs, strings.Join(locations, "; ")
 }
 
 func gameHDPictureFiles() (fs.FS, string) {
@@ -237,7 +375,11 @@ func gameHDPictureFiles() (fs.FS, string) {
 		{root: "source", folder: "source/data/hdimg"},
 	} {
 		if info, err := os.Stat(candidate.folder); err == nil && info.IsDir() {
-			return os.DirFS(candidate.root), candidate.folder
+			root, err := filepath.Abs(candidate.root)
+			if err != nil {
+				continue
+			}
+			return os.DirFS(root), candidate.folder
 		}
 	}
 	if _, sourceFile, _, ok := runtime.Caller(0); ok {

@@ -7,11 +7,11 @@ import (
 )
 
 func TestEmojiExpansionSettingPersistence(t *testing.T) {
-	if !gsdef.ExpandEmojiNames {
-		t.Fatal("emoji name expansion must default on")
+	if gsdef.ExpandEmojiNames {
+		t.Fatal("emoji name expansion must default off")
 	}
 	missing, err := unmarshalSettingsDocument([]byte(`{"version":4}`), gsdef)
-	if err != nil || !missing.ExpandEmojiNames {
+	if err != nil || missing.ExpandEmojiNames {
 		t.Fatalf("missing setting did not retain default: %v", err)
 	}
 	for _, enabled := range []bool{false, true} {

@@ -32,9 +32,10 @@ The user data folder is `%LOCALAPPDATA%\goThoom` on Windows,
 **Settings → Files → Open User Data Folder**. Files from older portable
 installations can be copied there manually when needed.
 
-Diagnostics are written by default to the user data folder's `Diagnostics`
-directory. Use **Settings → Files → Open Diagnostics Folder** to find the
-current `goThoom.log` and its five rotated backups when reporting a problem.
+Diagnostics are recorded in the user data folder's `Diagnostics` directory
+when goThoom has an event to report; a normal start and exit do not create a
+log. Use **Settings → Files → Open Diagnostics Folder** to find the current
+`goThoom.log` and its five rotated backups when reporting a problem.
 Use **Settings → Files → File Paths** to place assets and audio, logs, legacy
 macros, or Go scripts in alternate folders. goThoom can copy the existing files
 and verifies that a new folder is readable and writable before saving it.
@@ -60,14 +61,20 @@ and verifies that a new folder is readable and writable before saving it.
   after sending. When that setting is off, Escape closes it and Enter reopens
   it. Up and Down browse message history.
   Use `:smile:`, `:thumbs_up:`, or pasted emoji. Emoji travel as readable names
-  and appear in color in chat and speech bubbles.
-  The emoji button at the right of the input bar opens a searchable picker
-  with groups on the left. Choosing an emoji appends its name to your draft and
-  closes the picker.
+  and, when emoji display is enabled, appear in color in chat and speech bubbles.
+  The command icon at the right of the input bar lists available client,
+  script, macro, and server commands by source, with a short explanation of
+  each. It also lists input-bar completion, history, and editing shortcuts in
+  a popup that grows to fit the display and wraps long help; choose a command
+  to start it in your draft. Emoji display is off by default.
+  When enabled, its picker appears
+  beside the command icon with groups on the left; choosing an emoji appends
+  its name to your draft and closes the picker.
   Standard Ctrl editing shortcuts work on Windows and Linux; use Command on
   macOS for Select All, Cut, Copy, and Paste.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
-  Players, Inventory, Chat, and Console panes. In floating mode, use the
+  Players, Inventory, Chat, and Console panes. The **Windows** toolbar button
+  opens the layout editor directly in tiled mode. In floating mode, use the
   **Windows** toolbar button or **Settings → Display → Show / Hide Windows** to
   open or close individual panes; these four panes omit title-bar close buttons
   to prevent accidental closure. The **Actions** toolbar menu opens
@@ -90,8 +97,9 @@ and verifies that a new folder is readable and writable before saving it.
   copying the entire input bar.
 - **Audio:** Use the Mixer to control game, music, speech, and notification
   volume independently.
-- **Snapshots:** Click **Snap** to name a capture, choose the game view or entire
-  client window, optionally hide name tags, and save as PNG or JPEG. The options
+- **Snapshots:** Click **Tools → Snap** to name a capture, choose the game view or entire
+  client window, optionally hide name tags, choose whether to skip speech bubbles,
+  and save as PNG or JPEG. The options
   window hides before capture; name-tag settings return to normal afterward.
   The suggested filename starts with the current character's name and a timestamp.
   Files go into the user data folder's `Screenshots` directory; **Open Folder**
@@ -147,8 +155,19 @@ You can also customize goThoom without modifying the program:
 - Put custom color palettes in the user data folder's `themes/palettes/` and
   styles in `themes/styles/`. Example files and format documentation are
   created for you.
-- Enable **Potato GPU (low VRAM)** in Settings → Graphics on devices with small
-  texture limits, such as Raspberry Pi or older GPUs.
+- Install optional PNG or ZIP sprite packs in the user data folder's `hdimg`
+  directory and enable **Settings → Experimental → Use sprite pack
+  files**. Subfolders are supported. Packs are off by default; see the
+  [installation guide](https://gothoom.m45sci.xyz/help/performance.html#sprite-packs).
+- Enable and choose **Replacement Effects** under **Settings → Experimental**
+  for animated shaders on supported effects and scenery. This is separate from
+  sprite packs and also defaults off.
+- Use **Potato GPU (4096px Limit)** under **Settings → Performance → Caching**
+  only for GPUs with small texture limits. It changes texture allocation, not
+  the artwork resolution or overall quality preset.
+
+For original/new comparisons, live reloads, reference exports, and making your
+own pack, see the [artwork authoring guide](https://gothoom.m45sci.xyz/help/artwork.html).
 
 ## Macros and scripts
 

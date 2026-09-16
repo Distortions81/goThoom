@@ -36,11 +36,11 @@
     </header>
 
     <main id="top" class="manual-main help-guide">
-<!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html" aria-current="page">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+<!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html" aria-current="page">Performance &amp; visuals</a><a href="artwork.html">Artwork authoring</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
 <h1>Performance &amp; visuals</h1>
-<!-- help-metadata --><p class="manual-version">Updated for goThoom test 58 · Clan Lord 1501 · September 14, 2026</p><!-- /help-metadata -->
+<!-- help-metadata --><p class="manual-version">Updated for goThoom test 60 · Clan Lord 1501 · September 16, 2026</p><!-- /help-metadata -->
 <p class="help-guide-intro">Make the picture comfortable to read and the client responsive. Learn which controls affect image quality, loading pauses, memory, and drawing speed before changing them.</p>
-<details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#start">Identify the symptom</a><a href="#presets">Presets</a><a href="#artwork">Artwork and color</a><a href="#motion">Motion</a><a href="#lighting">Lighting and shadows</a><a href="#caching">Loading and memory</a><a href="#power">Power saving</a><a href="#restore">Recovery</a></nav></details>
+<details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#start">Identify the symptom</a><a href="#presets">Presets</a><a href="#artwork">Artwork and color</a><a href="#sprite-packs">Install sprite packs</a><a href="#motion">Motion</a><a href="#lighting">Lighting and shadows</a><a href="#replacement-effects">Replacement effects</a><a href="#caching">Loading and memory</a><a href="#power">Power saving</a><a href="#restore">Recovery</a></nav></details>
 <p><a href="./#help-search">Search all help topics</a> · <a href="automation.html">Macros, scripts &amp; hotkeys</a></p>
 <article class="manual-content"><section id="start" class="manual-section"><h2 id="choose-the-problem-before-changing-settings">Choose the problem before changing settings</h2>
 <p>A low frame rate, a one-time loading pause, and a picture you do not like need different adjustments. Open <strong>Settings → Display → Show FPS</strong>, then compare changes in the same scene at the same game-window size. Keep the client focused during a comparison so background power saving does not change the result.</p>
@@ -48,6 +48,7 @@
 <tr><td>The scene stays slow while you stand still</td><td><a href="#lighting">Lighting &amp; effects</a>, then <a href="#artwork">artwork resolution</a></td><td>These change ongoing drawing work. A larger cache is not the first response to steady low FPS.</td></tr>
 <tr><td>A pause occurs on entering a room</td><td><a href="#caching">Artwork loading and cache</a></td><td>Artwork being prepared for the first time can interrupt an otherwise smooth session.</td></tr>
 <tr><td>The picture is too soft or looks smeared</td><td><a href="#artwork">Artwork style</a> for still images; <a href="#motion">animation blending</a> for changing poses</td><td>Static filtering and blending over time have different effects.</td></tr>
+<tr><td>A sprite pack does not appear, or the wrong picture is used</td><td><a href="#sprite-pack-troubleshooting">Pack settings, filenames, and duplicate IDs</a></td><td>Packs are optional files; changing the upscale style does not install or enable them.</td></tr>
 <tr><td>Performance drops after switching to another app</td><td><a href="#power">Power saving</a></td><td>The client can deliberately reduce its drawing rate when unfocused.</td></tr>
 <tr><td>Text and buttons are too small</td><td><a href="./#readable-text">UI scale and text sizes</a></td><td>Artwork resolution does not make the interface easier to read.</td></tr>
 <tr><td>Actions feel late but the scene draws smoothly</td><td><a href="reference.html#settings-network">Network timing</a> and live Stats</td><td>Drawing more frames does not reduce network delay or change the server’s update rate.</td></tr>
@@ -56,13 +57,21 @@
 <ol><li>Choose a familiar location or use the same point in a <a href="./#play-and-seek">movie recording</a> for repeatable visual comparisons.</li><li>Note the current preset and the option you plan to change. A screenshot of its settings page can help restore your starting point.</li><li>Change one setting and inspect the same scene. For loading behavior, also check a new room and a room you revisit.</li><li>Keep the change if it improves the thing you are trying to fix. Otherwise restore it before testing another option.</li></ol>
 <p>Changing artwork processing can clear its cached results. The first draw afterward may include rebuilding work; distinguish that temporary pause from the behavior after the scene has settled.</p>
 </section>
-<section id="presets" class="manual-section"><h2 id="presets-and-the-effects-master-switch">Presets and the effects master switch</h2>
-<p><strong>Settings → Performance → Quality preset</strong> provides a starting set of graphics choices. The setup wizard’s check chooses Default or iGPU Graphics. Choose the preset before individual tuning: applying another preset can change several options at once.</p>
+<section id="presets" class="manual-section"><h2 id="presets-and-the-effects-master-switch">Choose a quality preset</h2>
+<p><strong>Settings → Performance → Quality preset</strong> offers Lowest, Low, Medium, High, and Ultra. Each tier adds to the previous one. <strong>Custom</strong> describes your individual choices when they do not match a preset. The setup wizard tests High and recommends Low or High from the measured frame rate; you can rerun its graphics detection later.</p>
+<div class="manual-table-wrap"><table><thead><tr><th>Preset</th><th>What it enables</th></tr></thead><tbody>
+<tr><td>Lowest</td><td>Turns off the artwork upscale filter and the rendering/audio enhancements managed by presets.</td></tr>
+<tr><td>Low</td><td>Balanced artwork filtering and character shadows.</td></tr>
+<tr><td>Medium</td><td>Also enables sound precaching, window shadows, and lighting effects.</td></tr>
+<tr><td>High</td><td>Also fades obscuring scenery, blends world animation, lets characters receive sun shadows, and enhances sound effects and bard music.</td></tr>
+<tr><td>Ultra</td><td>Also enables high-quality audio resampling.</td></tr>
+</tbody></table></div>
+<p>Choose a preset before fine-tuning: it changes the listed graphics and audio options together. Artwork scale, sprite packs, replacement effects, VSync, and power-saving settings are separate choices. A lower preset will not automatically turn off a sprite pack or replacement effect you enabled.</p>
 <!-- help-figure:settings-performance -->
 <figure class="help-figure" data-screen="settings-performance">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-performance.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Performance. Highlighted controls: Quality preset.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:14.8045%;width:32.1716%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.7151%;width:32.1716%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance</strong>
 <ol class="help-legend"><li><b>1</b><p>A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere.</p></li></ol>
@@ -78,12 +87,12 @@
 <!-- help-figure:performance-artwork -->
 <figure class="help-figure" data-screen="performance-artwork">
   <div class="help-image" style="max-width:746px">
-    <img src="images/performance-artwork.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Artwork.">
-
+    <img src="images/performance-artwork.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Artwork. Highlighted controls: Use sprite pack files.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:67.5978%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Artwork</strong>
-
-    <div class="help-image-actions"><a href="images/performance-artwork.png" target="_blank" rel="noopener">Open full-size image</a></div>
+<ol class="help-legend"><li><b>1</b><p>This uses replacement PNGs you have installed in an hdimg folder; enabling it does not download a pack. The original picture size and placement stay the same. Turn it off to compare with the original artwork. Animated Replacement Effects have their own switch in Lighting &amp; Effects.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/performance-artwork.png" target="_blank" rel="noopener">Open full-size image</a></div>
   </figcaption>
 </figure>
 <!-- /help-figure -->
@@ -93,13 +102,32 @@
 <h3 id="scenery-visibility">See characters behind scenery</h3>
 <p><strong>Fade objects obscuring mobiles</strong> makes obstructing artwork less opaque. Its opacity value controls how much of the object remains visible while faded. This changes visibility, not collision: being able to see through an object does not mean your character can walk through it.</p>
 </section>
+<section id="sprite-packs" class="manual-section"><h2 id="install-a-sprite-pack">Install a sprite pack</h2>
+<p><strong>Settings → Performance → Artwork → Use sprite pack files</strong> replaces supported static pictures with artwork you install. It starts off. The replacement keeps the original picture’s game size and position; a higher-resolution file adds detail without enlarging the object. This is separate from both upscaling the original pixels and the animated <a href="#replacement-effects">Replacement Effects</a>.</p>
+<ol>
+<li>Open <strong>Settings → Files → Open User Data Folder</strong> and create an <code>hdimg</code> folder there.</li>
+<li>Copy the pack’s PNG files or ZIP archives into <code>hdimg</code>. PNG filenames must be numeric sprite IDs, such as <code>1068.png</code>. Subfolders and folders inside ZIPs are supported; ZIPs containing PNGs can stay zipped.</li>
+<li>Enable <strong>Use sprite pack files</strong>. Enabling it scans the folders immediately. Pictures with no usable replacement keep their original artwork.</li>
+<li>After adding, editing, or removing pack files, use <strong>Settings → Tools → Debug Settings → Reload HD Sprites</strong>. The Console reports the number of discovered sprites and the folders scanned.</li>
+<li>For a before/after comparison, toggle <strong>Use sprite pack files</strong> in the same scene. Turn it off to return to original artwork; your pack files stay available for later.</li>
+</ol>
+<p>The client also reads <code>data/hdimg</code> beside the game executable. Both locations can contribute sprites, but a game-folder replacement wins when the same ID exists in both. Within either location, a loose PNG at the top level wins over a PNG in a subfolder, which wins over a PNG inside a ZIP; alphabetical path order breaks ties. The user-data location is convenient for keeping packs across application upgrades, including on macOS.</p>
+<p>Sprite packs are external files and are not downloaded by enabling the checkbox. <strong>File Paths → Assets &amp; Audio</strong> does not relocate <code>hdimg</code>. To make your own pack or inspect individual originals and replacements, see <a href="artwork.html">Artwork authoring &amp; previews</a>.</p>
+<h3 id="sprite-pack-troubleshooting">When a replacement is missing or unexpected</h3>
+<ul>
+<li><strong>No pack files found:</strong> check that the folder is named <code>hdimg</code>, that you used the active user-data or game directory, and that the PNG filenames are sprite IDs. Reload and check the reported folder list.</li>
+<li><strong>An ID appears in HD Sprite Preview but will not load:</strong> enable Use sprite pack files and let the normal game artwork finish loading. Only single-frame pictures are supported; animated pictures and mobile pose sheets are not replaced. Check Console for a PNG or ZIP read error.</li>
+<li><strong>An older image still appears:</strong> check both pack locations for another file with the same ID, including ZIPs. Remove the unwanted copy and reload.</li>
+<li><strong>The new art overlaps something:</strong> compare its transparent margins and visible footprint with the original. The whole PNG is fitted into the original sprite rectangle; extra padding or a shifted drawing changes where its contents appear.</li>
+</ul>
+</section>
 <section id="motion" class="manual-section"><h2 id="separate-movement-smoothing-from-pose-blending">Separate movement smoothing from pose blending</h2>
 <p><strong>Smooth Motion</strong> interpolates movement between updates. <strong>Character Animation Blending</strong> blends changing character poses, and <strong>World Animation Blending</strong> handles changing world imagery. You can like smooth travel while preferring an immediate change of pose.</p>
 <!-- help-figure:performance-motion -->
 <figure class="help-figure" data-screen="performance-motion">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-motion.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Motion. Highlighted controls: Character Animation Blending.">
-<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:33.5196%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:37.4302%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Motion</strong>
 <ol class="help-legend"><li><b>1</b><p>This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on.</p></li></ol>
@@ -127,6 +155,12 @@
 <ol><li>Compare Lighting Effects in the same scene, including the same night conditions where possible.</li><li>Compare Character Shadows separately. Window Shadows belongs to the UI windows, so changing it will not remove shadows under characters.</li><li>Try Faster Character Shadows if you want to compare the alternative shadow path. Judge both the resulting image and drawing performance.</li><li>Leave Experimental choices for separate comparisons after you have a stable setup. Replacement effects and mobile light-cone shadows are not required to use the client.</li></ol>
 <p>If an option here seems inactive, check the related choice: lighting controls its own strength, glow, and flicker; shadow options require Character Shadows; and animation blending requires Smooth Motion. To make a dark scene more readable without changing every lighting option, also inspect <strong>Settings → World → Max Night Level</strong>.</p>
 </section>
+<section id="replacement-effects" class="manual-section"><h2 id="try-animated-replacement-effects">Try animated replacement effects</h2>
+<p>Enable <strong>Settings → Performance → Lighting &amp; Effects → Replacement Effects (experimental)</strong> to use procedural animations for supported effects. It starts off and requires no sprite-pack files. The set includes healing and magic, fire and wall torches, stone form, critical-hit blood, flags, lava pools, town puddles, and shoreline foam.</p>
+<p>Puddles show gently distorted character reflections and rings from footsteps; selected tiled floors also reflect characters. These appear only on supported surfaces and upright artwork, with lying and dead poses excluded. The images are visual cues: they do not change attacks, protection, collision, or the server’s timing.</p>
+<p>Effects animate smoothly between game updates, and separate instances can start at different points in the animation. Persistent flags and torches stay attached to their scenery, while floor effects follow the ground’s drawing order. Compare the option in a familiar scene if the added motion or rendering cost is distracting.</p>
+<p><strong>Settings → Tools → Debug Settings → Open Effects Preview</strong> shows a gallery or one effect, with original/new comparison modes. <strong>Close Preview</strong> returns to the scene. The <a href="artwork.html#effects-preview">preview guide</a> explains scale, animation rate, and shader reloads for development.</p>
+</section>
 <section id="caching" class="manual-section"><h2 id="loading-pauses-and-memory-use">Loading pauses and memory use</h2>
 <p><strong>Batch room artwork loading</strong> prepares missing room artwork in one pause instead of spreading its first-use work across several frames. It changes when you experience that work. Compare room entry and the movement immediately afterward, not just an FPS reading while standing still.</p>
 <!-- help-figure:performance-caching -->
@@ -149,7 +183,7 @@
 <p><strong>Precache Sounds</strong> spends roughly 300 MB of additional RAM to avoid decoding a sound on its first playback. Consider it when a hitch coincides with a sound first being heard. It is a separate tradeoff from retaining artwork in graphics memory.</p>
 <h3 id="asset-dots">Use activity dots as clues</h3>
 <p>Show asset activity dots distinguishes artwork decoding/processing in green, audio decoding in amber, and GPU artwork upload in red. A dot tells you work is happening; it does not, by itself, establish the cause of a slowdown. Compare its timing with the pause you are investigating.</p>
-<p><strong>Potato GPU (4096px Limit)</strong> is the compatibility option for devices constrained by large textures. It is not a general promise that every slow machine will run faster. For continued problems, include the device, artwork scale, cache preset, and observed symptom in your report.</p>
+<p><strong>Potato GPU (4096px Limit)</strong> uses separate textures for graphics devices that cannot use the large shared artwork atlas. It keeps the same artwork resolution and upscale settings. Use it for texture-limit problems; for steady low FPS, compare the effects and artwork settings first.</p>
 </section>
 <section id="power" class="manual-section"><h2 id="frame-rate-limits-and-background-behavior">Frame-rate limits and background behavior</h2>
 <p><strong>Power save in background</strong> reduces drawing while the client is unfocused. <strong>Always power save</strong> applies the power-saving limit even while focused. Both use the Power-save FPS value.</p>
@@ -157,7 +191,7 @@
 <figure class="help-figure" data-screen="performance-power-saving">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-power-saving.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Power Saving. Highlighted controls: Always power save.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:35.1955%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:39.1061%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Power Saving</strong>
 <ol class="help-legend"><li><b>1</b><p>This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations.</p></li></ol>
@@ -166,10 +200,12 @@
 </figure>
 <!-- /help-figure -->
 <p><strong>VSync - Limit FPS</strong> relates drawing to the display’s refresh behavior. Disabling it can increase drawing work and power use without changing the game server’s timing. Do not interpret a deliberately capped rate as proof that your graphics settings are too demanding.</p>
-<ol><li>If the rate drops only when you switch applications, check the background setting.</li><li>If it stays capped while you play, check Always power save and Power-save FPS.</li><li>If the cap matches the display’s refresh rate, check VSync before reducing visual quality.</li><li>After testing, restore the power settings you want for ordinary use.</li></ol>
+<p><strong>Limit to 250 FPS</strong> starts on. It caps drawing when VSync is off and power saving is inactive. Power saving uses its own <strong>Power-save FPS</strong> value, from 1 to 250; it accounts for time already spent drawing or waiting for the display.</p>
+<ol><li>If the rate drops only when you switch applications, check the background setting.</li><li>If it stays capped while you play, check Always power save and Power-save FPS.</li><li>If the cap matches the display’s refresh rate, check VSync; if it is 250 FPS with VSync off, check Limit to 250 FPS.</li><li>After testing, restore the power settings you want for ordinary use.</li></ol>
 </section>
 <section id="restore" class="manual-section"><h2 id="restore-a-usable-picture">Restore a usable picture</h2>
 <p>Open <strong>Settings → Performance → Quality preset</strong> and choose a preset to restore a coordinated set of graphics settings. Use this when the picture becomes difficult to read after experimenting with individual options. Once it looks comfortable again, make any further adjustments one at a time.</p>
+<p>If the issue involves installed artwork or procedural animations, compare <strong>Use sprite pack files</strong> and <strong>Replacement Effects</strong> separately. Quality presets leave those choices as you set them.</p>
 <p>For a report, record the client version, operating system, graphics device, window size, UI scale, quality preset, and the specific settings that reproduce the problem. Include whether it occurs on first room entry, throughout a scene, only during movement, or only when unfocused. The <a href="./#diagnostics-recipe">diagnostics walkthrough</a> explains screenshots and logs.</p>
 </section>
 </article>

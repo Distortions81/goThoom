@@ -74,7 +74,7 @@ func makeSettingsWindow() {
 	const panelWidth = settingsPanelWidth
 	outer := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL,
-		ActiveOutline: true, TabColumns: 6, TabRowOffset: 16,
+		ActiveOutline: true, TabColumns: 6, TabWidth: 112,
 	}
 	displayPage := newSettingsPage("Display", panelWidth)
 	worldPage := newSettingsPage("World", panelWidth)
@@ -84,6 +84,7 @@ func makeSettingsWindow() {
 	ttsPage := newSettingsPage("TTS", panelWidth)
 	controlsPage := newSettingsPage("Controls", panelWidth)
 	performancePage := newSettingsPage("Performance", panelWidth)
+	experimentalPage := newSettingsPage("Experimental", panelWidth)
 	networkPage := newSettingsPage("Network", panelWidth)
 	filesPage := newSettingsPage("Files", panelWidth)
 	toolsPage := newSettingsPage("Tools", panelWidth)
@@ -130,6 +131,8 @@ func makeSettingsWindow() {
 	notificationsSection := addSettingsSection(audioPage, "Notifications", panelWidth)
 	controlsSection := addSettingsSection(controlsPage, "Movement & Input", panelWidth)
 	qualitySection := addSettingsSection(performancePage, "Graphics Quality", panelWidth)
+	experimentalEffectsSection := addSettingsSection(experimentalPage, "Experimental Effects", panelWidth)
+	experimentalSpritesSection := addSettingsSection(experimentalPage, "HD Sprite Packs", panelWidth)
 	networkSection := addSettingsSection(networkPage, nlsptExpandedName, panelWidth)
 	filesSection := addSettingsSection(filesPage, "Files & Folders", panelWidth)
 	recordingSection := addSettingsSection(filesPage, "Recordings", panelWidth)
@@ -557,23 +560,6 @@ func makeSettingsWindow() {
 		}
 		statusSection.AddItem(radio)
 	}
-	statusSection.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Size: eui.Point{X: worldColumnWidth, Y: 8}, Fixed: true})
-	toolbarBars, toolbarBarsEvents := eui.NewCheckbox()
-	toolbarBars.Text = "Status bars below toolbar hands"
-	toolbarBars.Size = eui.Point{X: worldColumnWidth, Y: settingsControlHeight}
-	toolbarBars.Checked = gs.ToolbarStatusBars
-	toolbarBars.SetTooltip("Show the status bars beneath the toolbar hand slots instead of in the game view.")
-	toolbarBarsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.ToolbarStatusBars = ev.Checked
-			SettingsLock.Unlock()
-			placeToolbar(gs.ToolbarPlacement, false)
-			settingsDirty = true
-		}
-	}
-	statusSection.AddItem(toolbarBars)
-
 	barStyles := []struct {
 		name  string
 		value BarStyle
@@ -1105,9 +1091,10 @@ func makeSettingsWindow() {
 	addFileSettings(filesSection, recordingSection, panelWidth)
 	addToolSettings(diagnosticsSection, resetSection, panelWidth)
 	addNetworkSettings(networkSection, panelWidth)
+	addExperimentalSettings(experimentalEffectsSection, experimentalSpritesSection, panelWidth)
 
 	outer.Tabs = []*eui.ItemData{displayPage, worldPage, textPage, bubblesPage, audioPage, ttsPage,
-		controlsPage, performancePage, networkPage, filesPage, toolsPage}
+		controlsPage, performancePage, experimentalPage, networkPage, filesPage, toolsPage}
 	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
 }
@@ -1203,7 +1190,12 @@ func refreshWindowSettingsControls() {
 		}
 	}
 	if toolbarWindowsBtn != nil {
-		toolbarWindowsBtn.Disabled = gs.TiledWindows
+		toolbarWindowsBtn.Disabled = false
+		if gs.TiledWindows {
+			toolbarWindowsBtn.SetTooltip("Arrange the tiled workspace.")
+		} else {
+			toolbarWindowsBtn.SetTooltip("Show or hide standalone windows.")
+		}
 		toolbarWindowsBtn.Dirty = true
 	}
 	if tileTiledModeCB != nil {
@@ -1213,11 +1205,7 @@ func refreshWindowSettingsControls() {
 		tileWindowSnappingCB.Checked, tileWindowSnappingCB.Dirty = gs.WindowSnapping, true
 	}
 	for _, item := range []*eui.ItemData{tileKeepGameLargeCB, wizardKeepGameLargeCB} {
-		if item != nil {
-			item.Checked = gs.TiledKeepGameLarge
-			item.Disabled = gs.TiledLayout == TiledLayoutSide
-			item.Dirty = true
-		}
+		refreshTiledAutoSizeControl(item)
 	}
 	for _, item := range []*eui.ItemData{tileCombineMessagesCB, wizardCombineMessagesCB} {
 		if item != nil {
@@ -1234,9 +1222,25 @@ func refreshWindowSettingsControls() {
 		windowsWin.Refresh()
 	}
 	if setupWizardWin != nil {
-		refreshTiledArrangementControls(setupWizardWin.Contents)
 		setupWizardWin.Refresh()
 	}
+}
+
+func refreshTiledAutoSizeControl(item *eui.ItemData) {
+	if item == nil {
+		return
+	}
+	item.Checked = gs.TiledKeepGameLarge
+	item.Disabled = gs.TiledLayout == TiledLayoutSide || gs.TiledCustomLayout != nil
+	switch {
+	case gs.TiledCustomLayout != nil:
+		item.SetTooltip("Custom arrangements use manual sizing. Drag the workspace dividers to resize panes, or choose a starting arrangement for automatic side-panel sizing.")
+	case gs.TiledLayout == TiledLayoutSide:
+		item.SetTooltip("Game on a side uses manual sizing. Drag the divider between the game and the panels to resize them.")
+	default:
+		item.SetTooltip("Automatically size the panels beside the game. Turn off to resize them independently.")
+	}
+	item.Dirty = true
 }
 
 func newCombineMessagesCheckbox(width float32) *eui.ItemData {

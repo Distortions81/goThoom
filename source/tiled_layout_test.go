@@ -172,6 +172,38 @@ func TestSideTiledLayoutKeepsGameOnSelectedSide(t *testing.T) {
 	assertWindowRect(t, gs.InventoryWindow, 0, 0, (1-gs.TiledSideGameWidth)*gs.TiledSideTopSplit, 0.70)
 }
 
+func TestSideColumnTiledLayoutGroupsMessagesAndLists(t *testing.T) {
+	original := gs
+	t.Cleanup(func() { gs = original })
+
+	gs = gsdef
+	gs.TiledWindows = true
+	gs.TiledLayout = TiledLayoutSideColumns
+	gs.MessagesToConsole = false
+	applyTiledWindowStates()
+
+	assertWindowRect(t, gs.GameWindow, gs.TiledLeftWidth, 0, 1-gs.TiledLeftWidth-gs.TiledRightWidth, 1)
+	assertWindowRect(t, gs.MessagesWindow, 0, 0, gs.TiledLeftWidth, 1-gs.TiledLeftBottom)
+	assertWindowRect(t, gs.ChatWindow, 0, 1-gs.TiledLeftBottom, gs.TiledLeftWidth, gs.TiledLeftBottom)
+	assertWindowRect(t, gs.InventoryWindow, 1-gs.TiledRightWidth, 0, gs.TiledRightWidth, 1-gs.TiledRightBottom)
+	assertWindowRect(t, gs.PlayersWindow, 1-gs.TiledRightWidth, 1-gs.TiledRightBottom, gs.TiledRightWidth, gs.TiledRightBottom)
+
+	gs.TiledConsoleLeft = false
+	gs.TiledInventoryLeft = false
+	applyTiledWindowStates()
+	assertWindowRect(t, gs.ChatWindow, 0, 0, gs.TiledLeftWidth, 1-gs.TiledLeftBottom)
+	assertWindowRect(t, gs.MessagesWindow, 0, 1-gs.TiledLeftBottom, gs.TiledLeftWidth, gs.TiledLeftBottom)
+	assertWindowRect(t, gs.PlayersWindow, 1-gs.TiledRightWidth, 0, gs.TiledRightWidth, 1-gs.TiledRightBottom)
+	assertWindowRect(t, gs.InventoryWindow, 1-gs.TiledRightWidth, 1-gs.TiledRightBottom, gs.TiledRightWidth, gs.TiledRightBottom)
+
+	gs.MessagesToConsole = true
+	applyTiledWindowStates()
+	assertWindowRect(t, gs.MessagesWindow, 0, 0, gs.TiledLeftWidth, 1)
+	if gs.ChatWindow.Open {
+		t.Fatal("chat remains open after combining messages in side columns")
+	}
+}
+
 func TestTiledSplittersPersistEveryWorkspaceDivision(t *testing.T) {
 	original := gs
 	t.Cleanup(func() {

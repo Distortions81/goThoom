@@ -12,7 +12,7 @@ func TestAllTiledLayoutsFillWorkspaceWithoutOverlap(t *testing.T) {
 	original, oldScale := gs, eui.UIScale()
 	oldWidth, oldHeight := eui.ScreenSize()
 	t.Cleanup(func() { gs = original; eui.SetUIScale(oldScale); eui.SetScreenSize(oldWidth, oldHeight) })
-	for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+	for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
 		for _, stacked := range []bool{false, true} {
 			for _, combined := range []bool{false, true} {
 				for _, first := range []bool{false, true} {
@@ -52,12 +52,16 @@ func TestAllTiledLayoutsFillWorkspaceWithoutOverlap(t *testing.T) {
 								if math.Abs(area-1) > 1e-9 {
 									t.Fatalf("pane area = %g; workspace contains gaps", area)
 								}
-								if first != (gs.InventoryWindow.Position.X < gs.PlayersWindow.Position.X) {
+								listFirst := gs.InventoryWindow.Position.X < gs.PlayersWindow.Position.X
+								if layout == TiledLayoutSideColumns {
+									listFirst = gs.InventoryWindow.Position.Y < gs.PlayersWindow.Position.Y
+								}
+								if first != listFirst {
 									t.Fatal("list order was not applied")
 								}
 								if !combined {
 									ordered := gs.MessagesWindow.Position.X < gs.ChatWindow.Position.X
-									if layout == TiledLayoutMessagesSplit || (stacked && tiledPairedMessages()) {
+									if layout == TiledLayoutMessagesSplit || layout == TiledLayoutSideColumns || (stacked && tiledPairedMessages()) {
 										ordered = gs.MessagesWindow.Position.Y < gs.ChatWindow.Position.Y
 									}
 									if ordered != first {

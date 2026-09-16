@@ -99,3 +99,32 @@ func TestServerListDropdownIncludesEditor(t *testing.T) {
 		t.Fatalf("last server option = %q, want %q", got, editServerListOption)
 	}
 }
+
+func TestServerListEditorShowsPresetAddresses(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	originalWindow := serverListWin
+	originalContents := serverListContents
+	serverListWin = nil
+	serverListContents = nil
+	gs = gsdef
+	t.Cleanup(func() {
+		if serverListWin != nil && serverListWin != originalWindow {
+			serverListWin.RemoveWindow()
+		}
+		gs = originalSettings
+		serverListWin = originalWindow
+		serverListContents = originalContents
+	})
+
+	openServerListWindow()
+	if got, want := len(serverListContents.Contents), len(builtInServerAddresses); got != want {
+		t.Fatalf("server editor rows = %d, want %d", got, want)
+	}
+	for index, address := range builtInServerAddresses {
+		input := serverListContents.Contents[index].Contents[1]
+		if got := input.Text; got != address {
+			t.Errorf("preset %d displayed address = %q, want %q", index+1, got, address)
+		}
+	}
+}

@@ -75,9 +75,10 @@ func (g *controlTextFitGame) Draw(screen *ebiten.Image) {
 				settingsWin.Dirty = true
 				screen.Clear()
 				eui.Draw(screen)
-				for _, header := range settingsWin.Contents[0].Tabs {
-					if header.DrawRect.Y0 != settingsWin.Contents[0].Tabs[0].DrawRect.Y0 {
-						g.err = fmt.Errorf("Settings tabs wrapped at %.2fx", scale)
+				headers := settingsWin.Contents[0].Tabs
+				for column := 0; column < 6; column++ {
+					if headers[column].DrawRect.Y0 == headers[column+6].DrawRect.Y0 || headers[column].DrawRect.X0 != headers[column+6].DrawRect.X0 {
+						g.err = fmt.Errorf("Settings tab column %d is not aligned across two rows at %.2fx", column, scale)
 						return
 					}
 				}

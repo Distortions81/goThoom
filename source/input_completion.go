@@ -64,6 +64,35 @@ func inputCompletionSuffix(text string, cursor int, candidates inputCompletionCa
 	return completionAtWordBoundary(string(runes), candidates.chat)
 }
 
+// inputPredictionSuffix adds non-insertable command syntax after ordinary
+// completion has run. This keeps Tab completion limited to real text while
+// still showing what an exact command expects next.
+func inputPredictionSuffix(text string, cursor int, candidates inputCompletionCandidates) string {
+	if suffix := inputCompletionSuffix(text, cursor, candidates); suffix != "" {
+		return suffix
+	}
+	return inputCommandSyntaxSuffix(text, cursor)
+}
+
+func inputCommandSyntaxSuffix(text string, cursor int) string {
+	runes := []rune(text)
+	if cursor != len(runes) || cursor <= 0 {
+		return ""
+	}
+	fields := strings.Fields(text)
+	if len(fields) != 1 {
+		return ""
+	}
+	syntax := textCommandArgumentSyntax[normalizeScriptCommand(fields[0])]
+	if syntax == "" {
+		return ""
+	}
+	if unicode.IsSpace(runes[len(runes)-1]) {
+		return syntax
+	}
+	return " " + syntax
+}
+
 func completionAtWordBoundary(text string, candidates []string) string {
 	ordered := sortedUniqueCandidates(candidates)
 	runes := []rune(text)
@@ -186,4 +215,11 @@ func currentInputCompletionSuffix(text string, cursor int) string {
 		return ""
 	}
 	return inputCompletionSuffix(text, cursor, currentInputCompletionCandidates())
+}
+
+func currentInputPredictionSuffix(text string, cursor int) string {
+	if cursor <= 0 || cursor != utf8.RuneCountInString(text) {
+		return ""
+	}
+	return inputPredictionSuffix(text, cursor, currentInputCompletionCandidates())
 }

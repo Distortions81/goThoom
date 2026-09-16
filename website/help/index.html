@@ -36,13 +36,13 @@
     </header>
 
     <main id="top" class="manual-main">
-      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html" aria-current="page">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html" aria-current="page">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="artwork.html">Artwork authoring</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
       <section class="manual-hero" aria-labelledby="manual-title">
         <div>
           <a class="back-link" href="../index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
           <p class="eyebrow"><span></span> Player guide and reference</p>
           <h1 id="manual-title">goThoom<br><em>user manual.</em></h1>
-          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 58 · Clan Lord 1501 · September 14, 2026</p><!-- /help-metadata -->
+          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 60 · Clan Lord 1501 · September 16, 2026</p><!-- /help-metadata -->
           <p class="lede">Everything you need to enter the Lands, arrange the client, tune its sound and picture, automate common actions, and solve the usual problems.</p>
         </div>
         <aside class="manual-start-card" aria-labelledby="start-card-title">
@@ -75,7 +75,7 @@
           <a href="#interface">Interface &amp; windows</a>
           <a href="#communication">Chat &amp; messages</a>
           <a href="#players-inventory">Players &amp; inventory</a>
-          <a href="#settings">Settings &amp; profiles</a>
+          <a href="#settings">Shared settings</a>
           <a href="performance.html">Performance &amp; visuals</a>
           <a href="#audio">Audio &amp; notifications</a>
           <a href="#automation">Hotkeys, scripts &amp; macros</a>
@@ -95,7 +95,7 @@
           <a href="#interface">Interface &amp; windows</a>
           <a href="#communication">Chat &amp; messages</a>
           <a href="#players-inventory">Players &amp; inventory</a>
-          <a href="#settings">Settings &amp; profiles</a>
+          <a href="#settings">Shared settings</a>
           <a href="performance.html">Performance &amp; visuals</a>
           <a href="#audio">Audio &amp; notifications</a>
           <a href="#automation">Hotkeys, scripts &amp; macros</a>
@@ -153,7 +153,7 @@
             <p>Settings apply to every character and session tab. Script and macro managers can still enable automation for specific characters.</p>
 
             <h3 id="first-run-setup-wizard">First-run setup wizard</h3>
-            <p>The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check briefly shows <strong>One moment, checking performance.</strong> while it selects Default or iGPU Graphics for the current machine. You can run the wizard again later from <strong>Settings → Tools → Setup Wizard</strong>; reopening it starts from your current settings rather than resetting them first.</p>
+            <p>The setup wizard previews layout, controls, graphics, and audio choices. Its graphics check tests the current scene at High quality and recommends Low or High from the measured frame rate. Use <strong>Rerun Graphics Detection</strong> to repeat the check. You can reopen the wizard from <strong>Settings → Tools → Setup Wizard</strong>; it starts from your current choices. The <a href="performance.html#presets">preset guide</a> explains the five quality tiers.</p>
             <div class="manual-callout">
               <strong>The default starting point</strong>
               <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Smooth movement, small-moving-sprite interpolation, network latency and server phase timing, sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech and automatic recording are off.</p>
@@ -214,7 +214,7 @@
 <figure class="help-figure" data-screen="settings-controls">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-controls.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Controls. Highlighted controls: Input bar always open.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.7151%;width:92.4933%;height:3.9106%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:22.6257%;width:92.4933%;height:3.9106%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Controls</strong>
 <ol class="help-legend"><li><b>1</b><p>With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message.</p></li></ol>
@@ -232,9 +232,9 @@
             </ol>
             <!-- help-figure:gamepad -->
 <figure class="help-figure" data-screen="gamepad">
-  <div class="help-image" style="max-width:536px">
-    <img src="images/gamepad.png" width="536" height="764" loading="lazy" decoding="async" alt="Gamepad controls. Highlighted controls: Use standard controller layout when available; Walk Deadzone.">
-<div class="help-highlights"><span class="help-highlight" style="left:2.9851%;top:30.8901%;width:93.2836%;height:3.1414%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:2.9851%;top:40.5759%;width:48.5075%;height:5.7592%" aria-hidden="true"><b>2</b></span></div>
+  <div class="help-image" style="max-width:1050px">
+    <img src="images/gamepad.png" width="1050" height="764" loading="lazy" decoding="async" alt="Gamepad controls. Highlighted controls: Use standard controller layout when available; Walk Deadzone.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.5238%;top:30.8901%;width:47.6190%;height:3.1414%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:1.5238%;top:40.5759%;width:24.7619%;height:5.7592%" aria-hidden="true"><b>2</b></span></div>
   </div>
   <figcaption><strong>Settings → Controls → Gamepad</strong>
 <ol class="help-legend"><li><b>1</b><p>Leave this on for a controller that exposes a standard layout: the South, East, and West face buttons become primary, secondary, and middle click. If the controller has no standard layout, focus each Click button field and press the physical button you want to assign.</p></li><li><b>2</b><p>Increase the deadzone if the character drifts when you release the walk stick. Use the smallest value that stops the drift so gentle movement still registers. Cursor Stick has its own deadzone.</p></li></ol>
@@ -264,7 +264,7 @@
                   <tr><td><strong>Tools</strong></td><td>Opens live Stats, the command Palette, this online Help manual, Snap captures, and local Stream output.</td></tr>
                   <tr><td><strong>Audio</strong></td><td>Opens the live mixer for master, game, music, TTS, notification, and enhancement levels.</td></tr>
                   <tr><td><strong>Record</strong></td><td>Starts or stops a <code>.clMov</code> session recording. When disconnected, it arms recording for the next connection.</td></tr>
-                  <tr><td><strong>Windows</strong></td><td>Opens or closes the Chat, Console, Inventory, and Players panes in floating mode. These panes omit title-bar close buttons to prevent accidental closure. Tiled mode manages them automatically.</td></tr>
+                  <tr><td><strong>Windows</strong></td><td>Opens Window Layout in tiled mode. In floating mode, opens the selector for showing or hiding Chat, Console, Inventory, and Players; these panes omit title-bar close buttons to prevent accidental closure.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -281,7 +281,7 @@
             <p>Saved characters belong to numbered server slots, so editing a server address does not detach its characters. <strong>Edit Character</strong> can move a login to another slot. See the <a href="https://github.com/Distortions81/goThoom/blob/main/docs/MultiSession.md">multi-session guide</a> for background-session behavior and shortcut details.</p>
 
             <h3 id="default-tiled-layout">Default tiled layout</h3>
-            <p>Tiled mode is enabled by default. Inventory occupies the upper-left, the combined Chat/Console occupies the lower-left, the Game fills the center, and Players occupies the right side. The toolbar starts inside Inventory. Separating Chat from Console adds Chat to the lower-right; the alternate layout puts the Game on one side of a shared panel.</p>
+            <p>Tiled mode is enabled by default. Inventory occupies the upper-left, the combined Chat/Console occupies the lower-left, the Game fills the center, and Players occupies the right side. The toolbar starts inside Inventory. In this starting arrangement, separating Chat from Console adds Chat to the lower-right. The layout editor can move any pane to another position.</p>
             <ul>
               <li>Drag a divider to resize neighboring tiles.</li>
               <li><strong>Auto-size side panels</strong> adjusts panel widths to use empty space beside the Game. Drag either Game divider to move the Game sideways; turn the option off to keep the current sizes and resize panels independently.</li>
@@ -289,60 +289,66 @@
               <li>The toolbar can be moved from its default home in Inventory to Players.</li>
             </ul>
 
-            <h3 id="arrange-workspace">Choose a layout and place your message panes</h3>
+            <h3 id="arrange-workspace">Choose a starting layout, then move any pane</h3>
             <ol>
-              <li>Open <strong>Settings → Display</strong>. In <strong>Windows &amp; Toolbar</strong>, open <strong>Window Layout</strong>.</li>
-              <li>Click a layout preview. For a message row, <strong>Messages above game</strong> switches between above and below. The client rearranges the panes immediately.</li>
-              <li>Use <strong>Swap inventory / players list</strong> to exchange the lists. With <strong>Side</strong>, <strong>Swap game side</strong> moves the game to the other edge.</li>
-              <li>Decide whether to check <strong>Combine chat + console</strong>. The available previews update to match. In <strong>Game centered</strong>, use <strong>Combined messages on right</strong> to choose the side for the shared pane.</li>
-              <li>With separate messages sharing one area, use <strong>Message split</strong>: <strong>Side by side</strong> puts them next to each other; <strong>Stacked</strong> puts one above the other. Use <strong>Swap console and chat</strong> to reverse their order.</li>
-              <li>Drag a divider to adjust the row height or message split. The client remembers these sizes.</li>
+              <li>In tiled mode, click the toolbar’s <strong>Windows</strong> button. You can also use <strong>Settings → Display → Windows &amp; Toolbar → Window Layout</strong>.</li>
+              <li>Use <strong>Start with</strong> to choose a starting arrangement, or keep the current one. The preview shows where the Game, lists, and messages will appear.</li>
+              <li>Decide whether to check <strong>Combine chat + console</strong>. Turn it off to place Chat and Console separately.</li>
+              <li>To exchange two panes, choose <strong>Swap</strong> under <strong>Move selected pane</strong>, click the first pane in the preview, then click the second.</li>
+              <li>To change the structure, choose <strong>Left of</strong>, <strong>Right of</strong>, <strong>Above</strong>, or <strong>Below</strong>. Click the pane to move, then its target. For example, choose Above, click Chat, then Console to stack Chat above Console. Clicking the target applies the change immediately; click the selected pane again to cancel its selection.</li>
+              <li>Use <strong>Undo</strong> to reverse a move, a starting-arrangement choice, or Even splits. <strong>Even splits</strong> rebalances pane sizes while leaving room for the game and toolbar; it does not make every pane the same size.</li>
+              <li>Drag the dividers in the actual workspace—not the preview—to resize panes. Custom arrangements use manual sizing and are saved automatically. After a custom edit, <strong>Current arrangement</strong> identifies your layout in Start with; no Apply or Save button is needed.</li>
             </ol>
             <!-- help-figure:tiled-separate -->
 <figure class="help-figure" data-screen="tiled-separate">
-  <div class="help-image" style="max-width:898px">
-    <img src="images/tiled-separate.png" width="898" height="386" loading="lazy" decoding="async" alt="Separate message panes. Highlighted controls: Message split.">
-<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:84.4560%;width:34.5212%;height:11.3990%" aria-hidden="true"><b>1</b></span></div>
+  <div class="help-image" style="max-width:848px">
+    <img src="images/tiled-separate.png" width="848" height="529" loading="lazy" decoding="async" alt="Separate message panes. Highlighted controls: Move selected pane.">
+<div class="help-highlights"><span class="help-highlight" style="left:34.4340%;top:75.6144%;width:63.6792%;height:8.6957%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Display → Window Layout</strong>
-<ol class="help-legend"><li><b>1</b><p>Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game.</p></li></ol>
+<ol class="help-legend"><li><b>1</b><p>Here Chat is selected and Above is chosen. Clicking Console in the preview will put Chat above Console. Choosing an action alone does not move a pane; click a source and then a target. Undo restores the previous editor arrangement, and the real workspace dividers control the final sizes.</p></li></ol>
     <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/tiled-separate.png" target="_blank" rel="noopener">Open full-size image</a></div>
   </figcaption>
 </figure>
 <!-- /help-figure -->
-            <h3 id="tiled-layout-diagrams">Compare tiled layouts</h3>
-            <p>Compare the layout patterns below, using the checkboxes to try different pane positions. In <strong>Settings → Display → Window Layout</strong>, click a preview to choose that layout. These diagrams show relative positions; drag the dividers in the client to set your own sizes.</p>
+            <h3 id="tiled-layout-diagrams">Compare the starting arrangements</h3>
+            <p>These eight patterns match the choices in <strong>Start with</strong>. The checkbox below changes only these diagrams so you can compare combined and separate messages. In the client, choose a starting arrangement, then use <strong>Move selected pane</strong> to customize it. The diagrams show relative positions, not fixed sizes.</p>
             <div class="layout-explorer">
-              <fieldset class="layout-preview-controls"><legend>Preview arrangement</legend>
-                <label><input id="layout-combined" type="checkbox" checked> Combine chat + console</label>
-                <label><input id="layout-swap-lists" type="checkbox"> Swap inventory / players list</label>
-                <label class="layout-combined-side"><input id="layout-combined-right" type="checkbox"> Combined messages on right (centered layout)</label>
-                <label class="layout-message-swap"><input id="layout-swap-messages" type="checkbox"> Swap console and chat</label>
-                <label><input id="layout-above" type="checkbox"> Messages above game</label>
-                <span class="layout-split-options"><label><input id="layout-paired" type="radio" name="layout-split" checked> Side by side</label><label><input id="layout-stacked" type="radio" name="layout-split"> Stacked</label></span>
+              <fieldset class="layout-preview-controls"><legend>Compare message panes</legend>
+                <label><input id="layout-combined" type="checkbox" checked> Show combined Chat + Console</label>
               </fieldset>
-              <p class="layout-preview-note">Move the message row above or below the game without changing list order. Separate messages can share a row or stack; <strong>Above &amp; below</strong> puts the game between them.</p>
               <div class="layout-gallery">
                 <figure class="layout-card"><figcaption><strong>Game centered</strong></figcaption>
                   <div class="layout-map layout-center" role="group" aria-label="Game centered pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div>
-                  <p>The game keeps its full height. Combining messages lets the list above the former Chat pane expand.</p>
+                  <p>The game keeps its full height. Combining messages gives Players the full right column.</p>
                 </figure>
-                <figure class="layout-card layout-side-card"><figcaption><strong>Game on a side</strong></figcaption>
-                  <label class="layout-card-control"><input id="layout-swap-game" type="checkbox"> Swap game side</label>
+                <figure class="layout-card"><figcaption><strong>Game on a side</strong></figcaption>
                   <div class="layout-map layout-side" role="group" aria-label="Game on a side pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
-                  <p>All lists and messages share the other side. Swapping the game side keeps their order intact.</p>
+                  <p>Keep the game on the left and group the lists and messages on the right.</p>
                 </figure>
-                <figure class="layout-card"><figcaption><strong>Message row</strong></figcaption>
-                  <div class="layout-map layout-below" role="group" aria-label="Message row pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
-                  <p>Keep the lists at full height while messages sit above or below the action.</p>
+                <figure class="layout-card"><figcaption><strong>Messages below game</strong></figcaption>
+                  <div class="layout-map layout-below" role="group" aria-label="Messages below game pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
+                  <p>Keep full-height lists beside the game, with messages directly underneath it.</p>
                 </figure>
-                <figure class="layout-card"><figcaption><strong>Full-width message row</strong></figcaption>
-                  <div class="layout-map layout-full-below" role="group" aria-label="Full-width message row pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
-                  <p>Use the whole workspace width for messages. Stacked panes give each stream longer lines.</p>
+                <figure class="layout-card"><figcaption><strong>Messages above game</strong></figcaption>
+                  <div class="layout-map layout-above" role="group" aria-label="Messages above game pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
+                  <p>Read messages above the action while keeping the lists at full height.</p>
                 </figure>
-                <figure class="layout-card layout-separate-card"><figcaption><strong>Messages above and below</strong></figcaption>
+                <figure class="layout-card"><figcaption><strong>Messages above and below</strong></figcaption>
                   <div class="layout-map layout-split" role="group" aria-label="Messages above and below pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div>
-                  <p>Keep conversation and client output on opposite sides of the game. Swap Console and Chat to choose which is above.</p>
+                  <p>Separate messages put Console above and Chat below the game. Combining them leaves one message area above it.</p>
+                </figure>
+                <figure class="layout-card"><figcaption><strong>Full-width messages below</strong></figcaption>
+                  <div class="layout-map layout-full-below" role="group" aria-label="Full-width messages below pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
+                  <p>Give messages the entire bottom row, including the space beneath the lists.</p>
+                </figure>
+                <figure class="layout-card"><figcaption><strong>Full-width messages above</strong></figcaption>
+                  <div class="layout-map layout-full-above" role="group" aria-label="Full-width messages above pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-message-pair"><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div></div>
+                  <p>Put messages across the top of the workspace, with the game and lists underneath.</p>
+                </figure>
+                <figure class="layout-card"><figcaption><strong>Messages left, lists right</strong></figcaption>
+                  <div class="layout-map layout-side-columns" role="group" aria-label="Messages left, lists right pane positions"><div class="layout-pane layout-game">Game</div><div class="layout-pane layout-inventory">Inventory</div><div class="layout-pane layout-players">Players</div><div class="layout-pane layout-console"><span class="layout-separate-label">Console</span><span class="layout-combined-label">Chat + Console</span></div><div class="layout-pane layout-chat">Chat</div></div>
+                  <p>Give messages one full-height column and stack both lists on the other side of the game. Separate Chat and Console stack on the left; their height divider is independent of the list divider.</p>
                 </figure>
               </div>
             </div>
@@ -353,12 +359,12 @@
               <li><strong>Off:</strong> the current sizes stay exactly where they are. Drag the dividers independently to give panels more or less room.</li>
               <li><strong>Turn it back on:</strong> the client recalculates around the game’s current position, subject to the space needed for the lists and toolbar.</li>
             </ul>
-            <p>This option is unavailable with <strong>Game on a side</strong>. Use that layout’s game/panel divider directly.</p>
+            <p>Custom arrangements and <strong>Game on a side</strong> use manual sizing, so this option is unavailable there. Drag their dividers directly. Choose a supported starting arrangement if you want automatic side-panel sizing again.</p>
             <!-- help-figure:tiled-layout -->
 <figure class="help-figure" data-screen="tiled-layout">
-  <div class="help-image" style="max-width:898px">
-    <img src="images/tiled-layout.png" width="898" height="386" loading="lazy" decoding="async" alt="Arrange tiled windows. Highlighted controls: Auto-size side panels.">
-<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:37.8238%;width:34.5212%;height:6.2176%" aria-hidden="true"><b>1</b></span></div>
+  <div class="help-image" style="max-width:848px">
+    <img src="images/tiled-layout.png" width="848" height="529" loading="lazy" decoding="async" alt="Arrange tiled windows. Highlighted controls: Auto-size side panels.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.4151%;top:32.5142%;width:30.6604%;height:4.5369%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Display → Window Layout</strong>
 <ol class="help-legend"><li><b>1</b><p>Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position.</p></li></ol>
@@ -370,11 +376,12 @@
             <h3 id="recover-windows">Adjust or restore the layout</h3>
             <p>Drag pane dividers to change the space available for the game, lists, and messages. To start over, choose <strong>Settings → Display → Reset Windows</strong> and confirm the layout reset. Your graphics, audio, and other preferences are kept.</p>
             <p>Use <strong>Toolbar Placement</strong> in the same Display page to put the toolbar in Inventory or Players. Leave enough width in that list for the toolbar controls.</p>
+            <p>For floating windows, use <strong>Settings → Display → Window Layout → Snap floating windows</strong> to align nearby window and screen edges as you move or resize them. Use the <strong>Windows</strong> toolbar selector or <strong>Show / Hide Windows</strong> in Display to reopen Chat, Console, Inventory, or Players.</p>
             <!-- help-figure:settings-display -->
 <figure class="help-figure" data-screen="settings-display">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-display.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Display. Highlighted controls: UI Scale; Reset Windows.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.1564%;width:32.8418%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:26.5363%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:22.0670%;width:32.8418%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:45.5307%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
   </div>
   <figcaption><strong>Settings → Display</strong>
 <ol class="help-legend"><li><b>1</b><p>Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply.</p></li><li><b>2</b><p>Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences.</p></li></ol>
@@ -401,12 +408,12 @@
 
             <h3 id="separate-chat">Separate Chat from Console without losing your draft</h3>
             <ol>
-              <li>Open <strong>Settings → Display → Windows &amp; Toolbar</strong>.</li>
+              <li>Open <strong>Settings → Display → Window Layout</strong>.</li>
               <li>Uncheck <strong>Combine chat + console</strong>. Chat gets its own pane.</li>
               <li>Click the input bar in either Chat or Console and continue typing. They share the draft and sent-message history.</li>
               <li>If the input bar is closed, press <kbd>Enter</kbd>. Enable <strong>Settings → Controls → Input bar always open</strong> to keep it available.</li>
-              <li>Use <strong>Window Layout</strong> to choose message placement and split direction.</li>
-              <li>Check Combine chat + console again to return to one message window.</li>
+              <li>In <strong>Window Layout</strong>, use Move selected pane to put Chat beside, above, or below Console—or elsewhere around the game.</li>
+              <li>Check Combine chat + console again to return to one message window. A custom layout remembers Chat’s position, so separating it again restores its place.</li>
             </ol>
             <h3 id="readable-text">Make chat and lists easier to read</h3>
             <ol>
@@ -420,7 +427,7 @@
 <figure class="help-figure" data-screen="settings-text">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-text.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Text. Highlighted controls: Chat Window Font Size.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:43.8547%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:47.7654%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Text</strong>
 <ol class="help-legend"><li><b>1</b><p>Chat, Console, overhead names, and speech bubbles have independent font sizes. If you separate Chat from Console and one looks smaller, adjust its own slider. Enlarging chat text also wraps lines sooner, so a wider message pane may make more difference than increasing the font again.</p></li></ol>
@@ -484,26 +491,25 @@
           </section>
 
           <section id="settings" class="manual-section">
-            <p class="manual-kicker">06 · Settings and profiles</p>
-            <h2 id="choose-the-experience-per-character">Choose the experience per character</h2>
+            <p class="manual-kicker">06 · Shared settings</p>
+            <h2 id="choose-the-experience-per-character">Make the client comfortable across sessions</h2>
             <p>The main Settings window has eleven tabs: Display, World, Text, Bubbles, Audio, TTS, Controls, Performance, Network, Files, and Tools. Related controls share clear sections, and controls that need more room open a dedicated subwindow.</p>
 
             <div class="manual-grid two-up">
               <div class="manual-card"><h3 id="appearance">Appearance</h3><p>Choose interface themes, palettes, row styling, status bars, name tags, fonts, and speech bubble behavior.</p></div>
-              <div class="manual-card"><h3 id="graphics">Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing. Player illumination and procedural effects participate in the same night-lit world.</p></div>
+              <div class="manual-card"><h3 id="graphics">Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, lighting, gamma, and animation smoothing. Optional <a href="performance.html#sprite-packs">sprite packs</a> replace static artwork; <a href="performance.html#replacement-effects">replacement effects</a> add procedural animation. Both start off and can be compared separately.</p></div>
               <div class="manual-card"><h3 id="controls">Controls</h3><p>Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and gamepad movement and pointer controls.</p></div>
-              <div class="manual-card"><h3 id="performance">Performance</h3><p>Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode. Activity dots mean artwork decoding/processing (green), audio decoding (amber), and GPU artwork upload (red).</p></div>
+              <div class="manual-card"><h3 id="performance">Performance</h3><p>Control VSync, FPS limits, sound and artwork caching, activity indicators, and power saving. Potato GPU provides compatibility with graphics devices limited to 4096-pixel textures. Activity dots show artwork processing (green), audio decoding (amber), and artwork upload (red).</p></div>
             </div>
 
             <h3 id="status-bars-and-text-input">Status bars and text input</h3>
-            <p><strong>Settings → World → Status Bars</strong> offers Regular, Modern -- thin, and Hidden styles. Modern -- thin is the default; choose a screen placement or enable status bars below the toolbar hand slots. <strong>Settings → Text</strong> keeps chat and timestamp controls beside separate Autocomplete and Spellcheck options.</p>
+            <p><strong>Settings → World → Status Bars</strong> offers Regular, Modern -- thin, and Hidden styles. Modern -- thin is the default; choose a screen placement. <strong>Settings → Text</strong> keeps chat and timestamp controls beside separate Autocomplete and Spellcheck options.</p>
 
             <h3 id="quality-presets">Graphics and performance</h3>
             <p id="graphics-recipe">The <a href="performance.html">Performance &amp; visuals manual</a> explains presets, artwork resolution, smooth movement, lighting, caches, and power saving. Start with its symptom table to distinguish a rendering problem from a loading pause or a frame-rate cap.</p>
             <h3 id="world-recipe">Arrange status bars and reduce name clutter</h3>
             <ol>
               <li>Open <strong>Settings → World</strong>. Choose a status-bar placement and style.</li>
-              <li>Enable <strong>Status bars below toolbar hands</strong> if you want the bars near your equipment instead of in the game view.</li>
               <li>Use the Character Names section to adjust the name background, health display, and bar placement.</li>
               <li>Enable <strong>Hide My Name Tag</strong> or <strong>Show name-tags only on hover</strong> if the scene feels crowded.</li>
               <li>In Players List, choose whether recently seen players and clan members get their own groups.</li>
@@ -512,7 +518,7 @@
 <figure class="help-figure" data-screen="settings-world">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-world.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: World. Highlighted controls: Show recently on-screen group; Show sharing icons in Players list.">
-<div class="help-highlights"><span class="help-highlight" style="left:51.3405%;top:67.0391%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:75.4190%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:51.3405%;top:70.9497%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:79.3296%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
   </div>
   <figcaption><strong>Settings → World</strong>
 <ol class="help-legend"><li><b>1</b><p>This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby.</p></li><li><b>2</b><p>Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style.</p></li></ol>
@@ -523,7 +529,7 @@
 
             <h3 id="shared-settings">Shared settings</h3>
             <p>Every character and session tab uses the same window layout, audio, notifications, appearance, rendering, speech-bubble, and related preferences. Changes are saved automatically and take effect across the client.</p>
-            <p>Script and macro enablement separately retain their explicit per-player/all-player selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
+            <p>Script and macro managers separately choose which automation is enabled for one player or for all players. Those selections are saved in their <code>enabled.json</code> files.</p>
 
             <div class="manual-callout warning">
               <strong>Reset means reset</strong>
@@ -536,9 +542,10 @@
             <h2 id="hear-what-matters-at-the-right-level">Hear what matters at the right level</h2>
 
             <h3 id="mixer">Mixer</h3>
-            <p>Game sounds and music start enabled, while chat text-to-speech starts disabled. The <strong>Audio</strong> toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. <strong>Mute when unfocused</strong> is optional and off by default.</p>
+            <p>Game sounds and music start enabled, with game effects at full volume and music at one-third volume; chat text-to-speech starts disabled. The <strong>Audio</strong> toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. <strong>Mute when unfocused</strong> is optional and off by default.</p>
             <ul>
               <li><strong>Throttle Repeated Sounds</strong> suppresses the same effect in adjacent server updates and prevents active enhanced copies from layering echoes.</li>
+              <li><strong>Settings → Audio → Stagger simultaneous sounds</strong> separates effects arriving in the same game update. It starts on with a 50 ms spread; reduce the spread or turn it off if you prefer them to start together.</li>
               <li><strong>High quality resampling</strong> produces cleaner conversion at a higher CPU cost.</li>
               <li>Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio.</li>
               <li>A downloaded SoundFont improves MIDI-style music playback.</li>
@@ -562,7 +569,7 @@
 <figure class="help-figure" data-screen="settings-tts">
   <div class="help-image" style="max-width:746px">
     <img src="images/settings-tts.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: TTS. Highlighted controls: TTS Voice.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:29.6089%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:33.5196%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → TTS</strong>
 <ol class="help-legend"><li><b>1</b><p>The voice menu is populated from installed Piper models. The empty menu in this example means a usable voice has not been found; enabling speech alone does not provide one. Download the TTS files, select a voice, then test a sentence before relying on spoken chat. The Audio mixer controls speech volume separately.</p></li></ol>
@@ -578,7 +585,7 @@
               <li>Enable the channels you want and set their levels. Lower Music or Game if speech is hard to hear.</li>
               <li>For music resources, open <strong>Settings → Audio → Music SoundFont</strong>. Install an optional SoundFont through Download Files if needed, then choose it from this menu.</li>
               <li>Try sound-effect and bard-music enhancements separately. Their ambience controls let you reduce the effect without changing the main channel volume.</li>
-              <li>If audio stutters, inspect the Music Buffer setting and performance in the same session. Keep a note of your starting values so you can undo experiments.</li>
+              <li>If bard music stutters, compare <strong>Music Buffer (s)</strong> in Settings → Audio. A larger buffer prepares more music before playback, helping slower SoundFonts at the cost of a longer start delay. The default is two seconds.</li>
             </ol>
             <!-- help-figure:mixer -->
 <figure class="help-figure" data-screen="mixer">
@@ -636,13 +643,13 @@
             </ol>
 
             <h3 id="play-and-seek">Play and seek</h3>
-            <p>Disconnect first, return to Login, and choose <strong>Play movie file</strong>. goThoom accepts <code>.clMov</code> files and ZIP packages containing one. Movie playback never begins while a server connection or connection attempt is active.</p>
+            <p>Disconnect your live sessions, return to Login, and choose <strong>Play movie file [clMov]</strong>. goThoom accepts <code>.clMov</code> files and ZIP packages containing one. A movie opens in its own labeled session tab, keeping its scene, messages, lighting, and bard music separate from other tabs. Leave one of the ten tab slots available.</p>
             <ul>
               <li>Drag the time slider to seek.</li>
               <li>Skip backward or forward by 5 or 30 seconds.</li>
               <li>Pause, resume, halve, double, or fine-tune playback speed.</li>
               <li>Use <strong>Stop Seek</strong> to cancel a long rebuild.</li>
-              <li>Close Movie Controls or press Exit to return to Login.</li>
+              <li>Close Movie Controls or the movie tab to end playback and remove its temporary tab. If you were viewing the movie, the client returns to the previously selected tab.</li>
             </ul>
             <p>Movie artwork is prepared and cached at the scale fitted to the current game view, including in smaller laptop layouts. Missing artwork is recorded after its first failed lookup instead of being retried every frame. During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
 
@@ -676,14 +683,15 @@
               <li>Enter a filename. Choose <strong>Game view only</strong> for the playfield or <strong>Entire client window</strong> to include your panels.</li>
               <li>Choose PNG or JPEG. PNG keeps UI text crisp; JPEG produces a compressed image.</li>
               <li>Uncheck <strong>Include name tags</strong> if you want to hide overhead names in this capture.</li>
+              <li><strong>Skip speech bubbles</strong> starts checked. Uncheck it when the conversation bubbles are part of what you want to show. This affects only the capture, not normal gameplay.</li>
               <li>Press <strong>Capture</strong>. The options window closes before the image is taken.</li>
               <li>Use <strong>Open Folder</strong> to find the saved image in Screenshots. Duplicate names receive a number rather than replacing an existing image.</li>
             </ol>
             <!-- help-figure:snapshot -->
 <figure class="help-figure" data-screen="snapshot">
   <div class="help-image" style="max-width:444px">
-    <img src="images/snapshot.png" width="444" height="296" loading="lazy" decoding="async" alt="Take a screenshot. Highlighted controls: Include name tags.">
-<div class="help-highlights"><span class="help-highlight" style="left:4.5045%;top:50.0000%;width:90.0901%;height:9.4595%" aria-hidden="true"><b>1</b></span></div>
+    <img src="images/snapshot.png" width="444" height="326" loading="lazy" decoding="async" alt="Take a screenshot. Highlighted controls: Include name tags.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5045%;top:45.3988%;width:90.0901%;height:8.5890%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Tools → Snap</strong>
 <ol class="help-legend"><li><b>1</b><p>This hides overhead names for the capture without changing your normal name-tag preference. It does not remove names from Chat, Console, or Players if you capture the entire client. Check those panels before sharing a screenshot of a private conversation.</p></li></ol>
@@ -719,7 +727,7 @@
           <section id="files" class="manual-section">
             <p class="manual-kicker">11 · Files and customization</p>
             <h2 id="know-what-belongs-to-you">Know what belongs to you</h2>
-            <p>All persistent files live under one user data directory, separate from the application. Windows uses <code>%LOCALAPPDATA%\goThoom</code>. Linux uses <code>$XDG_DATA_HOME/goThoom</code>, or <code>~/.local/share/goThoom</code> when <code>XDG_DATA_HOME</code> is unset. macOS uses <code>~/Library/Containers/com.goThoom.client</code>. Use <strong>Settings → Files → Open User Data Folder</strong> to open the active location without guessing.</p>
+            <p>The default location for your files is the user data directory, separate from the application. Windows uses <code>%LOCALAPPDATA%\goThoom</code>. Linux uses <code>$XDG_DATA_HOME/goThoom</code>, or <code>~/.local/share/goThoom</code> when <code>XDG_DATA_HOME</code> is unset. macOS uses <code>~/Library/Containers/com.goThoom.client</code>. Use <strong>Settings → Files → Open User Data Folder</strong> to open it. Assets, logs, macros, and scripts can instead use the alternate locations selected in <strong>File Paths</strong>.</p>
 
             <div class="manual-table-wrap">
               <table>
@@ -727,6 +735,7 @@
                 <tbody>
                   <tr><td><code>settings.json</code></td><td>Your saved client settings, shared by every character and session tab.</td></tr>
                   <tr><td><code>characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
+                  <tr><td><code>multi_session.json</code></td><td>Open session tabs and the selected tab; restoring them does not reconnect.</td></tr>
                   <tr><td><code>Scripts</code></td><td>Your Go scripts, author documentation, <code>enabled.json</code>, and <code>permissions.json</code>.</td></tr>
                   <tr><td><code>Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
                   <tr><td><code>scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
@@ -736,6 +745,7 @@
                   <tr><td><code>piper</code></td><td>Local text-to-speech program, voices, and support files.</td></tr>
                   <tr><td><code>Text Logs</code> and <code>Diagnostics</code></td><td>Saved chat/console history and application diagnostic logs.</td></tr>
                   <tr><td><code>themes/palettes</code> and <code>themes/styles</code></td><td>Custom interface colors and styles, with generated examples and format notes.</td></tr>
+                  <tr><td><code>hdimg</code></td><td>Optional sprite-pack PNGs and ZIPs. Enable Use sprite pack files under Performance → Artwork.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -743,7 +753,7 @@
             <h3 id="files-recipe">Move your files or prepare a backup</h3>
             <ol>
               <li>Open <strong>Settings → Files → Open User Data Folder</strong> to locate the active files.</li>
-              <li>For a backup, close the client before copying personalized files so they are not changing during the copy. Include character entries, settings, profiles, scripts and their saved data, macros, and anything you want from Movies or Screenshots.</li>
+              <li>For a backup, close the client before copying personalized files so they are not changing during the copy. Include character entries, settings, hotkeys, shortcuts, scripts and their saved data, macros, sprite packs, and anything you want from Movies or Screenshots. Include any alternate File Paths locations you use.</li>
               <li>To relocate a category, open <strong>File Paths</strong>. Assets/audio, logs, legacy macros, and Go scripts can use separate locations.</li>
               <li>Choose a folder and decide whether to enable <strong>Copy existing files to the selected folder</strong>. The client checks access and conflicting files before saving the change.</li>
               <li>Wait for the operation to succeed. If it reports a conflict or failure, resolve that before trying again; do not assume the active path changed.</li>
@@ -786,9 +796,13 @@
             <h3 id="custom-background">Custom background</h3>
             <p>Place an image named <code>background.png</code> directly in the user data directory to replace the client background.</p>
 
+            <h3 id="sprite-packs">Custom sprite artwork</h3>
+            <p>Install PNG or ZIP sprite packs in <code>hdimg</code> in the user data folder, then enable <strong>Settings → Performance → Artwork → Use sprite pack files</strong>. It starts off. The <a href="performance.html#sprite-packs">sprite-pack walkthrough</a> covers installation, reloads, before/after comparisons, and duplicate files. For creating artwork or editing animated effects, use the separate <a href="artwork.html">authoring guide</a>.</p>
+
             <h3 id="backups-and-upgrades">Backups and upgrades</h3>
             <p>Replacing the application does not replace the user data directory. Settings, characters, scripts, macros, recordings, themes, logs, and downloaded assets remain in their platform-specific location.</p>
             <p>The user data directory contains the personalized files worth backing up. Files from an older portable installation can be copied there manually when needed.</p>
+            <p>An upgrade may offer <strong>Use Recommended Settings</strong> when some preferences differ from current recommendations. Read the proposed changes first; accepting applies that list and leaves other preferences alone. The list can include graphics, sound, loading, power saving, bubble lifetime, and cache sizes appropriate to the computer.</p>
           </section>
 
           <section id="troubleshooting" class="manual-section">
@@ -810,6 +824,8 @@
               </details>
               <details><summary>Chat is separate, but I cannot type into it</summary><p>Press Enter to reopen the input bar. Check Settings → Controls → Input bar always open. Chat and Console share their draft and history. Check the selected arrangement in Window Layout. <a href="#separate-chat">Follow the separate-chat walkthrough</a>.</p></details>
               <details><summary>The dividers move together</summary><p>Auto-size side panels is on. That makes a divider drag move the game sideways while preserving its automatic width. Turn it off in Window Layout to keep the current sizes and resize the two sides independently.</p></details>
+              <details><summary>Auto-size side panels is unavailable</summary><p>Custom arrangements and Game on a side use manual sizing. Drag their workspace dividers directly. If you want automatic sizing, choose a supported layout in Start with; that replaces the custom arrangement, and Undo can restore it.</p></details>
+              <details><summary>A divider will not move any farther</summary><p>Panes need a minimum size, and the pane holding the toolbar needs enough width for its controls. Enlarge the client window, reduce UI Scale, or choose a different arrangement if you need more room.</p></details>
               <details><summary>The voice menu is empty or Test TTS is silent</summary><p>Install a Piper voice in Download Files, select it in Settings → TTS, and test with the client focused. Check master mute, the TTS channel, and Mute when unfocused in the Audio mixer. <a href="#tts-setup">See the speech setup steps</a>.</p></details>
 
 
@@ -827,7 +843,7 @@
               </details>
               <details>
                 <summary>Performance is poor</summary>
-                <p>Enable <strong>Show FPS</strong> in Display while testing. Try the iGPU or lower quality preset, reduce shader lighting and shadows, lower artwork processing, and disable animation blending. Use Potato GPU only for limited-VRAM devices; it trades loading smoothness for reduced texture memory.</p>
+                <p>Enable <strong>Show FPS</strong> in Display, keep the client focused, and compare the same scene. Start with <a href="performance.html#start">the performance symptom table</a>: an FPS cap, a loading pause, and steady low frame rate need different adjustments. Compare Low or Lowest for rendering cost, and check sprite packs and replacement effects separately if you enabled them.</p>
               </details>
               <details>
                 <summary>Audio or TTS is silent</summary>
@@ -835,7 +851,7 @@
               </details>
               <details>
                 <summary>A movie will not play</summary>
-                <p>Movie playback is intentionally blocked while connected or connecting. Disconnect, return to Login, and choose Play movie file. Supported inputs are <code>.clMov</code> and ZIP files containing a movie.</p>
+                <p>Opening a movie requires all sessions to be disconnected, no movie already playing or loading, and a free session-tab slot. Return to Login and choose <strong>Play movie file [clMov]</strong>. Supported inputs are <code>.clMov</code> and ZIP files containing a movie. On Linux, the file chooser requires Zenity or Qarma; install Zenity with <code>sudo apt install zenity</code> on Debian or Ubuntu.</p>
               </details>
             </div>
 

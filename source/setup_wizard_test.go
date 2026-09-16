@@ -210,11 +210,10 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 		"Player health display": false,
 	}
 	wantChecks := map[string]bool{
-		"Status bars below toolbar hands": false,
-		"Dark mode names/bubbles":         false,
-		"Speech bubbles":                  false,
-		"Fade obscuring objects":          false,
-		"Show toolbar info bar":           false,
+		"Dark mode names/bubbles": false,
+		"Speech bubbles":          false,
+		"Fade obscuring objects":  false,
+		"Show toolbar info bar":   false,
 	}
 	var visit func(*eui.ItemData)
 	visit = func(item *eui.ItemData) {
@@ -376,125 +375,22 @@ func TestSetupWizardUIScaleUsesLongDetailedSlider(t *testing.T) {
 	}
 }
 
-func TestSetupWizardAlwaysShowsLayoutPreviews(t *testing.T) {
+func TestSetupWizardSharesVisualWorkspaceEditor(t *testing.T) {
 	initFont()
-	originalSettings := gs
-	t.Cleanup(func() { gs = originalSettings })
-	gs.MessagesToConsole = false
-
-	var wantLabels []string
-	wantChecks := []string{"Auto-size side panels", "Combine chat + console", "Swap inventory / players list", "Swap console and chat", "Swap game side"}
-	contains := func(root *eui.ItemData, label string) bool {
-		var visit func(*eui.ItemData) bool
-		visit = func(item *eui.ItemData) bool {
-			if item.Label == label || item.Text == label {
-				return true
-			}
-			for _, child := range item.Contents {
-				if visit(child) {
-					return true
-				}
-			}
-			return false
-		}
-		return visit(root)
-	}
-
-	gs.TiledWindows = true
-	enabled := eui.NewColumn()
-	buildSetupLayoutPage(enabled)
-	if contains(enabled, "Tiled window mode") || contains(enabled, "Layout") {
-		t.Fatal("wizard retained a redundant mode or layout selector")
-	}
-	for _, name := range append(wantLabels, wantChecks...) {
-		if !contains(enabled, name) {
-			t.Errorf("interface page is missing tiled setting %q while tiled mode is enabled", name)
-		}
-	}
-}
-
-func TestSetupWizardShowsCombinedMessageSide(t *testing.T) {
-	initFont()
-	originalSettings := gs
-	t.Cleanup(func() { gs = originalSettings })
-	gs.TiledWindows = true
-	gs.TiledLayout = TiledLayoutCenter
-	for _, combined := range []bool{false, true} {
+	original, oldEditor := gs, wizardWorkspaceEditor
+	t.Cleanup(func() { gs, wizardWorkspaceEditor = original, oldEditor })
+	for _, combined := range []bool{true, false} {
+		gs = gsdef
 		gs.MessagesToConsole = combined
 		root := eui.NewColumn()
 		buildSetupLayoutPage(root)
-		var placement *eui.ItemData
-		var visit func(*eui.ItemData)
-		visit = func(item *eui.ItemData) {
-			if item.Name == "tiled-swap-messages" {
-				placement = item
-			}
-			for _, child := range item.Contents {
-				visit(child)
-			}
+		editor := wizardWorkspaceEditor
+		if editor == nil || editor.root.Parent == nil || editor.panes["Chat"].Invisible != combined {
+			t.Fatal("setup wizard does not show the shared workspace editor")
 		}
-		visit(root)
-		if placement == nil || placement.ItemType != eui.ITEM_CHECKBOX {
-			t.Fatal("wizard is missing the message swap checkbox")
+		if len(editor.starter.Options) != len(tiledLayoutNames)+1 {
+			t.Fatal("setup wizard hides starting arrangements")
 		}
-		if placement.Invisible || placement.Disabled {
-			t.Fatal("centered layout must allow swapping separate or combined messages")
-		}
-		want := "Swap console and chat"
-		if combined {
-			want = "Combined messages on right"
-		}
-		if placement.Text != want {
-			t.Fatalf("message side label = %q, want %q", placement.Text, want)
-		}
-	}
-}
-
-func TestSetupWizardAlternateGameSideDisabledForCenteredLayout(t *testing.T) {
-	initFont()
-	originalSettings := gs
-	t.Cleanup(func() { gs = originalSettings })
-
-	findGameSide := func(root *eui.ItemData) *eui.ItemData {
-		var found *eui.ItemData
-		var visit func(*eui.ItemData)
-		visit = func(item *eui.ItemData) {
-			if found != nil {
-				return
-			}
-			if item.Text == "Swap game side" {
-				found = item
-				return
-			}
-			for _, child := range item.Contents {
-				visit(child)
-			}
-		}
-		visit(root)
-		return found
-	}
-
-	gs.TiledWindows = true
-	for _, test := range []struct {
-		name     string
-		layout   TiledLayout
-		disabled bool
-	}{
-		{name: "centered", layout: TiledLayoutCenter, disabled: true},
-		{name: "side", layout: TiledLayoutSide, disabled: false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			gs.TiledLayout = test.layout
-			root := eui.NewColumn()
-			buildSetupLayoutPage(root)
-			gameSide := findGameSide(root)
-			if gameSide == nil {
-				t.Fatal("wizard is missing the alternate game side control")
-			}
-			if gameSide.Disabled != test.disabled {
-				t.Fatalf("alternate game side disabled = %t, want %t", gameSide.Disabled, test.disabled)
-			}
-		})
 	}
 }
 

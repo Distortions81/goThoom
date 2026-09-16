@@ -13,7 +13,7 @@ import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 HELP = ROOT / 'website/help'
-MANUAL_PAGES = ('index.html', 'automation.html', 'performance.html')
+MANUAL_PAGES = ('index.html', 'automation.html', 'performance.html', 'artwork.html')
 # Editorial explanations are separate from generated UI metadata. No explanation,
 # no automatic box. Coordinates still come from the actual rendered control.
 ANNOTATIONS = json.loads((HELP / 'annotations.json').read_text())
@@ -106,7 +106,7 @@ def search_index(manual,screens):
     return entries
 
 def area_navigation(current):
-    areas=(('index.html','Player manual'),('automation.html','Macros, scripts & hotkeys'),('performance.html','Performance & visuals'),('reference.html','UI reference'))
+    areas=(('index.html','Player manual'),('automation.html','Macros, scripts & hotkeys'),('performance.html','Performance & visuals'),('artwork.html','Artwork authoring'),('reference.html','UI reference'))
     links=[]
     for filename,label in areas:
         active=' aria-current="page"' if filename == current else ''

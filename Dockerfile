@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # ---- Build and packaging tools ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git unzip zip xz-utils curl ca-certificates jq \
-    osslsigncode imagemagick \
+    osslsigncode imagemagick openssl \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- Go toolchain ----

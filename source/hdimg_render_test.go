@@ -135,8 +135,13 @@ func (g *hdPicturePreviewRenderGame) Draw(screen *ebiten.Image) {
 		g.err = fmt.Errorf("HD sprite preview did not open")
 		return
 	}
-	if len(hdPicturePreviewPicker.Options) < 3 || hdPicturePreviewNew.Image == nil {
-		g.err = fmt.Errorf("HD sprite preview did not populate its image picker")
+	if len(hdPicturePreviewCards) < 3 || hdPicturePreviewCards[0].image == nil {
+		g.err = fmt.Errorf("HD sprite preview did not populate its card gallery")
+		return
+	}
+	drawPendingHDPicturePreviewImages()
+	if !hdPicturePreviewCards[0].replacementLoaded || hdPicturePreviewCards[0].replacement == nil {
+		g.err = fmt.Errorf("HD sprite preview did not load its replacement art on the first visible frame")
 		return
 	}
 	screen.Clear()

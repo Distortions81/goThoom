@@ -45,3 +45,24 @@ func TestFasterCharacterShadowsSelectsBatchedComposite(t *testing.T) {
 		t.Fatal("faster character shadows disabled the batched composite")
 	}
 }
+
+func TestReplacementEffectsCanBeDisabledByFamily(t *testing.T) {
+	originalSettings, originalReady := gs, replacementEffectsShadersReady
+	gs = gsdef
+	gs.ReplacementEffects = true
+	replacementEffectsShadersReady = true
+	t.Cleanup(func() {
+		gs, replacementEffectsShadersReady = originalSettings, originalReady
+	})
+
+	if !replacementEffectReplacesPict(481) {
+		t.Fatal("enabled fire plume should replace its source picture")
+	}
+	setReplacementEffectEnabled(replacementEffectFirePlume, false)
+	if replacementEffectReplacesPict(481) {
+		t.Fatal("disabled fire plume should use its original picture")
+	}
+	if !replacementEffectReplacesPict(1759) {
+		t.Fatal("disabling fire plumes should not disable healing")
+	}
+}

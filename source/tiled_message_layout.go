@@ -13,6 +13,16 @@ var tiledLayoutNames = []string{
 	"Messages above and below",
 	"Full-width messages below",
 	"Full-width messages above",
+	"Messages left, lists right",
+}
+
+func tiledMessageBandLayout() bool {
+	switch gs.TiledLayout {
+	case TiledLayoutMessagesBelow, TiledLayoutMessagesAbove, TiledLayoutMessagesSplit, TiledLayoutFullMessagesBelow, TiledLayoutFullMessagesAbove:
+		return true
+	default:
+		return false
+	}
 }
 
 func tiledFullWidthMessages() bool {
@@ -93,7 +103,12 @@ func applyMessageBandTiledWindowStates() {
 }
 
 func tiledPairedMessages() bool {
-	return gs.TiledLayout == TiledLayoutSide || (gs.TiledLayout >= TiledLayoutMessagesBelow && gs.TiledLayout != TiledLayoutMessagesSplit)
+	switch gs.TiledLayout {
+	case TiledLayoutSide, TiledLayoutMessagesBelow, TiledLayoutMessagesAbove, TiledLayoutFullMessagesBelow, TiledLayoutFullMessagesAbove:
+		return true
+	default:
+		return false
+	}
 }
 
 func tiledMessageBandVerticalSpan() (y, height float64) {

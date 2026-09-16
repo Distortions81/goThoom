@@ -1,5 +1,5 @@
 {
-  "version": 58,
+  "version": 60,
   "clVersion": 1501,
   "screens": [
     {
@@ -15,7 +15,7 @@
           "value": "1 (range 0.75\u20134)",
           "rect": [
             24,
-            130,
+            158,
             245,
             28
           ]
@@ -25,7 +25,7 @@
           "kind": "Button",
           "rect": [
             273,
-            130,
+            158,
             80,
             28
           ]
@@ -36,7 +36,7 @@
           "value": "Off",
           "rect": [
             24,
-            160,
+            188,
             335,
             28
           ]
@@ -48,7 +48,7 @@
           "value": "On",
           "rect": [
             24,
-            190,
+            218,
             335,
             28
           ]
@@ -60,7 +60,7 @@
           "value": "Off",
           "rect": [
             24,
-            220,
+            248,
             335,
             28
           ]
@@ -72,7 +72,7 @@
           "value": "On",
           "rect": [
             24,
-            250,
+            278,
             335,
             28
           ]
@@ -88,7 +88,7 @@
           ],
           "rect": [
             383,
-            106,
+            134,
             335,
             48
           ]
@@ -99,7 +99,7 @@
           "kind": "Button",
           "rect": [
             383,
-            158,
+            186,
             163,
             28
           ]
@@ -111,9 +111,61 @@
           "value": "Off",
           "rect": [
             550,
-            164,
+            192,
             164,
             16
+          ]
+        },
+        {
+          "label": "Players",
+          "help": "Show or hide this standalone window. Tiled mode manages\nthe main window visibility automatically.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            383,
+            264,
+            163,
+            28
+          ]
+        },
+        {
+          "label": "Inventory",
+          "help": "Show or hide this standalone window. Tiled mode manages\nthe main window visibility automatically.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            550,
+            264,
+            164,
+            28
+          ]
+        },
+        {
+          "label": "Chat",
+          "help": "Show or hide this standalone window. Tiled mode manages\nthe main window visibility automatically.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            383,
+            294,
+            163,
+            28
+          ]
+        },
+        {
+          "label": "Console",
+          "help": "Show or hide this standalone window. Tiled mode manages\nthe main window visibility automatically.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            550,
+            294,
+            164,
+            28
           ]
         },
         {
@@ -122,7 +174,7 @@
           "kind": "Button",
           "rect": [
             383,
-            190,
+            326,
             335,
             28
           ]
@@ -149,7 +201,7 @@
           ],
           "rect": [
             24,
-            330,
+            406,
             335,
             48
           ]
@@ -169,7 +221,7 @@
           ],
           "rect": [
             383,
-            330,
+            406,
             335,
             48
           ]
@@ -180,7 +232,7 @@
           "kind": "Button",
           "rect": [
             24,
-            406,
+            482,
             128,
             28
           ]
@@ -191,7 +243,7 @@
           "value": "On",
           "rect": [
             24,
-            464,
+            540,
             341,
             28
           ]
@@ -202,7 +254,7 @@
           "value": "Off",
           "rect": [
             369,
-            464,
+            540,
             341,
             28
           ]
@@ -213,7 +265,7 @@
           "value": "Off",
           "rect": [
             24,
-            494,
+            570,
             341,
             28
           ]
@@ -224,7 +276,7 @@
           "value": "Off",
           "rect": [
             369,
-            494,
+            570,
             341,
             28
           ]
@@ -244,7 +296,7 @@
           "value": "On",
           "rect": [
             24,
-            132,
+            160,
             335,
             28
           ]
@@ -255,7 +307,7 @@
           "value": "Off",
           "rect": [
             24,
-            162,
+            190,
             335,
             28
           ]
@@ -266,7 +318,7 @@
           "value": "Off",
           "rect": [
             24,
-            192,
+            220,
             335,
             28
           ]
@@ -277,19 +329,7 @@
           "value": "Off",
           "rect": [
             24,
-            222,
-            335,
-            28
-          ]
-        },
-        {
-          "label": "Status bars below toolbar hands",
-          "help": "Show the status bars beneath the toolbar hand slots instead\nof in the game view.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            24,
-            260,
+            250,
             335,
             28
           ]
@@ -300,7 +340,7 @@
           "value": "Off",
           "rect": [
             24,
-            318,
+            346,
             335,
             28
           ]
@@ -311,7 +351,7 @@
           "value": "On",
           "rect": [
             24,
-            348,
+            376,
             335,
             28
           ]
@@ -322,7 +362,7 @@
           "value": "Off",
           "rect": [
             24,
-            378,
+            406,
             335,
             28
           ]
@@ -333,7 +373,7 @@
           "value": "Off",
           "rect": [
             24,
-            408,
+            436,
             335,
             28
           ]
@@ -344,7 +384,7 @@
           "value": "0.66 (range 0.1\u20131)",
           "rect": [
             24,
-            440,
+            468,
             325,
             48
           ]
@@ -355,7 +395,7 @@
           "value": "100 (range 0\u2013100)",
           "rect": [
             24,
-            540,
+            568,
             325,
             48
           ]
@@ -366,7 +406,7 @@
           "value": "0.8 (range 0\u20131)",
           "rect": [
             383,
-            106,
+            134,
             325,
             48
           ]
@@ -378,7 +418,7 @@
           "value": "On",
           "rect": [
             383,
-            156,
+            184,
             325,
             28
           ]
@@ -390,7 +430,7 @@
           "value": "Off",
           "rect": [
             383,
-            186,
+            214,
             325,
             28
           ]
@@ -406,7 +446,7 @@
           ],
           "rect": [
             383,
-            218,
+            246,
             325,
             48
           ]
@@ -421,7 +461,7 @@
           ],
           "rect": [
             383,
-            270,
+            298,
             325,
             48
           ]
@@ -432,7 +472,7 @@
           "value": "3 (range 1\u20138)",
           "rect": [
             383,
-            322,
+            350,
             325,
             48
           ]
@@ -443,7 +483,7 @@
           "value": "Off",
           "rect": [
             383,
-            372,
+            400,
             325,
             28
           ]
@@ -454,7 +494,7 @@
           "value": "Off",
           "rect": [
             383,
-            402,
+            430,
             325,
             28
           ]
@@ -465,7 +505,7 @@
           "value": "On",
           "rect": [
             383,
-            480,
+            508,
             335,
             28
           ]
@@ -476,7 +516,7 @@
           "value": "Off",
           "rect": [
             383,
-            510,
+            538,
             335,
             28
           ]
@@ -487,7 +527,7 @@
           "value": "Off",
           "rect": [
             383,
-            540,
+            568,
             335,
             28
           ]
@@ -507,7 +547,7 @@
           "value": "8 (range 5\u201348)",
           "rect": [
             24,
-            106,
+            134,
             400,
             48
           ]
@@ -518,7 +558,7 @@
           "value": "14 (range 5\u201348)",
           "rect": [
             24,
-            158,
+            186,
             400,
             48
           ]
@@ -529,7 +569,7 @@
           "value": "14 (range 5\u201348)",
           "rect": [
             24,
-            210,
+            238,
             400,
             48
           ]
@@ -540,7 +580,7 @@
           "value": "12 (range 4\u201348)",
           "rect": [
             24,
-            262,
+            290,
             400,
             48
           ]
@@ -551,7 +591,7 @@
           "value": "12 (range 4\u201348)",
           "rect": [
             24,
-            314,
+            342,
             400,
             48
           ]
@@ -562,7 +602,7 @@
           "value": "20 (range 4\u201348)",
           "rect": [
             24,
-            366,
+            394,
             400,
             48
           ]
@@ -573,7 +613,7 @@
           "value": "On",
           "rect": [
             24,
-            450,
+            478,
             335,
             28
           ]
@@ -584,7 +624,7 @@
           "value": "On",
           "rect": [
             24,
-            480,
+            508,
             335,
             28
           ]
@@ -594,7 +634,7 @@
           "kind": "Button",
           "rect": [
             24,
-            512,
+            540,
             180,
             28
           ]
@@ -603,10 +643,10 @@
           "label": "Show :smile: as emoji",
           "help": "Display names such as :smile: and :thumbs_up: as emoji in\nchat and speech bubbles. Turn off to show the names as\nwritten.",
           "kind": "Checkbox",
-          "value": "On",
+          "value": "Off",
           "rect": [
             24,
-            542,
+            570,
             335,
             28
           ]
@@ -617,7 +657,7 @@
           "kind": "Input",
           "rect": [
             24,
-            574,
+            602,
             320,
             48
           ]
@@ -629,7 +669,7 @@
           "value": "On",
           "rect": [
             383,
-            450,
+            478,
             335,
             28
           ]
@@ -641,7 +681,7 @@
           "value": "On",
           "rect": [
             383,
-            488,
+            516,
             335,
             28
           ]
@@ -661,7 +701,7 @@
           "value": "On",
           "rect": [
             24,
-            104,
+            132,
             400,
             28
           ]
@@ -672,7 +712,7 @@
           "value": "0.8 (range 0\u20131)",
           "rect": [
             24,
-            136,
+            164,
             400,
             48
           ]
@@ -688,7 +728,7 @@
           ],
           "rect": [
             24,
-            188,
+            216,
             240,
             48
           ]
@@ -700,7 +740,7 @@
           "value": "3 (range 1\u20135)",
           "rect": [
             24,
-            240,
+            268,
             400,
             48
           ]
@@ -712,7 +752,7 @@
           "value": "1 (range 0\u20132)",
           "rect": [
             24,
-            292,
+            320,
             400,
             48
           ]
@@ -723,7 +763,7 @@
           "value": "2 (range 1\u20138)",
           "rect": [
             24,
-            344,
+            372,
             400,
             48
           ]
@@ -733,7 +773,7 @@
           "kind": "Button",
           "rect": [
             24,
-            396,
+            424,
             180,
             28
           ]
@@ -753,7 +793,7 @@
           "kind": "Choice",
           "rect": [
             24,
-            106,
+            134,
             400,
             48
           ]
@@ -764,7 +804,7 @@
           "kind": "Button",
           "rect": [
             24,
-            158,
+            186,
             180,
             28
           ]
@@ -776,7 +816,7 @@
           "value": "On",
           "rect": [
             24,
-            188,
+            216,
             690,
             28
           ]
@@ -787,7 +827,31 @@
           "value": "2 (range 0.1\u201310)",
           "rect": [
             24,
-            220,
+            248,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Stagger simultaneous sounds",
+          "help": "Spread sound effects from the same game update across a\nshort interval.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            298,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Simultaneous sound spread (ms)",
+          "help": "Total time from the first simultaneous effect to the last.",
+          "kind": "Slider",
+          "value": "50 (range 1\u2013100)",
+          "rect": [
+            24,
+            330,
             400,
             48
           ]
@@ -799,7 +863,7 @@
           "value": "On",
           "rect": [
             24,
-            270,
+            380,
             690,
             28
           ]
@@ -810,7 +874,7 @@
           "value": "1 (range 0.1\u20132)",
           "rect": [
             24,
-            302,
+            412,
             400,
             48
           ]
@@ -822,7 +886,7 @@
           "value": "2 (range 1\u201310)",
           "rect": [
             24,
-            354,
+            464,
             400,
             48
           ]
@@ -834,7 +898,7 @@
           "value": "On",
           "rect": [
             24,
-            404,
+            514,
             690,
             28
           ]
@@ -846,7 +910,7 @@
           "value": "On",
           "rect": [
             24,
-            434,
+            544,
             690,
             28
           ]
@@ -857,7 +921,7 @@
           "value": "On",
           "rect": [
             24,
-            512,
+            622,
             690,
             28
           ]
@@ -867,7 +931,7 @@
           "kind": "Button",
           "rect": [
             24,
-            544,
+            654,
             200,
             28
           ]
@@ -887,7 +951,7 @@
           "value": "Off",
           "rect": [
             24,
-            104,
+            132,
             240,
             24
           ]
@@ -897,7 +961,7 @@
           "kind": "Button",
           "rect": [
             24,
-            132,
+            160,
             224,
             24
           ]
@@ -908,7 +972,7 @@
           "kind": "Button",
           "rect": [
             252,
-            132,
+            160,
             225,
             24
           ]
@@ -919,7 +983,7 @@
           "kind": "Button",
           "rect": [
             481,
-            132,
+            160,
             225,
             24
           ]
@@ -930,7 +994,7 @@
           "value": "1.25 (range 0.5\u20132)",
           "rect": [
             24,
-            160,
+            188,
             400,
             48
           ]
@@ -940,7 +1004,7 @@
           "kind": "Choice",
           "rect": [
             24,
-            212,
+            240,
             400,
             48
           ]
@@ -952,7 +1016,7 @@
           "value": "On",
           "rect": [
             24,
-            310,
+            338,
             224,
             28
           ]
@@ -964,7 +1028,7 @@
           "value": "On",
           "rect": [
             252,
-            310,
+            338,
             225,
             28
           ]
@@ -976,7 +1040,7 @@
           "value": "On",
           "rect": [
             481,
-            310,
+            338,
             225,
             28
           ]
@@ -988,7 +1052,7 @@
           "value": "On",
           "rect": [
             24,
-            340,
+            368,
             224,
             28
           ]
@@ -1000,7 +1064,7 @@
           "value": "On",
           "rect": [
             252,
-            340,
+            368,
             225,
             28
           ]
@@ -1012,7 +1076,7 @@
           "value": "On",
           "rect": [
             481,
-            340,
+            368,
             225,
             28
           ]
@@ -1024,7 +1088,7 @@
           "value": "On",
           "rect": [
             24,
-            370,
+            398,
             224,
             28
           ]
@@ -1036,7 +1100,7 @@
           "value": "Off",
           "rect": [
             252,
-            370,
+            398,
             225,
             28
           ]
@@ -1048,7 +1112,7 @@
           "value": "Off",
           "rect": [
             481,
-            370,
+            398,
             225,
             28
           ]
@@ -1058,7 +1122,7 @@
           "kind": "Input",
           "rect": [
             24,
-            450,
+            478,
             480,
             48
           ]
@@ -1068,7 +1132,7 @@
           "kind": "Button",
           "rect": [
             24,
-            502,
+            530,
             140,
             28
           ]
@@ -1078,7 +1142,7 @@
           "kind": "Button",
           "rect": [
             172,
-            502,
+            530,
             200,
             28
           ]
@@ -1099,7 +1163,7 @@
           "value": "Off",
           "rect": [
             24,
-            104,
+            132,
             690,
             28
           ]
@@ -1111,7 +1175,7 @@
           "value": "On",
           "rect": [
             24,
-            134,
+            162,
             690,
             28
           ]
@@ -1122,7 +1186,7 @@
           "value": "Off",
           "rect": [
             24,
-            164,
+            192,
             690,
             28
           ]
@@ -1133,7 +1197,7 @@
           "value": "0.25 (range 0.1\u20131)",
           "rect": [
             24,
-            196,
+            224,
             400,
             48
           ]
@@ -1143,7 +1207,7 @@
           "kind": "Button",
           "rect": [
             24,
-            248,
+            276,
             140,
             28
           ]
@@ -1172,7 +1236,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1184,7 +1248,7 @@
           "value": "2 (range 2\u20134)",
           "rect": [
             24,
-            242,
+            270,
             325,
             44
           ]
@@ -1203,7 +1267,7 @@
           ],
           "rect": [
             24,
-            384,
+            412,
             335,
             44
           ]
@@ -1214,7 +1278,19 @@
           "value": "Off",
           "rect": [
             24,
-            430,
+            458,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Use sprite pack files",
+          "help": "Replace compatible single-frame sprites from PNGs and\nZIPs in game or user-data hdimg folders.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            484,
             335,
             24
           ]
@@ -1225,7 +1301,7 @@
           "value": "On",
           "rect": [
             24,
-            504,
+            558,
             335,
             24
           ]
@@ -1237,7 +1313,7 @@
           "value": "0.66 (range 0.25\u20130.7)",
           "rect": [
             24,
-            532,
+            586,
             325,
             44
           ]
@@ -1249,7 +1325,7 @@
           "value": "On",
           "rect": [
             375,
-            240,
+            268,
             335,
             24
           ]
@@ -1261,7 +1337,7 @@
           "value": "1.8 (range 1.8\u20132.4)",
           "rect": [
             375,
-            268,
+            296,
             325,
             44
           ]
@@ -1273,7 +1349,7 @@
           "value": "2.2 (range 1.8\u20132.4)",
           "rect": [
             375,
-            316,
+            344,
             325,
             44
           ]
@@ -1284,7 +1360,7 @@
           "value": "Off",
           "rect": [
             375,
-            410,
+            438,
             335,
             24
           ]
@@ -1295,7 +1371,7 @@
           "value": "50 (range 0\u2013100)",
           "rect": [
             375,
-            438,
+            466,
             325,
             44
           ]
@@ -1306,7 +1382,7 @@
           "value": "35 (range 0\u201350)",
           "rect": [
             375,
-            486,
+            514,
             325,
             44
           ]
@@ -1335,7 +1411,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1347,7 +1423,7 @@
           "value": "2 (range 2\u20134)",
           "rect": [
             24,
-            242,
+            270,
             325,
             44
           ]
@@ -1366,7 +1442,7 @@
           ],
           "rect": [
             24,
-            384,
+            412,
             335,
             44
           ]
@@ -1377,7 +1453,19 @@
           "value": "Off",
           "rect": [
             24,
-            430,
+            458,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Use sprite pack files",
+          "help": "Replace compatible single-frame sprites from PNGs and\nZIPs in game or user-data hdimg folders.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            484,
             335,
             24
           ]
@@ -1388,7 +1476,7 @@
           "value": "On",
           "rect": [
             24,
-            504,
+            558,
             335,
             24
           ]
@@ -1400,7 +1488,7 @@
           "value": "0.66 (range 0.25\u20130.7)",
           "rect": [
             24,
-            532,
+            586,
             325,
             44
           ]
@@ -1412,7 +1500,7 @@
           "value": "On",
           "rect": [
             375,
-            240,
+            268,
             335,
             24
           ]
@@ -1424,7 +1512,7 @@
           "value": "1.8 (range 1.8\u20132.4)",
           "rect": [
             375,
-            268,
+            296,
             325,
             44
           ]
@@ -1436,7 +1524,7 @@
           "value": "2.2 (range 1.8\u20132.4)",
           "rect": [
             375,
-            316,
+            344,
             325,
             44
           ]
@@ -1447,7 +1535,7 @@
           "value": "Off",
           "rect": [
             375,
-            410,
+            438,
             335,
             24
           ]
@@ -1458,7 +1546,7 @@
           "value": "50 (range 0\u2013100)",
           "rect": [
             375,
-            438,
+            466,
             325,
             44
           ]
@@ -1469,7 +1557,7 @@
           "value": "35 (range 0\u201350)",
           "rect": [
             375,
-            486,
+            514,
             325,
             44
           ]
@@ -1498,7 +1586,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1509,7 +1597,7 @@
           "value": "On",
           "rect": [
             24,
-            240,
+            268,
             335,
             24
           ]
@@ -1521,7 +1609,7 @@
           "value": "On",
           "rect": [
             24,
-            266,
+            294,
             335,
             24
           ]
@@ -1533,7 +1621,7 @@
           "value": "On",
           "rect": [
             24,
-            292,
+            320,
             335,
             24
           ]
@@ -1544,7 +1632,7 @@
           "value": "Off",
           "rect": [
             375,
-            240,
+            268,
             335,
             24
           ]
@@ -1555,7 +1643,7 @@
           "value": "On",
           "rect": [
             375,
-            266,
+            294,
             335,
             24
           ]
@@ -1568,7 +1656,7 @@
           "disabled": true,
           "rect": [
             375,
-            294,
+            322,
             325,
             44
           ]
@@ -1580,7 +1668,7 @@
           "value": "1 (range 0.1\u20131)",
           "rect": [
             375,
-            342,
+            370,
             325,
             44
           ]
@@ -1609,7 +1697,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1620,7 +1708,7 @@
           "value": "On",
           "rect": [
             24,
-            268,
+            296,
             335,
             24
           ]
@@ -1631,7 +1719,7 @@
           "value": "On",
           "rect": [
             24,
-            294,
+            322,
             335,
             24
           ]
@@ -1642,7 +1730,7 @@
           "value": "100 (range 0\u2013200)",
           "rect": [
             24,
-            322,
+            350,
             325,
             44
           ]
@@ -1650,10 +1738,10 @@
         {
           "label": "Light Strength",
           "kind": "Slider",
-          "value": "100 (range 0.01\u20135000)",
+          "value": "100 (range 0\u2013200)",
           "rect": [
             24,
-            370,
+            398,
             325,
             44
           ]
@@ -1661,10 +1749,10 @@
         {
           "label": "Glow Strength",
           "kind": "Slider",
-          "value": "100 (range 0.01\u2013500)",
+          "value": "100 (range 0\u2013200)",
           "rect": [
             24,
-            418,
+            446,
             325,
             44
           ]
@@ -1676,7 +1764,7 @@
           "value": "On",
           "rect": [
             375,
-            288,
+            316,
             335,
             28
           ]
@@ -1687,7 +1775,7 @@
           "value": "On",
           "rect": [
             375,
-            318,
+            346,
             335,
             24
           ]
@@ -1698,7 +1786,7 @@
           "value": "180 (range 1\u2013200)",
           "rect": [
             375,
-            346,
+            374,
             325,
             44
           ]
@@ -1710,7 +1798,7 @@
           "value": "Off",
           "rect": [
             375,
-            392,
+            420,
             335,
             24
           ]
@@ -1722,7 +1810,7 @@
           "value": "On",
           "rect": [
             375,
-            418,
+            446,
             335,
             24
           ]
@@ -1734,7 +1822,7 @@
           "value": "Off",
           "rect": [
             24,
-            492,
+            520,
             690,
             24
           ]
@@ -1746,7 +1834,7 @@
           "value": "Off",
           "rect": [
             24,
-            518,
+            546,
             690,
             24
           ]
@@ -1775,7 +1863,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1787,7 +1875,7 @@
           "value": "On",
           "rect": [
             24,
-            226,
+            254,
             690,
             24
           ]
@@ -1806,7 +1894,7 @@
           ],
           "rect": [
             24,
-            254,
+            282,
             680,
             44
           ]
@@ -1818,7 +1906,7 @@
           "value": "On",
           "rect": [
             24,
-            380,
+            408,
             690,
             24
           ]
@@ -1830,7 +1918,7 @@
           "value": "Off",
           "rect": [
             24,
-            406,
+            434,
             690,
             24
           ]
@@ -1842,7 +1930,7 @@
           "value": "Off",
           "rect": [
             24,
-            432,
+            460,
             690,
             24
           ]
@@ -1871,7 +1959,7 @@
           ],
           "rect": [
             24,
-            106,
+            134,
             240,
             48
           ]
@@ -1883,7 +1971,7 @@
           "value": "Off",
           "rect": [
             24,
-            226,
+            254,
             690,
             24
           ]
@@ -1895,18 +1983,31 @@
           "value": "Off",
           "rect": [
             24,
-            252,
+            280,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Limit to 250 FPS",
+          "help": "When VSync is off and power saving is not active, cap the\nclient at 250 FPS.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            306,
             690,
             24
           ]
         },
         {
           "label": "Power-save FPS",
+          "help": "When power saving is active, sleep only enough to keep the\nframe rate near this limit.",
           "kind": "Slider",
-          "value": "15 (range 1\u201360)",
+          "value": "15 (range 1\u2013250)",
           "rect": [
             24,
-            280,
+            334,
             680,
             44
           ]
@@ -1918,7 +2019,7 @@
           "value": "On",
           "rect": [
             24,
-            326,
+            380,
             690,
             24
           ]
@@ -1939,7 +2040,7 @@
           "value": "On",
           "rect": [
             24,
-            104,
+            132,
             690,
             28
           ]
@@ -1951,7 +2052,7 @@
           "value": "10 (range 0\u201350)",
           "rect": [
             24,
-            136,
+            164,
             400,
             48
           ]
@@ -1962,7 +2063,7 @@
           "kind": "Button",
           "rect": [
             24,
-            188,
+            216,
             180,
             28
           ]
@@ -1982,7 +2083,7 @@
           "kind": "Button",
           "rect": [
             24,
-            106,
+            134,
             180,
             28
           ]
@@ -1992,7 +2093,7 @@
           "kind": "Button",
           "rect": [
             24,
-            138,
+            166,
             180,
             28
           ]
@@ -2003,7 +2104,7 @@
           "kind": "Button",
           "rect": [
             24,
-            170,
+            198,
             260,
             28
           ]
@@ -2014,7 +2115,7 @@
           "kind": "Button",
           "rect": [
             24,
-            202,
+            230,
             260,
             28
           ]
@@ -2025,7 +2126,7 @@
           "value": "Off",
           "rect": [
             24,
-            280,
+            308,
             690,
             28
           ]
@@ -2045,7 +2146,7 @@
           "kind": "Button",
           "rect": [
             24,
-            106,
+            134,
             200,
             40
           ]
@@ -2055,7 +2156,7 @@
           "kind": "Button",
           "rect": [
             24,
-            198,
+            226,
             180,
             28
           ]
@@ -2065,8 +2166,146 @@
           "kind": "Button",
           "rect": [
             24,
-            278,
+            306,
             200,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "effects-preview",
+      "title": "Effects preview controls",
+      "route": "Settings \u2192 Tools \u2192 Debug Settings \u2192 Open Effects Preview",
+      "width": 601,
+      "height": 352,
+      "controls": [
+        {
+          "label": "Effect",
+          "help": "Show every effect in a gallery, or one effect at a larger scale.",
+          "kind": "Choice",
+          "value": "All effects",
+          "options": [
+            "All effects",
+            "Healing",
+            "Fire Plume",
+            "Violet Fire Plume",
+            "Green Fire Plume",
+            "Blue Fire Plume",
+            "Critical Blood Gush",
+            "Aqua Flag",
+            "Red Flag",
+            "Yellow Flag",
+            "Violet Flag",
+            "White Flag",
+            "Gold Flag",
+            "Wall Torch",
+            "Wall Torch (mirrored)",
+            "Hidden Path Sparkles",
+            "Hidden Path Fading",
+            "Mystic Ward",
+            "Amber Orbit Ward",
+            "Lava Pool (compact)",
+            "Lava Pool (large)",
+            "Neutral Magic Ring",
+            "Green Magic Ring",
+            "Red Magic Ring",
+            "Magenta Magic Ring",
+            "Yellow Magic Ring",
+            "Cyan Magic Ring",
+            "Town Puddle (small)",
+            "Town Puddle (large)",
+            "Shore Foam (east)",
+            "Shore Foam (west)",
+            "Shore Foam (north)",
+            "Shore Foam (south)",
+            "Ward Fading",
+            "Gold Teleport",
+            "Blue Teleport",
+            "Prismatic Teleport",
+            "Stone Form",
+            "Coin 123"
+          ],
+          "rect": [
+            16,
+            64,
+            270,
+            48
+          ]
+        },
+        {
+          "label": "Display",
+          "help": "Compare the original sprite animation with the procedural\nreplacement. This affects the preview only.",
+          "kind": "Choice",
+          "value": "New effect only",
+          "options": [
+            "New effect only",
+            "Original animation",
+            "Original + new effect"
+          ],
+          "rect": [
+            16,
+            116,
+            270,
+            48
+          ]
+        },
+        {
+          "label": "Scale",
+          "help": "Set the size of one selected effect. The all-effects gallery\nalways fits its tiles to the game view.",
+          "kind": "Choice",
+          "value": "Full window size",
+          "options": [
+            "At real size",
+            "200% size",
+            "Full window size"
+          ],
+          "rect": [
+            16,
+            168,
+            270,
+            48
+          ]
+        },
+        {
+          "label": "Animation rate",
+          "help": "Set the original sprite animation's updates per second. The\nprocedural effect stays smoothly animated between\nupdates.",
+          "kind": "Choice",
+          "value": "5 UPS",
+          "options": [
+            "1 UPS",
+            "2 UPS",
+            "5 UPS",
+            "10 UPS",
+            "20 UPS",
+            "30 UPS"
+          ],
+          "rect": [
+            16,
+            220,
+            270,
+            48
+          ]
+        },
+        {
+          "label": "Reload Shaders",
+          "help": "Recompile lighting and replacement shaders. Replacement\neffects read this checked-out source tree.",
+          "kind": "Button",
+          "rect": [
+            16,
+            272,
+            270,
+            28
+          ]
+        },
+        {
+          "label": "Close Preview",
+          "help": "Return the game view to its normal scene.",
+          "kind": "Button",
+          "rect": [
+            16,
+            304,
+            270,
             28
           ]
         }
@@ -2076,8 +2315,8 @@
       "id": "tiled-layout",
       "title": "Arrange tiled windows",
       "route": "Settings \u2192 Display \u2192 Window Layout",
-      "width": 898,
-      "height": 386,
+      "width": 848,
+      "height": 529,
       "controls": [
         {
           "label": "Use tiled window layout",
@@ -2087,7 +2326,19 @@
           "rect": [
             12,
             90,
-            310,
+            260,
+            24
+          ]
+        },
+        {
+          "label": "Snap floating windows",
+          "help": "Align floating windows with nearby screen and window\nedges while moving or resizing them.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            116,
+            260,
             24
           ]
         },
@@ -2098,88 +2349,124 @@
           "value": "On",
           "rect": [
             12,
-            116,
-            310,
+            142,
+            260,
             28
           ]
         },
         {
           "label": "Auto-size side panels",
-          "help": "Automatically adjust side panel widths to use empty space\nbeside the game. Drag either game divider to move the\ngame sideways. Turn off to keep the current sizes and resize\npanels independently.",
+          "help": "Automatically size the panels beside the game. Turn off to\nresize them independently.",
           "kind": "Checkbox",
           "value": "On",
           "rect": [
             12,
-            146,
-            310,
+            172,
+            260,
             24
           ]
         },
         {
-          "label": "Swap game side",
-          "help": "Choose Game on a side to move the game between the left\nand right edges.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            12,
-            220,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Swap inventory / players list",
-          "help": "Exchange the two lists without moving the game or\nmessages.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            12,
-            246,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Combined messages on right",
-          "help": "Move the combined Chat and Console pane to the right side\nof the centered game.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            12,
-            272,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Messages above game",
-          "help": "Choose Messages above or below or Full-width message\nrow to move the row above the game.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            12,
-            298,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Message split",
-          "help": "Turn off Combine chat + console to split the message area\ninto separate panes.",
+          "label": "Start with",
+          "help": "Choose a starting arrangement, then move any pane in the\npreview. Undo restores your previous arrangement.",
           "kind": "Choice",
-          "value": "Side by side",
+          "value": "Game centered",
           "options": [
-            "Side by side",
-            "Stacked"
+            "Current arrangement",
+            "Game centered",
+            "Game on a side",
+            "Messages below game",
+            "Messages above game",
+            "Messages above and below",
+            "Full-width messages below",
+            "Full-width messages above",
+            "Messages left, lists right"
           ],
+          "rect": [
+            292,
+            44,
+            540,
+            46
+          ]
+        },
+        {
+          "label": "Game",
+          "kind": "Button",
+          "rect": [
+            448,
+            130,
+            246,
+            256
+          ]
+        },
+        {
+          "label": "Inventory",
+          "kind": "Button",
+          "rect": [
+            288,
+            130,
+            156,
+            178
+          ]
+        },
+        {
+          "label": "Players",
+          "kind": "Button",
+          "rect": [
+            698,
+            130,
+            126,
+            256
+          ]
+        },
+        {
+          "label": "Chat +\nConsole",
+          "kind": "Button",
+          "rect": [
+            288,
+            312,
+            156,
+            74
+          ]
+        },
+        {
+          "label": "Move selected pane",
+          "kind": "Choice",
+          "value": "Swap",
+          "options": [
+            "Swap",
+            "Left of",
+            "Right of",
+            "Above",
+            "Below"
+          ],
+          "rect": [
+            292,
+            400,
+            540,
+            46
+          ]
+        },
+        {
+          "label": "Even splits",
+          "help": "Equalize paired panes. Centered layouts keep more space\nfor the game; the toolbar may require a wider pane.",
+          "kind": "Button",
+          "rect": [
+            292,
+            460,
+            266,
+            26
+          ]
+        },
+        {
+          "label": "Undo",
+          "kind": "Button",
           "disabled": true,
           "rect": [
-            12,
-            326,
-            310,
-            44
+            566,
+            460,
+            266,
+            26
           ]
         }
       ]
@@ -2188,8 +2475,8 @@
       "id": "tiled-separate",
       "title": "Separate message panes",
       "route": "Settings \u2192 Display \u2192 Window Layout",
-      "width": 898,
-      "height": 386,
+      "width": 848,
+      "height": 529,
       "controls": [
         {
           "label": "Use tiled window layout",
@@ -2199,7 +2486,19 @@
           "rect": [
             12,
             90,
-            310,
+            260,
+            24
+          ]
+        },
+        {
+          "label": "Snap floating windows",
+          "help": "Align floating windows with nearby screen and window\nedges while moving or resizing them.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            116,
+            260,
             24
           ]
         },
@@ -2210,86 +2509,134 @@
           "value": "Off",
           "rect": [
             12,
-            116,
-            310,
+            142,
+            260,
             28
           ]
         },
         {
           "label": "Auto-size side panels",
-          "help": "Automatically adjust side panel widths to use empty space\nbeside the game. Drag either game divider to move the\ngame sideways. Turn off to keep the current sizes and resize\npanels independently.",
+          "help": "Automatically size the panels beside the game. Turn off to\nresize them independently.",
           "kind": "Checkbox",
           "value": "On",
           "rect": [
             12,
-            146,
-            310,
+            172,
+            260,
             24
           ]
         },
         {
-          "label": "Swap game side",
-          "help": "Choose Game on a side to move the game between the left\nand right edges.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "disabled": true,
-          "rect": [
-            12,
-            220,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Swap inventory / players list",
-          "help": "Exchange the two lists without moving the game or\nmessages.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            12,
-            246,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Swap console and chat",
-          "help": "Exchange Console and Chat within their row, stack, or\nseparate areas.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            12,
-            272,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Messages above game",
-          "help": "Move the message row above the game. List and message\norder stay the same.",
-          "kind": "Checkbox",
-          "value": "Off",
-          "rect": [
-            12,
-            298,
-            310,
-            24
-          ]
-        },
-        {
-          "label": "Message split",
-          "help": "Place separate Chat and Console beside each other or stack\nthem in their shared area. Drag the divider to resize them.",
+          "label": "Start with",
+          "help": "Choose a starting arrangement, then move any pane in the\npreview. Undo restores your previous arrangement.",
           "kind": "Choice",
-          "value": "Side by side",
+          "value": "Messages below game",
           "options": [
-            "Side by side",
-            "Stacked"
+            "Current arrangement",
+            "Game centered",
+            "Game on a side",
+            "Messages below game",
+            "Messages above game",
+            "Messages above and below",
+            "Full-width messages below",
+            "Full-width messages above",
+            "Messages left, lists right"
           ],
           "rect": [
-            12,
-            326,
-            310,
-            44
+            292,
+            44,
+            540,
+            46
+          ]
+        },
+        {
+          "label": "Game",
+          "kind": "Button",
+          "rect": [
+            448,
+            130,
+            246,
+            183
+          ]
+        },
+        {
+          "label": "Inventory",
+          "kind": "Button",
+          "rect": [
+            288,
+            130,
+            156,
+            256
+          ]
+        },
+        {
+          "label": "Players",
+          "kind": "Button",
+          "rect": [
+            698,
+            130,
+            126,
+            256
+          ]
+        },
+        {
+          "label": "Console",
+          "kind": "Button",
+          "rect": [
+            448,
+            317,
+            121,
+            69
+          ]
+        },
+        {
+          "label": "Chat",
+          "kind": "Button",
+          "rect": [
+            573,
+            317,
+            121,
+            69
+          ]
+        },
+        {
+          "label": "Move selected pane",
+          "kind": "Choice",
+          "value": "Above",
+          "options": [
+            "Swap",
+            "Left of",
+            "Right of",
+            "Above",
+            "Below"
+          ],
+          "rect": [
+            292,
+            400,
+            540,
+            46
+          ]
+        },
+        {
+          "label": "Even splits",
+          "help": "Equalize paired panes. Centered layouts keep more space\nfor the game; the toolbar may require a wider pane.",
+          "kind": "Button",
+          "rect": [
+            292,
+            460,
+            266,
+            26
+          ]
+        },
+        {
+          "label": "Undo",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            566,
+            460,
+            266,
+            26
           ]
         }
       ]
@@ -2762,7 +3109,7 @@
       "title": "Take a screenshot",
       "route": "Tools \u2192 Snap",
       "width": 444,
-      "height": 296,
+      "height": 326,
       "controls": [
         {
           "label": "Filename",
@@ -2817,11 +3164,23 @@
           ]
         },
         {
+          "label": "Skip speech bubbles",
+          "help": "Turn off to include speech bubbles in this snapshot.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            178,
+            400,
+            28
+          ]
+        },
+        {
           "label": "Open Folder",
           "kind": "Button",
           "rect": [
             24,
-            244,
+            274,
             128,
             32
           ]
@@ -2831,7 +3190,7 @@
           "kind": "Button",
           "rect": [
             156,
-            244,
+            274,
             112,
             32
           ]
@@ -2841,7 +3200,7 @@
           "kind": "Button",
           "rect": [
             272,
-            244,
+            274,
             144,
             32
           ]
@@ -2957,7 +3316,7 @@
       "id": "hotkey-editor",
       "title": "Create a hotkey",
       "route": "Actions \u2192 Hotkeys \u2192 +",
-      "width": 440,
+      "width": 444,
       "height": 200,
       "controls": [
         {
@@ -2975,7 +3334,7 @@
           "label": "Name",
           "kind": "Input",
           "rect": [
-            64,
+            68,
             68,
             360,
             20
@@ -3077,7 +3436,7 @@
       "id": "gamepad",
       "title": "Gamepad controls",
       "route": "Settings \u2192 Controls \u2192 Gamepad",
-      "width": 536,
+      "width": 1050,
       "height": 764,
       "controls": [
         {
@@ -4614,5 +4973,5 @@
       ]
     }
   ],
-  "updated": "2026-09-14"
+  "updated": "2026-09-16"
 }

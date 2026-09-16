@@ -30,19 +30,24 @@ func TestSnapshotFilenames(t *testing.T) {
 	}
 }
 
-func TestSnapshotNameTagsInvalidateWorldCache(t *testing.T) {
+func TestSnapshotOverlaysInvalidateWorldCache(t *testing.T) {
 	old := pendingSnapshot
 	t.Cleanup(func() { pendingSnapshot = old })
 	pendingSnapshot = nil
 	normal := currentWorldRenderKey(640, 480)
-	pendingSnapshot = &snapshotRequest{hideNameTags: true}
-	hidden := currentWorldRenderKey(640, 480)
-	if normal == hidden || !snapshotHidesNameTags() {
-		t.Fatal("snapshot would reuse a frame with name tags")
+	for _, request := range []*snapshotRequest{
+		{hideNameTags: true},
+		{hideSpeechBubbles: true},
+	} {
+		pendingSnapshot = request
+		hidden := currentWorldRenderKey(640, 480)
+		if normal == hidden {
+			t.Fatal("snapshot would reuse a frame with hidden overlays")
+		}
 	}
 	pendingSnapshot = nil
-	if currentWorldRenderKey(640, 480) != normal || snapshotHidesNameTags() {
-		t.Fatal("snapshot did not restore normal name tag rendering")
+	if currentWorldRenderKey(640, 480) != normal || snapshotHidesNameTags() || snapshotHidesSpeechBubbles() {
+		t.Fatal("snapshot did not restore normal overlay rendering")
 	}
 }
 

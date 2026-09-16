@@ -34,6 +34,21 @@ class AnnotationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Highlight target disappeared'):
             build_help.figure(screen)
 
+    def test_artwork_callouts_explain_scope_and_animation_timing(self):
+        artwork=build_help.figure(self.screens['performance-artwork'])
+        self.assertIn('does not download a pack',artwork)
+        effects=build_help.figure(self.screens['effects-preview'])
+        self.assertIn('not displayed frames per second',effects)
+        self.assertIn('does not change live gameplay',effects)
+
+    def test_tiled_example_matches_the_displayed_move(self):
+        screen=self.screens['tiled-separate']
+        action=next(control for control in screen['controls'] if control['label']=='Move selected pane')
+        self.assertEqual(action['value'],'Above')
+        html=build_help.figure(screen)
+        self.assertIn('Chat is selected and Above is chosen',html)
+        self.assertIn('click a source and then a target',html)
+
     def test_caption_alone_is_not_an_annotation(self):
         with patch.dict(build_help.ANNOTATIONS,{'notifications':[{'control':'Fallen','explanation':'Fallen'}]}):
             with self.assertRaisesRegex(ValueError,'beyond its label'):

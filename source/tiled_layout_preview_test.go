@@ -11,7 +11,7 @@ import (
 func TestTiledPreviewsMatchWorkspaceTopology(t *testing.T) {
 	original := gs
 	t.Cleanup(func() { gs = original })
-	for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+	for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
 		for flags := 0; flags < 32; flags++ {
 			t.Run(fmt.Sprintf("layout=%d/flags=%d", layout, flags), func(t *testing.T) {
 				gs = gsdef
@@ -36,6 +36,8 @@ func TestTiledPreviewsMatchWorkspaceTopology(t *testing.T) {
 					applyCenteredTiledWindowStates()
 				case TiledLayoutSide:
 					applySideTiledWindowStates()
+				case TiledLayoutSideColumns:
+					applySideColumnTiledWindowStates()
 				default:
 					applyMessageBandTiledWindowStates()
 				}
@@ -67,129 +69,26 @@ func TestTiledPreviewsMatchWorkspaceTopology(t *testing.T) {
 	}
 }
 
-func TestTiledPreviewSelectionAndExternalRefresh(t *testing.T) {
-	initFont()
-	original, oldWindow := gs, tileLayoutWin
-	gs = gsdef
-	gs.MessagesToConsole = false
-	tileLayoutWin = nil
-	t.Cleanup(func() { tileLayoutWin.RemoveWindow(); tileLayoutWin = oldWindow; gs = original })
-	makeTileLayoutWindow()
-	var buttons []*eui.ItemData
-	var visit func([]*eui.ItemData)
-	visit = func(items []*eui.ItemData) {
-		for _, it := range items {
-			if it.Name == "tiled-layout-preview" {
-				buttons = append(buttons, it)
-			}
-			if it.Label == "Layout" {
-				t.Fatal("layout window still has a redundant layout dropdown")
-			}
-			visit(it.Contents)
-		}
-	}
-	visit(tileLayoutWin.Contents)
-	if len(buttons) != len(tiledLayoutChoices) {
-		t.Fatalf("got %d layout choices", len(buttons))
-	}
-	for index, button := range buttons {
-		button.Handler.Emit(eui.UIEvent{Type: eui.EventClick, Item: button})
-		if gs.TiledLayout != tiledLayoutChoices[index].layout {
-			t.Fatal("click did not select the layout")
-		}
-		for other, item := range buttons {
-			if item.Checked != (index == other) {
-				t.Fatal("wrong selected preview")
-			}
-		}
-	}
-	gs.TiledLayout = TiledLayoutCenter
-	gs.MessagesToConsole = !gs.MessagesToConsole
-	refreshWindowSettingsControls()
-	if !buttons[0].Checked || tileCombineMessagesCB.Checked != gs.MessagesToConsole {
-		t.Fatal("external settings change did not refresh chooser")
-	}
-}
-
-func TestTiledArrangementCheckboxesAndRowVariants(t *testing.T) {
+func TestTiledEditorKeepsEveryStarterWhenMessagesAreCombined(t *testing.T) {
 	initFont()
 	original := gs
 	t.Cleanup(func() { gs = original })
 	gs = gsdef
-	gs.MessagesToConsole = false
-	root := newTiledArrangementControls(310, nil)
-	controls := map[string]*eui.ItemData{}
-	for _, it := range root.Contents {
-		controls[it.Name] = it
-	}
-	for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
-		for _, combined := range []bool{false, true} {
-			gs.TiledLayout, gs.MessagesToConsole = layout, combined
-			refreshTiledArrangementControls(root.Contents)
-			for name, enabled := range map[string]bool{
-				"tiled-swap-game":      layout == TiledLayoutSide,
-				"tiled-swap-lists":     true,
-				"tiled-swap-messages":  !combined || layout == TiledLayoutCenter,
-				"tiled-messages-above": tiledLayoutChoiceIndex() == 2 || tiledLayoutChoiceIndex() == 3,
-				"tiled-message-split":  !combined && tiledPairedMessages(),
-			} {
-				it := controls[name]
-				if it.Invisible || it.Disabled == enabled {
-					t.Fatalf("layout %d combined %t: %s availability does not match", layout, combined, name)
-				}
+	editor := newTiledWorkspaceEditor(540)
+	for _, combined := range []bool{false, true, false} {
+		gs.MessagesToConsole = combined
+		editor.refresh()
+		if len(editor.starter.Options) != len(tiledLayoutNames)+1 {
+			t.Fatal("combined mode changed the available starting arrangements")
+		}
+		for layout := TiledLayoutCenter; layout <= TiledLayoutSideColumns; layout++ {
+			editor.starter.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected, Index: int(layout) + 1})
+			if gs.TiledLayout != layout || editor.starter.Selected != int(layout)+1 {
+				t.Fatalf("could not select starter %d with combined messages %v", layout, combined)
 			}
-			// Opening the controls must not rewrite a saved layout or pane order.
-			if gs.TiledLayout != layout {
-				t.Fatal("displaying layout choices changed the saved layout")
+			if editor.panes["Chat"].Invisible != combined || editor.panes["Console"].Invisible {
+				t.Fatal("preview does not reflect combined-message visibility")
 			}
 		}
-	}
-	gs.MessagesToConsole = false
-	gs.TiledLayout = TiledLayoutSide
-	refreshTiledArrangementControls(root.Contents)
-	for _, name := range []string{"tiled-swap-game", "tiled-swap-lists", "tiled-swap-messages"} {
-		it := controls[name]
-		it.Handler.Emit(eui.UIEvent{Item: it, Type: eui.EventCheckboxChanged, Checked: true})
-	}
-	if gs.TiledGameLeft || gs.TiledInventoryLeft || gs.TiledConsoleLeft {
-		t.Fatal("swap checkboxes did not update pane order")
-	}
-	for _, pair := range [][2]TiledLayout{
-		{TiledLayoutMessagesBelow, TiledLayoutMessagesAbove},
-		{TiledLayoutFullMessagesBelow, TiledLayoutFullMessagesAbove},
-	} {
-		gs.TiledLayout = pair[0]
-		refreshTiledArrangementControls(root.Contents)
-		above := controls["tiled-messages-above"]
-		for _, checked := range []bool{true, false} {
-			above.Handler.Emit(eui.UIEvent{Item: above, Type: eui.EventCheckboxChanged, Checked: checked})
-			want := pair[0]
-			if checked {
-				want = pair[1]
-			}
-			if gs.TiledLayout != want || gs.TiledGameLeft || gs.TiledInventoryLeft || gs.TiledConsoleLeft {
-				t.Fatal("moving the message row changed another pane's order")
-			}
-		}
-	}
-	gs.MessagesToConsole = true
-	refreshTiledArrangementControls(root.Contents)
-	messageSwap := controls["tiled-swap-messages"]
-	messageSwap.Handler.Emit(eui.UIEvent{Item: messageSwap, Type: eui.EventCheckboxChanged, Checked: false})
-	if gs.TiledConsoleLeft {
-		t.Fatal("unavailable swap control changed the combined pane position")
-	}
-	gs.TiledLayout = TiledLayoutCenter
-	refreshTiledArrangementControls(root.Contents)
-	if messageSwap.Disabled || messageSwap.Text != "Combined messages on right" {
-		t.Fatal("centered combined messages have no side control")
-	}
-	messageSwap.Handler.Emit(eui.UIEvent{Item: messageSwap, Type: eui.EventCheckboxChanged, Checked: false})
-	if !gs.TiledConsoleLeft {
-		t.Fatal("combined message pane did not move left")
-	}
-	messageSwap.Handler.Emit(eui.UIEvent{Item: messageSwap, Type: eui.EventCheckboxChanged, Checked: true})
-	if gs.TiledConsoleLeft {
-		t.Fatal("combined message pane did not move right")
 	}
 }

@@ -242,6 +242,36 @@ func TestStaggeredTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 	}
 }
 
+func TestTabWidthAlignsWrappedRows(t *testing.T) {
+	previousScale := uiScale
+	t.Cleanup(func() { uiScale = previousScale })
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatal(err)
+	}
+	for _, scale := range []float32{1, 1.5, 2} {
+		uiScale = scale
+		flow := &itemData{
+			ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL,
+			TabColumns: 3, TabWidth: 100,
+			Tabs: []*itemData{
+				{Name: "One"}, {Name: "Two"}, {Name: "Three"},
+				{Name: "Four"}, {Name: "Five"}, {Name: "Six"},
+			},
+		}
+		layout, _ := layoutTabs(flow, flow.themeStyle())
+		for i, bounds := range layout {
+			if got, want := bounds.X1-bounds.X0, 100*scale; got != want {
+				t.Fatalf("tab %d width at %.1fx = %.1f, want %.1f", i, scale, got, want)
+			}
+		}
+		for column := 0; column < 3; column++ {
+			if layout[column].X0 != layout[column+3].X0 {
+				t.Fatalf("column %d is not aligned at %.1fx: %.1f, %.1f", column, scale, layout[column].X0, layout[column+3].X0)
+			}
+		}
+	}
+}
+
 func TestTabLabelsFitFixedPanels(t *testing.T) {
 	previousScale := uiScale
 	t.Cleanup(func() { uiScale = previousScale })

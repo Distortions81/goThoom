@@ -48,15 +48,19 @@ func TestWorldRenderIsContinuousWithMotionSmoothing(t *testing.T) {
 	}
 }
 
-func TestEffectsPreviewBypassesWorldRenderCache(t *testing.T) {
+func TestEffectsPreviewDoesNotInvalidateWorldRenderCache(t *testing.T) {
 	originalPreview := replacementEffectsPreview
-	t.Cleanup(func() { replacementEffectsPreview = originalPreview })
+	originalMotion := gs.MotionSmoothing
+	t.Cleanup(func() {
+		replacementEffectsPreview = originalPreview
+		gs.MotionSmoothing = originalMotion
+	})
 
 	replacementEffectsPreview = true
-	if !viewportPreviewNeedsContinuousRender(viewportRenderRequest{selected: true}) {
-		t.Fatal("selected effects preview must redraw each display frame")
-	}
-	if viewportPreviewNeedsContinuousRender(viewportRenderRequest{selected: false}) {
-		t.Fatal("unselected viewport must not redraw for the effects preview")
+	gs.MotionSmoothing = false
+	key := worldRenderKey{worldGeneration: 10, renderGeneration: 20, width: 640, height: 480}
+	game := &Game{lastWorldRenderKey: key, worldRenderValid: true}
+	if !worldRenderCanBeReused(game, key) {
+		t.Fatal("window-hosted effects preview invalidated the unchanged game view")
 	}
 }

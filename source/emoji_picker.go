@@ -19,11 +19,38 @@ type emojiPicker struct {
 
 var activeEmojiPicker *emojiPicker
 var messageEmojiButtons [2]struct{ flow, button *eui.ItemData }
+var messageInputActions [2]struct{ flow, action *eui.ItemData }
 
 func closeEmojiPicker() {
 	if activeEmojiPicker != nil {
 		activeEmojiPicker.win.Close()
 	}
+}
+
+// messageInputAction keeps command discovery in the fixed input-bar action
+// position. Emoji selection remains adjacent when its optional display setting
+// is enabled.
+func messageInputAction(flow *eui.ItemData) *eui.ItemData {
+	if flow == nil {
+		return nil
+	}
+	command := messageCommandButton(flow)
+	if !gs.ExpandEmojiNames {
+		return command
+	}
+	index := 0
+	if flow == chatInputFlow {
+		index = 1
+	}
+	cache := &messageInputActions[index]
+	if cache.flow == flow && cache.action != nil {
+		return cache.action
+	}
+	action := eui.NewRow(command, messageEmojiButton(flow))
+	action.Fixed = true
+	action.Size = eui.Point{X: 58, Y: 28}
+	cache.flow, cache.action = flow, action
+	return action
 }
 
 func messageEmojiButton(flow *eui.ItemData) *eui.ItemData {

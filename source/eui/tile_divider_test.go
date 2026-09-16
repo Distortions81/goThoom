@@ -23,6 +23,32 @@ func TestTileDividerUsesWideGrabArea(t *testing.T) {
 	}
 }
 
+func TestDockedWindowHonorsAssignedSizeOnSmallWorkspace(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := UIScale()
+	w, h := ScreenSize()
+	t.Cleanup(func() { SetUIScale(oldScale); SetScreenSize(w, h) })
+	SetScreenSize(640, 360)
+	for _, scale := range []float32{1, 2} {
+		SetUIScale(scale)
+		win := NewWindow()
+		win.Resizable = true
+		win.SetDocked(true)
+		want := Point{X: 32 * scale, Y: 40 * scale}
+		win.SetSize(want)
+		if win.GetSize() != want {
+			t.Fatal("docked window expanded outside its assigned tile")
+		}
+		win.SetDocked(false)
+		win.SetSize(want)
+		if win.GetSize() != (Point{X: MinWindowSize * scale, Y: MinWindowSize * scale}) {
+			t.Fatal("floating window lost its minimum size")
+		}
+	}
+}
+
 func TestDockedWindowHasNoStandaloneCornerDrag(t *testing.T) {
 	originalScale := uiScale
 	uiScale = 1

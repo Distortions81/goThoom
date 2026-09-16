@@ -24,6 +24,6 @@ const (
 	// corner's resize hit area when a vertical thumb is scrolled to the end.
 	minScrollbarThumbSize float32 = cornerTolerance + 16
 
-	// MinWindowSize defines the minimum width and height for any window.
+	// MinWindowSize is the floating-window minimum and preferred tile minimum.
 	MinWindowSize = 64
 )

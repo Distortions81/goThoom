@@ -126,6 +126,12 @@ func (win *windowData) backgroundColor() Color {
 	return baseTheme.Window.BGColor
 }
 
+// BackgroundColor returns the window's resolved background color, including
+// its active theme when the window does not define an override.
+func (win *windowData) BackgroundColor() Color {
+	return win.backgroundColor()
+}
+
 func (win *windowData) titleBackgroundColor() Color {
 	if win == nil {
 		return Color{}

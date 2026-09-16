@@ -1,11 +1,40 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestLazyDiagnosticsWriterCreatesLogOnlyForAnEvent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), diagnosticsDirectoryName, diagnosticsLogName)
+	var stdout bytes.Buffer
+	w := newLazyDiagnosticsWriter(&stdout, path, 1024, 2)
+
+	if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
+		t.Fatalf("diagnostics directory exists before an event: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Dir(path)); !os.IsNotExist(err) {
+		t.Fatalf("diagnostics directory exists after an uneventful close: %v", err)
+	}
+
+	if _, err := w.Write([]byte("event\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := stdout.String(); got != "event\n" {
+		t.Fatalf("stdout = %q, want event", got)
+	}
+	assertFileContents(t, path, "event")
+}
 
 func TestRotateLogFilesKeepsBoundedHistory(t *testing.T) {
 	dir := t.TempDir()

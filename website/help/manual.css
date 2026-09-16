@@ -72,14 +72,11 @@
 
 .help-name-underline { text-decoration: underline; text-underline-offset: 3px; }
 
-/* Schematic tiled workspaces. Native radios also work without JavaScript. */
+/* Starting tiled arrangements. The message toggle works without JavaScript. */
 .layout-preview-controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 24px 0 12px; padding: 16px; border: 1px solid #597783; border-radius: 10px; }
-.layout-split-options { display: flex; flex-wrap: wrap; gap: 12px 20px; }
-.layout-explorer:has(#layout-combined:checked) .layout-split-options { display: none; }
 .layout-preview-controls legend { padding-inline: 8px; color: #d5f4ff; }
-.layout-preview-controls label, .layout-card-control { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: .9rem; color: #d1e5ea; }
-.layout-preview-controls input, .layout-card-control input { accent-color: #65d2cb; width: 18px; height: 18px; margin: 0; }
-.manual-section .layout-preview-note { font-size: .9rem; }
+.layout-preview-controls label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: .9rem; color: #d1e5ea; }
+.layout-preview-controls input { accent-color: #65d2cb; width: 18px; height: 18px; margin: 0; }
 .layout-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 20px; margin-top: 24px; }
 .layout-card { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #0c1a25; break-inside: avoid; }
 .layout-card figcaption { margin-bottom: 16px; color: #e1f0f5; font-size: 1rem; }
@@ -95,16 +92,19 @@
 .layout-center { grid-template-areas: "inventory game players" "inventory game players" "console game chat"; }
 .layout-side { grid-template-columns: 1.8fr 1fr 1fr; grid-template-areas: "game inventory players" "game inventory players" "game messages messages"; }
 .layout-below { grid-template-areas: "inventory game players" "inventory game players" "inventory messages players"; }
+.layout-above { grid-template-areas: "inventory messages players" "inventory game players" "inventory game players"; }
 .layout-split { grid-template-areas: "inventory console players" "inventory game players" "inventory chat players"; }
 .layout-full-below { grid-template-areas: "inventory game players" "inventory game players" "messages messages messages"; }
+.layout-full-above { grid-template-areas: "messages messages messages" "inventory game players" "inventory game players"; }
+.layout-side-columns { grid-template-rows: 1fr 1fr; grid-template-areas: "console game inventory" "chat game players"; }
 .layout-combined-label { display: none; }
-.layout-explorer:has(#layout-combined:not(:checked)):has(#layout-stacked:checked) .layout-message-pair { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; grid-template-areas: "console" "chat"; }
 .layout-explorer:has(#layout-combined:checked) .layout-chat,
 .layout-explorer:has(#layout-combined:checked) .layout-separate-label { display: none; }
 .layout-explorer:has(#layout-combined:checked) .layout-combined-label { display: inline; }
 .layout-explorer:has(#layout-combined:checked) .layout-message-pair { grid-template-columns: 1fr; grid-template-areas: "console"; }
 .layout-explorer:has(#layout-combined:checked) .layout-center { grid-template-areas: "inventory game players" "inventory game players" "console game players"; }
 .layout-explorer:has(#layout-combined:checked) .layout-split { grid-template-areas: "inventory console players" "inventory game players" "inventory game players"; }
+.layout-explorer:has(#layout-combined:checked) .layout-side-columns { grid-template-areas: "console game inventory" "console game players"; }
 
 .help-area-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
 .help-area-nav a { display: block; padding: 10px 14px; border: 1px solid transparent; border-radius: 7px; font-size: .95rem; color: #bdd5df; text-decoration: none; }
@@ -125,19 +125,3 @@
  .help-area-nav a { padding: 10px; font-size: .875rem; }
  .help-topic-links { grid-template-columns: 1fr; }
 }
-
-.layout-explorer:has(#layout-swap-lists:checked) .layout-inventory { grid-area: players; }
-.layout-explorer:has(#layout-swap-lists:checked) .layout-players { grid-area: inventory; }
-
-.layout-explorer:has(#layout-swap-messages:checked):has(#layout-combined:not(:checked)) .layout-console { grid-area: chat; }
-.layout-explorer:has(#layout-swap-messages:checked):has(#layout-combined:not(:checked)) .layout-chat { grid-area: console; }
-
-.layout-card-control { margin-bottom: 12px; }
-.layout-explorer:has(#layout-combined:checked) .layout-message-swap,
-.layout-explorer:has(#layout-combined:checked) .layout-separate-card { display: none; }
-.layout-explorer:has(#layout-above:checked) .layout-below { grid-template-areas: "inventory messages players" "inventory game players" "inventory game players"; }
-.layout-explorer:has(#layout-above:checked) .layout-full-below { grid-template-areas: "messages messages messages" "inventory game players" "inventory game players"; }
-.layout-side-card:has(#layout-swap-game:checked) .layout-side { grid-template-columns: 1fr 1fr 1.8fr; grid-template-areas: "inventory players game" "inventory players game" "messages messages game"; }
-
-.layout-explorer:has(#layout-combined:not(:checked)) .layout-combined-side { display: none; }
-.layout-explorer:has(#layout-combined:checked):has(#layout-combined-right:checked) .layout-center { grid-template-areas: "inventory game players" "inventory game players" "inventory game console"; }

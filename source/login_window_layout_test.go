@@ -125,6 +125,41 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	}
 }
 
+func TestDemoCharacterDialogCentersInGamePane(t *testing.T) {
+	initFont()
+	oldDemo, oldGame := demoCharacterWin, gameWin
+	oldList, oldSelection := demoCharacterList, demoCharacterSelection
+	oldWidth, oldHeight := eui.ScreenSize()
+	demoCharacterWin, demoCharacterList = nil, nil
+	eui.SetScreenSize(1200, 800)
+	gameWin = eui.NewWindow()
+	gameWin.Resizable = true
+	gameWin.Size = eui.Point{X: 600, Y: 400}
+	gameWin.AddWindow(false)
+	gameWin.SetPos(eui.Point{X: 280, Y: 180})
+	t.Cleanup(func() {
+		if demoCharacterWin != nil && demoCharacterWin != oldDemo {
+			demoCharacterWin.RemoveWindow()
+		}
+		if gameWin != nil && gameWin != oldGame {
+			gameWin.RemoveWindow()
+		}
+		demoCharacterWin, gameWin = oldDemo, oldGame
+		demoCharacterList, demoCharacterSelection = oldList, oldSelection
+		eui.SetScreenSize(oldWidth, oldHeight)
+	})
+
+	showDemoCharacterDialog([]string{"Aster", "Briar"})
+	if demoCharacterWin.Movable {
+		t.Fatal("demo character dialog must stay with its session")
+	}
+	pos, size := demoCharacterWin.GetPos(), demoCharacterWin.GetSize()
+	gamePos, gameSize := gameWin.GetPos(), gameWin.GetSize()
+	if math.Abs(float64(pos.X+size.X/2-gamePos.X-gameSize.X/2)) > 1 || math.Abs(float64(pos.Y+size.Y/2-gamePos.Y-gameSize.Y/2)) > 1 {
+		t.Fatalf("demo dialog not centered in game pane: dialog=%v/%v game=%v/%v", pos, size, gamePos, gameSize)
+	}
+}
+
 func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	initFont()
 	originalWindow := loginWin

@@ -84,7 +84,7 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 		Face:       face,
 		OnURLClick: func(url string) { _ = browser.OpenURL(url) },
 		InputText:  inputMsg, InputEditable: inputActive, InputExternalEditing: true,
-		InputAction: messageEmojiButton(input),
+		InputAction: messageInputAction(input),
 		InputUnderlines: func(wrapped string) []eui.TextSpan {
 			if !gs.InputSpellcheck || inputMsg == "" || strings.HasPrefix(inputMsg, "[") {
 				return nil

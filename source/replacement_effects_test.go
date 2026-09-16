@@ -120,6 +120,17 @@ func TestLavaPoolPreviewKeepsNativeAspect(t *testing.T) {
 	}
 }
 
+func TestReplacementEffectPreviewKeepsNativeAspect(t *testing.T) {
+	left, top, width, height := replacementEffectPreviewBounds(10, 20, 120, 90, 240, 60)
+	if left != 10 || top != 50 || width != 120 || height != 30 {
+		t.Fatalf("wide effect preview = (%v, %v, %d, %d), want (10, 50, 120, 30)", left, top, width, height)
+	}
+	left, top, width, height = replacementEffectPreviewBounds(10, 20, 120, 90, 60, 240)
+	if left != 58.5 || top != 20 || width != 23 || height != 90 {
+		t.Fatalf("tall effect preview = (%v, %v, %d, %d), want (58.5, 20, 23, 90)", left, top, width, height)
+	}
+}
+
 func TestMagicMoteRingShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(magicMoteRingShaderSource)
 	if err != nil {
@@ -159,43 +170,86 @@ func TestStoneFormPreviewPhaseDoesNotRestart(t *testing.T) {
 	}
 }
 
-func TestReplacementEffectPreviewSelection(t *testing.T) {
-	originalSelection, originalMode, originalScale, originalUPS := replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS
+func TestReplacementEffectPreviewControls(t *testing.T) {
+	originalMode, originalUPS := replacementEffectsPreviewMode, replacementEffectsPreviewUPS
 	t.Cleanup(func() {
-		replacementEffectsPreviewSelection, replacementEffectsPreviewMode, replacementEffectsPreviewScale, replacementEffectsPreviewUPS = originalSelection, originalMode, originalScale, originalUPS
+		replacementEffectsPreviewMode, replacementEffectsPreviewUPS = originalMode, originalUPS
 	})
 
-	replacementEffectsPreviewSelection = 1
-	items := replacementEffectPreviewItems()
-	if len(items) != 1 || items[0].kind != replacementEffectFirePlume || items[0].pictID != 481 {
-		t.Fatalf("selected preview = %#v, want fire plume 481", items)
-	}
 	replacementEffectsPreviewMode = replacementEffectPreviewBoth
 	if got := replacementEffectPreviewLabel(replacementEffectsPreviewMode); got != "Original + new effect" {
 		t.Fatalf("both preview label = %q", got)
-	}
-	replacementEffectsPreviewScale = replacementEffectPreviewDoubleSize
-	if replacementEffectsPreviewScale != replacementEffectPreviewDoubleSize {
-		t.Fatal("preview scale did not retain the selected 200% mode")
 	}
 	replacementEffectsPreviewUPS = 2
 	if replacementEffectsPreviewUPS != 2 {
 		t.Fatal("preview did not retain the selected animation rate")
 	}
+}
 
-	replacementEffectsPreviewSelection = -1
-	if got := len(replacementEffectPreviewItems()); got != len(replacementEffectsPreviews) {
-		t.Fatalf("gallery has %d effects, want %d", got, len(replacementEffectsPreviews))
+func TestReplacementEffectPreviewGalleryGroupsVariantsAndOmitsMirror(t *testing.T) {
+	groups := replacementEffectPreviewGalleryGroups()
+	var firePlumes, torches, teleports, shoreFoam []replacementEffectPreview
+	for _, group := range groups {
+		if group.previews[0].kind == replacementEffectHiddenPath {
+			t.Fatal("hidden path effects should not appear in the gallery")
+		}
+		switch group.label {
+		case "Fire plumes":
+			firePlumes = group.previews
+		case "Wall torches":
+			torches = group.previews
+		case "Teleports":
+			teleports = group.previews
+		case "Shore foam":
+			shoreFoam = group.previews
+		}
+	}
+	if len(firePlumes) != 4 {
+		t.Fatalf("fire plume gallery has %d variants, want 4", len(firePlumes))
+	}
+	if len(torches) != 1 || torches[0].pictID != 330 {
+		t.Fatalf("torch gallery = %#v, want only the non-mirrored torch", torches)
+	}
+	if len(teleports) != 3 {
+		t.Fatalf("teleport gallery has %d variants, want 3", len(teleports))
+	}
+	if len(shoreFoam) != 1 || shoreFoam[0].pictID != 3568 {
+		t.Fatalf("shore foam gallery = %#v, want one representative direction", shoreFoam)
+	}
+	if width, height := replacementEffectPreviewGalleryDimensions(shoreFoam[0], 276, 168); width < 160 || height < 160 {
+		t.Fatalf("shore foam preview = %dx%d, want it to fill most of its card", width, height)
+	}
+	previousDisabled := append([]replacementEffectKind(nil), gs.DisabledReplacementEffects...)
+	t.Cleanup(func() { gs.DisabledReplacementEffects = previousDisabled })
+	teleportGroup := replacementEffectPreviewGroup{previews: teleports}
+	teleportGroup.setEnabled(false)
+	if teleportGroup.enabled() {
+		t.Fatal("disabled teleport group remains checked")
+	}
+	teleportGroup.setEnabled(true)
+	if !teleportGroup.enabled() {
+		t.Fatal("enabled teleport group remains unchecked")
 	}
 }
 
-func TestReplacementEffectsPreviewGrassPatternIsStable(t *testing.T) {
-	first := replacementEffectsPreviewGrassPattern(4, 7)
-	if got := replacementEffectsPreviewGrassPattern(4, 7); got != first {
-		t.Fatalf("grass pattern changed between calls: %08x then %08x", first, got)
+func TestReplacementEffectPreviewGalleryCapsCoinRewards(t *testing.T) {
+	preview := replacementEffectPreview{kind: replacementEffectCoinReward}
+	width, height := replacementEffectPreviewGalleryDimensions(preview, 120, 120)
+	if width != 48 || height != 48 {
+		t.Fatalf("coin gallery preview = %dx%d, want compact 48x48", width, height)
 	}
-	if other := replacementEffectsPreviewGrassPattern(5, 7); other == first {
-		t.Fatalf("adjacent grass tiles share pattern %08x", first)
+	width, height = replacementEffectPreviewGalleryDimensions(preview, 32, 20)
+	if width > 32 || height > 20 {
+		t.Fatalf("coin gallery preview = %dx%d, exceeds 32x20 slot", width, height)
+	}
+}
+
+func TestReplacementEffectPreviewZoomScalesBothDimensions(t *testing.T) {
+	if width, height := replacementEffectPreviewZoomedDimensions(48, 80, 1.5); width != 72 || height != 120 {
+		t.Fatalf("150%% preview zoom = %dx%d, want 72x120", width, height)
+	}
+	if width, height := replacementEffectPreviewZoomedDimensions(48, 80, 0); width != 48 || height != 80 {
+		t.Fatalf("invalid preview zoom = %dx%d, want default 48x80", width, height)
 	}
 }
 
@@ -255,6 +309,9 @@ func TestReplacementEffectFramePhaseUsesSourceAnimationTimeline(t *testing.T) {
 
 func TestReplacementEffectPreviewPhaseLoopsOneShots(t *testing.T) {
 	cycle := float64(replacementEffectSequenceDuration(replacementEffectFirePlume))
+	if got, want := replacementEffectSequenceDuration(replacementEffectFirePlume), float32(1.6); got != want {
+		t.Fatalf("fire plume cycle = %v, want %v", got, want)
+	}
 	if got := replacementEffectPreviewPhase(replacementEffectFirePlume, cycle*2); math.Abs(float64(got)) > 0.0001 {
 		t.Fatalf("fire preview phase = %v, want a new local cycle", got)
 	}

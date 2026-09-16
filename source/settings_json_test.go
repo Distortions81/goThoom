@@ -88,7 +88,6 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.SpriteUpscaleFilter = true
 	want.BarPlacement = BarPlacementUpperRight
 	want.BarStyle = BarStyleCompact
-	want.ToolbarStatusBars = true
 	want.MasterVolume = 0.42
 	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
@@ -98,6 +97,8 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.InterpolateSmallMovingPictures = true
 	want.AssetActivityIndicators = true
 	want.MobileLightConeShadows = true
+	want.DisabledHDPictures = []uint16{23, 1068}
+	want.DisabledReplacementEffects = []replacementEffectKind{replacementEffectFirePlume}
 	want.FasterCharacterShadows = true
 	want.MobilesReceiveSunShadows = false
 	want.PlayerShareIcons = true
@@ -133,6 +134,8 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"interpolate_small_moving_pictures": true`,
 		`"show_asset_activity_indicators": true`,
 		`"mobile_light_cone_shadows": true`,
+		`"disabled_hd_pictures"`,
+		`"disabled_replacement_effects"`,
 		`"faster_character_shadows": true`,
 		`"mobiles_receive_sun_shadows": false`,
 		`"show_player_share_icons": true`,
@@ -157,15 +160,15 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	}
 }
 
-func TestBarPlacementToolbarHandsMigratesToToggle(t *testing.T) {
+func TestBarPlacementToolbarHandsMigratesToBottom(t *testing.T) {
 	if got, want := parseBarPlacement("toolbar_hands"), BarPlacementToolbarHands; got != want {
 		t.Fatalf("parseBarPlacement(toolbar_hands) = %v, want %v", got, want)
 	}
 	value := gsdef
 	value.BarPlacement = parseBarPlacement("toolbar_hands")
 	normalizeStatusBarPlacement(&value)
-	if value.BarPlacement != BarPlacementBottom || !value.ToolbarStatusBars {
-		t.Fatalf("toolbar hands migration = placement:%v enabled:%v", value.BarPlacement, value.ToolbarStatusBars)
+	if value.BarPlacement != BarPlacementBottom {
+		t.Fatalf("toolbar hands migration = placement:%v, want bottom", value.BarPlacement)
 	}
 }
 

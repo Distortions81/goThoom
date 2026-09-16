@@ -184,27 +184,23 @@ var toolbarStatsOnce sync.Once
 var shaderWarnWin *eui.WindowData
 var shaderWarnDontShowCB *eui.ItemData
 
-const toolbarStatusBarsHeight = 22
-
 //go:embed data/images/hands.png
 var toolbarHandsPNG []byte
 
 var (
-	toolbarHandsOnce       sync.Once
-	toolbarHandsSrc        image.Image
-	toolbarHandsImage      *ebiten.Image
-	leftHandImg            *eui.ItemData
-	rightHandImg           *eui.ItemData
-	toolbarStatusBarsItem  *eui.ItemData
-	toolbarStatusBarsImage *ebiten.Image
-	toolbarLeftComposite   *ebiten.Image
-	toolbarRightComposite  *ebiten.Image
-	toolbarHandsRendered   bool
-	toolbarHandsRightID    uint16
-	toolbarHandsLeftID     uint16
-	toolbarHandsTargetL    *eui.ItemData
-	toolbarHandsTargetR    *eui.ItemData
-	toolbarHandsSourceGPU  *ebiten.Image
+	toolbarHandsOnce      sync.Once
+	toolbarHandsSrc       image.Image
+	toolbarHandsImage     *ebiten.Image
+	leftHandImg           *eui.ItemData
+	rightHandImg          *eui.ItemData
+	toolbarLeftComposite  *ebiten.Image
+	toolbarRightComposite *ebiten.Image
+	toolbarHandsRendered  bool
+	toolbarHandsRightID   uint16
+	toolbarHandsLeftID    uint16
+	toolbarHandsTargetL   *eui.ItemData
+	toolbarHandsTargetR   *eui.ItemData
+	toolbarHandsSourceGPU *ebiten.Image
 )
 
 var (
@@ -523,12 +519,20 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	windowsBtn, windowsEvents := eui.NewButton()
 	windowsBtn.Text = "Windows"
 	setMaterialButtonIcon(windowsBtn, "window")
-	windowsBtn.SetTooltip("Show or hide standalone windows. Turn off tiled window layout to use this control.")
+	if gs.TiledWindows {
+		windowsBtn.SetTooltip("Arrange the tiled workspace.")
+	} else {
+		windowsBtn.SetTooltip("Show or hide standalone windows.")
+	}
 	windowsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	windowsBtn.FontSize = toolFontSize
-	windowsBtn.Disabled = gs.TiledWindows
 	windowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			if gs.TiledWindows {
+				makeTileLayoutWindow()
+				tileLayoutWin.ToggleNear(ev.Item)
+				return
+			}
 			makeWindowsWindow()
 			windowsWin.ToggleNear(ev.Item)
 		}
@@ -2013,11 +2017,6 @@ func makeToolbar() {
 }
 
 func buildToolbarRoot(docked bool) *eui.ItemData {
-	if toolbarStatusBarsImage != nil {
-		toolbarStatusBarsImage.Deallocate()
-	}
-	toolbarStatusBarsItem = nil
-	toolbarStatusBarsImage = nil
 	var toolFontSize float32 = 10
 	var buttonHeight float32 = 24
 	var buttonWidth float32 = 88
@@ -2034,13 +2033,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		rightHandImg = eui.NewImageReferenceItem(w-w/2, h)
 		handsRow.AddItem(leftHandImg)
 		handsRow.AddItem(rightHandImg)
-		handsColumn := eui.NewColumn()
-		handsColumn.AddItem(handsRow)
-		if gs.ToolbarStatusBars {
-			toolbarStatusBarsItem, toolbarStatusBarsImage = eui.NewImageItem(w, toolbarStatusBarsHeight)
-			handsColumn.AddItem(toolbarStatusBarsItem)
-		}
-		controls.AddItem(handsColumn)
+		controls.AddItem(handsRow)
 	}
 	controls.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
 
@@ -2053,9 +2046,6 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	toolbarHeight := buttonHeight * 2
 	if hands := toolbarHandsSource(); hands != nil {
 		toolbarHeight = float32(handHeight)
-		if gs.ToolbarStatusBars {
-			toolbarHeight += toolbarStatusBarsHeight
-		}
 	}
 	scriptToolbarHeight := float32(len(scriptRows)) * 32
 	toolbarStatsText = nil
@@ -4241,7 +4231,8 @@ func showDemoCharacterDialog(candidates []string) {
 		demoCharacterWin.Closable = false
 		demoCharacterWin.Resizable = false
 		demoCharacterWin.AutoSize = true
-		demoCharacterWin.Movable = true
+		demoCharacterWin.Movable = false
+		demoCharacterWin.Opacity = 0.9
 
 		flow := eui.NewColumn()
 		prompt, _ := eui.NewText()
@@ -4263,6 +4254,7 @@ func showDemoCharacterDialog(candidates []string) {
 		cancelEvents.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {
 				demoCharacterWin.Close()
+				centerLoginWindow()
 				loginWin.MarkOpen()
 			}
 		}
@@ -4309,8 +4301,9 @@ func showDemoCharacterDialog(candidates []string) {
 		}
 		demoCharacterList.AddItem(radio)
 	}
-	demoCharacterWin.MarkOpen()
 	demoCharacterWin.Refresh()
+	centerWindowInGamePane(demoCharacterWin)
+	demoCharacterWin.MarkOpen()
 }
 
 func startDemoLogin() {
@@ -4390,6 +4383,7 @@ func refreshServerListEditor() {
 		addressCopy := address
 		editedAddress := address
 		input, _ := eui.NewInput()
+		input.Text = editedAddress
 		input.TextPtr = &editedAddress
 		input.Size = eui.Point{X: 260, Y: 24}
 		row.AddItem(input)
@@ -4724,15 +4718,21 @@ func makeLoginWindow() {
 }
 
 func centerLoginWindow() {
-	if loginWin == nil {
+	centerWindowInGamePane(loginWin)
+}
+
+// centerWindowInGamePane keeps a session prompt visually within the selected
+// session's shared game surface.
+func centerWindowInGamePane(win *eui.WindowData) {
+	if win == nil {
 		return
 	}
-	loginWin.SetZone(eui.HZoneCenter, eui.VZoneCenter)
+	win.SetZone(eui.HZoneCenter, eui.VZoneCenter)
 	if gameWin != nil {
 		pos, size := gameWin.GetPos(), gameWin.GetSize()
 		if size.X > 0 && size.Y > 0 {
 			width, height := eui.ScreenSize()
-			loginWin.SetZoneOffset(eui.Point{
+			win.SetZoneOffset(eui.Point{
 				X: pos.X + size.X/2 - float32(width)/2,
 				Y: pos.Y + size.Y/2 - float32(height)/2,
 			})
@@ -5194,9 +5194,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	animationSection := eui.NewSection("Animation Blending", width)
 	addQualityColumns(shaderSection, width, []*eui.ItemData{lightingSection}, []*eui.ItemData{shadowSection})
 	addQualityColumns(motionPage, width, []*eui.ItemData{motionSection}, []*eui.ItemData{animationSection})
-	experimentalSection := eui.NewColumn()
-	experimentalSection.AddItem(eui.NewSubheading("Experimental", pageWidth))
-	shaderSection.AddItem(experimentalSection)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
 	qualityRenderScaleSlider = renderScale
@@ -5278,23 +5275,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 		}
 	}
 	artworkSection.AddItem(pixelPerfectCB)
-
-	spritePackCB, spritePackEvents := eui.NewCheckbox()
-	spritePackCB.Text = "Use sprite pack files"
-	spritePackCB.Size = eui.Point{X: width, Y: 24}
-	spritePackCB.Checked = gs.UseSpritePackFiles
-	spritePackCB.SetTooltip("Replace compatible single-frame sprites from PNGs and ZIPs in game or user-data hdimg folders.")
-	spritePackEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged && gs.UseSpritePackFiles != ev.Checked {
-			gs.UseSpritePackFiles = ev.Checked
-			reloadHDPictures()
-			settingsDirty = true
-			if gameWin != nil {
-				gameWin.Refresh()
-			}
-		}
-	}
-	artworkSection.AddItem(spritePackCB)
 
 	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
 	fadeObscuringCB = fadePicsCB
@@ -5432,20 +5412,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	}
 	lightingSection.AddItem(shaderQualityCB)
 
-	mobileConeCB, mobileConeEvents := eui.NewCheckbox()
-	mobileLightConeShadowsCB = mobileConeCB
-	mobileConeCB.Text = "Mobile light-cone shadows (experimental)"
-	mobileConeCB.Size = eui.Point{X: pageWidth, Y: 24}
-	mobileConeCB.Checked = gs.MobileLightConeShadows
-	mobileConeCB.SetTooltip("Let mobiles cast experimental soft cone shadows from nearby lights.")
-	mobileConeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MobileLightConeShadows = ev.Checked
-			settingsDirty = true
-		}
-	}
-	experimentalSection.AddItem(mobileConeCB)
-
 	flameCB, flameEvents := eui.NewCheckbox()
 	flameFlickerCB = flameCB
 	flameFlickerCB.Text = "Flame Light Flicker"
@@ -5515,20 +5481,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 		}
 	}
 	lightingSection.AddItem(shaderGlowSlider)
-
-	replacementCB, replacementEffectsEvents := eui.NewCheckbox()
-	replacementEffectsCB = replacementCB
-	replacementEffectsCB.Text = "Replacement Effects (experimental)"
-	replacementEffectsCB.Size = eui.Point{X: pageWidth, Y: 24}
-	replacementEffectsCB.Checked = gs.ReplacementEffects
-	replacementEffectsCB.SetTooltip("Use procedural magic effects.")
-	replacementEffectsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ReplacementEffects = ev.Checked
-			settingsDirty = true
-		}
-	}
-	experimentalSection.AddItem(replacementEffectsCB)
 
 	gcCB, gammaEvents := eui.NewCheckbox()
 	gammaCorrectionCB = gcCB
@@ -5874,7 +5826,7 @@ func makeTileLayoutWindow() {
 	if tileLayoutWin != nil {
 		return
 	}
-	const width float32 = 310
+	const width float32 = 260
 	tileLayoutWin = eui.NewWindow()
 	tileLayoutWin.ShowTooltipIndicators = true
 	tileLayoutWin.Title = "Window Layout"
@@ -5886,9 +5838,7 @@ func makeTileLayoutWindow() {
 
 	flow := eui.NewColumn()
 	workspace := eui.NewSection("Workspace", width)
-	arrangement := eui.NewSection("Arrangement", width)
 	flow.AddItem(workspace)
-	flow.AddItem(arrangement)
 	tiledCB, tiledEvents := eui.NewCheckbox()
 	tiledCB.Text = "Use tiled window layout"
 	tiledCB.Size = eui.Point{X: width, Y: 24}
@@ -5924,9 +5874,7 @@ func makeTileLayoutWindow() {
 	keepGameLargeCB, keepGameLargeEvents := eui.NewCheckbox()
 	keepGameLargeCB.Text = "Auto-size side panels"
 	keepGameLargeCB.Size = eui.Point{X: width, Y: 24}
-	keepGameLargeCB.Checked = gs.TiledKeepGameLarge
-	keepGameLargeCB.SetTooltip("Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently.")
-	keepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
+	refreshTiledAutoSizeControl(keepGameLargeCB)
 	keepGameLargeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			setTiledKeepGameLarge(ev.Checked)
@@ -5935,15 +5883,9 @@ func makeTileLayoutWindow() {
 	tileKeepGameLargeCB = keepGameLargeCB
 	workspace.AddItem(keepGameLargeCB)
 
-	arrangement.AddItem(newTiledArrangementControls(width, nil))
-	selectLayout := func(layout TiledLayout) {
-		gs.TiledLayout = layout
-		applyTiledWorkspaceLayout()
-	}
-
-	gallery := newTiledLayoutGallery(selectLayout, 3)
-	gallery.Position.X = 16
-	tileLayoutWin.AddItem(eui.NewRow(flow, gallery))
+	tileWorkspaceEditor = newTiledWorkspaceEditor(540)
+	tileWorkspaceEditor.root.Position.X = 16
+	tileLayoutWin.AddItem(eui.NewRow(flow, tileWorkspaceEditor.root))
 	tileLayoutWin.AddWindow(false)
 }
 
@@ -6130,11 +6072,9 @@ func makeDebugWindow() {
 	diagnosticsSection := eui.NewSection("Diagnostics", width)
 	sceneSection := eui.NewSection("Scene Overrides", width)
 	shaderSection := eui.NewSection("Shader Tools", width)
-	artworkSection := eui.NewSection("HD Artwork", width)
 	debugFlow.AddItem(diagnosticsSection)
 	debugFlow.AddItem(sceneSection)
 	debugFlow.AddItem(shaderSection)
-	debugFlow.AddItem(artworkSection)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"
@@ -6218,42 +6158,6 @@ func makeDebugWindow() {
 	shaderRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	shaderRow.AddItem(reloadBtn)
 	shaderSection.AddItem(shaderRow)
-
-	previewEffectsBtn, previewEffectsEvents := eui.NewButton()
-	previewEffectsBtn.Text = "Open Effects Preview"
-	setMaterialButtonIcon(previewEffectsBtn, "visibility")
-	previewEffectsBtn.Size = eui.Point{X: width, Y: 24}
-	previewEffectsBtn.SetTooltip("Open the effect gallery and comparison controls.")
-	previewEffectsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			openReplacementEffectsPreview()
-		}
-	}
-	shaderSection.AddItem(previewEffectsBtn)
-
-	previewHDButton, previewHDEvents := eui.NewButton()
-	previewHDButton.Text = "Open HD Sprite Preview"
-	setMaterialButtonIcon(previewHDButton, "visibility")
-	previewHDButton.Size = eui.Point{X: width, Y: 24}
-	previewHDButton.SetTooltip("Compare an original single-frame picture with its HD replacement.")
-	previewHDEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			openHDPicturePreview()
-		}
-	}
-	artworkSection.AddItem(previewHDButton)
-
-	reloadHDButton, reloadHDEvents := eui.NewButton()
-	reloadHDButton.Text = "Reload HD Sprites"
-	setMaterialButtonIcon(reloadHDButton, "restart_alt")
-	reloadHDButton.Size = eui.Point{X: width, Y: 24}
-	reloadHDButton.SetTooltip("Read PNGs and ZIPs in the game or user-data hdimg folder again.")
-	reloadHDEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			reloadHDPictureDebug()
-		}
-	}
-	artworkSection.AddItem(reloadHDButton)
 
 	// Force Night dropdown in Debug: Auto/Day/25/50/75/100
 	forceNightDD, forceNightEv := eui.NewDropdown()

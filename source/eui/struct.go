@@ -269,8 +269,8 @@ type itemData struct {
 	TextPtr       *string
 	wrappedLabel  *wrappedLabelLayout
 	Underlines    []TextSpan
-	// Prediction is rendered after Text in the disabled text color. It is
-	// display-only and is not included in selection or cursor positions.
+	// Prediction is rendered after the primary caption in the disabled text
+	// color. It is display-only and is not included in selection or cursor positions.
 	Prediction string
 	SecretText string
 	HideText   bool
@@ -295,6 +295,9 @@ type itemData struct {
 	ActiveTab int
 	// TabColumns limits the number of tabs per row. Fixed flows also wrap at their width.
 	TabColumns int
+	// TabWidth gives every tab the same minimum logical width. Zero sizes tabs
+	// from their labels.
+	TabWidth float32
 	// TabRowOffset indents every other wrapped tab row in logical pixels.
 	TabRowOffset float32
 

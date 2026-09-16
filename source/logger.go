@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/debug"
 	"sync"
 )
@@ -24,7 +23,7 @@ var (
 	debugLogger *log.Logger
 
 	diagnosticsMu     sync.Mutex
-	diagnosticsWriter *rotatingLogWriter
+	diagnosticsLog    *lazyDiagnosticsWriter
 	diagnosticsOutput io.Writer = os.Stdout
 	shutdownReasonMu  sync.Mutex
 	shutdownReason    string
@@ -48,6 +47,62 @@ func recordShutdownReason(reason string) {
 	shutdownReason = reason
 	shutdownReasonMu.Unlock()
 	log.Printf("shutdown reason: %s", reason)
+}
+
+// lazyDiagnosticsWriter leaves an uneventful session without a diagnostics
+// file. The log is created only when a caller has an event to record.
+type lazyDiagnosticsWriter struct {
+	mu       sync.Mutex
+	stdout   io.Writer
+	path     string
+	maxBytes int64
+	backups  int
+	writer   *rotatingLogWriter
+	failed   bool
+}
+
+func newLazyDiagnosticsWriter(stdout io.Writer, path string, maxBytes int64, backups int) *lazyDiagnosticsWriter {
+	return &lazyDiagnosticsWriter{
+		stdout:   stdout,
+		path:     path,
+		maxBytes: maxBytes,
+		backups:  backups,
+	}
+}
+
+func (w *lazyDiagnosticsWriter) Write(p []byte) (int, error) {
+	n, stdoutErr := w.stdout.Write(p)
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.writer == nil && !w.failed {
+		writer, err := newRotatingLogWriter(w.path, w.maxBytes, w.backups)
+		if err != nil {
+			w.failed = true
+			fmt.Fprintf(os.Stderr, "could not start diagnostics log: %v\n", err)
+			return n, stdoutErr
+		}
+		w.writer = writer
+	}
+	if w.writer == nil {
+		return n, stdoutErr
+	}
+	if _, err := w.writer.Write(p); err != nil && stdoutErr == nil {
+		return n, err
+	}
+	return n, stdoutErr
+}
+
+func (w *lazyDiagnosticsWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.writer == nil {
+		return nil
+	}
+	err := w.writer.Close()
+	w.writer = nil
+	return err
 }
 
 // rotatingLogWriter keeps a bounded current log plus numbered backups. It is
@@ -185,40 +240,27 @@ func setupLogging(debugEnabled bool) {
 	flags := log.LstdFlags | log.Lmicroseconds
 	diagnosticsOutput = os.Stdout
 	if !isWASM {
-		writer, err := newRotatingLogWriter(diagnosticsLogPath(), diagnosticsLogMaxBytes, diagnosticsLogBackups)
-		if err != nil {
-			log.Printf("could not start diagnostics log: %v", err)
-		} else {
-			diagnosticsWriter = writer
-			diagnosticsOutput = io.MultiWriter(os.Stdout, writer)
-		}
+		diagnosticsLog = newLazyDiagnosticsWriter(os.Stdout, diagnosticsLogPath(), diagnosticsLogMaxBytes, diagnosticsLogBackups)
+		diagnosticsOutput = diagnosticsLog
 	}
 
 	errorLogger = log.New(diagnosticsOutput, "", flags)
 	log.SetFlags(flags)
 	log.SetOutput(diagnosticsOutput)
 	setDebugLoggingLocked(debugEnabled, flags)
-
-	log.Printf("diagnostics started: app=%d cl=%d go=%s platform=%s/%s pid=%d",
-		appVersion, clVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH, os.Getpid())
-	if diagnosticsWriter != nil {
-		log.Printf("diagnostics log: %s", diagnosticsLogPath())
-	}
 }
 
 func closeDiagnosticsLog() {
-	recordShutdownReason("normal application return")
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
 
-	if diagnosticsWriter == nil {
+	if diagnosticsLog == nil {
 		return
 	}
-	log.Printf("diagnostics log closed")
-	if err := diagnosticsWriter.Close(); err != nil {
+	if err := diagnosticsLog.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "close diagnostics log: %v\n", err)
 	}
-	diagnosticsWriter = nil
+	diagnosticsLog = nil
 	diagnosticsOutput = os.Stdout
 	log.SetOutput(os.Stdout)
 	if errorLogger != nil {

@@ -45,9 +45,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	uv := localPos/Size
 	shore := shoreSpace(uv)
 	along := shore.x
-	// The coast-parallel axis always spans the complete image and tiles. Use
-	// that same pixel scale across the surf; the few non-square source frames
-	// are therefore clipped only at their far ocean/shore edge, never seamed.
+	// The coast-parallel axis spans the complete source image. Keep a common
+	// pixel scale across the surf so every direction has the same wave spacing.
 	alongSize := Size.x
 	depthSize := Size.y
 	if WaveDirection > 1.5 {
@@ -154,6 +153,26 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	color = mix(color, vec3(0.88, 0.98, 1.00), foam)
 
 	foamAlpha := max(max(foamBlue*0.88, foamBright), max(foam, wash*0.72))
-	alpha := foamAlpha * Alpha
+
+	// The source foam tapers into irregular droplets instead of ending at a
+	// rectangular sprite boundary. Give all four frame edges a slightly moving,
+	// scalloped fade: the short dry-side fade loses stray hard pixels at the
+	// beach, the broad ocean-side fade lets distant wakes dissolve, and the two
+	// ends of the coast line break up rather than reading as a vertical cut.
+	dryEdge := 0.020 + 0.012*(0.5+0.5*sin(coastAngle*7.0+waveTime))
+	dryEdge += 0.006*(0.5+0.5*sin(coastAngle*15.0-waveTime*2.0))
+	dryFade := smoothstep(0, dryEdge, shore.y)
+	oceanStart := 0.80 + 0.035*sin(coastAngle*5.0-waveTime)
+	oceanStart += 0.018*sin(coastAngle*11.0+waveTime*2.0)
+	oceanFade := 1-smoothstep(oceanStart, min(0.99, oceanStart+0.16), shore.y)
+	leftEdge := 0.028 + 0.020*(0.5+0.5*sin(shore.y*17.0+waveTime))
+	leftEdge += 0.010*(0.5+0.5*sin(shore.y*41.0-waveTime*2.0))
+	rightEdge := 0.028 + 0.020*(0.5+0.5*sin(shore.y*19.0-waveTime*1.4))
+	rightEdge += 0.010*(0.5+0.5*sin(shore.y*37.0+waveTime*2.0))
+	coastEndsFade := smoothstep(0, leftEdge, along)
+	coastEndsFade *= 1-smoothstep(1-rightEdge, 1, along)
+	edgeFade := dryFade*oceanFade*coastEndsFade
+
+	alpha := foamAlpha * edgeFade * Alpha
 	return vec4(color*alpha, alpha)
 }

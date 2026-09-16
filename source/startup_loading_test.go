@@ -12,6 +12,7 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	originalLighting := lightingShader
 	originalUpscale := spriteUpscaleShader
 	originalFrameBlend := frameBlendShader
+	originalPreview := replacementEffectsPreview
 	originalReplacementReady := replacementEffectsShadersReady
 	originalReplacementAttempted := replacementEffectsShaderInitAttempted
 	defer func() {
@@ -20,6 +21,7 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 		lightingShader = originalLighting
 		spriteUpscaleShader = originalUpscale
 		frameBlendShader = originalFrameBlend
+		replacementEffectsPreview = originalPreview
 		replacementEffectsShadersReady = originalReplacementReady
 		replacementEffectsShaderInitAttempted = originalReplacementAttempted
 	}()
@@ -35,6 +37,7 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	gs.SpriteUpscaleFilter = false
 	gs.SpriteUpscaleMode = artworkUpscaleOff
 	gs.ReplacementEffects = false
+	replacementEffectsPreview = false
 
 	if !startupShaderPending() {
 		t.Fatal("disabled preset should still schedule core shader compilation during startup")
@@ -45,6 +48,12 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	if startupShaderPending() {
 		t.Fatal("disabled replacement effects should not extend startup loading")
 	}
+
+	replacementEffectsPreview = true
+	if !startupShaderPending() {
+		t.Fatal("effects preview should initialize its shaders while live replacements are disabled")
+	}
+	replacementEffectsPreview = false
 
 	gs.ReplacementEffects = true
 	if !startupShaderPending() {

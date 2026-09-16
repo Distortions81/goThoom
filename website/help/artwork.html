@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="Create goThoom sprite packs, compare original and HD artwork, and preview and reload animated replacement effects.">
+    <title>Artwork authoring &amp; previews — goThoom manual</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/help/artwork.html">
+    <link rel="icon" type="image/png" href="../mark.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="manual.css">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Artwork authoring &amp; previews — goThoom">
+    <meta property="og:description" content="Create sprite packs and compare artwork and animated effects in the client.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/help/artwork.html">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="manual-page">
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="goThoom home"><img src="../mark.png" width="42" height="42" alt=""><span>goThoom</span></a>
+      <nav aria-label="Main navigation">
+        <a href="../index.html#features">Features</a>
+        <a href="../index.html#platforms">Platforms</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="/accounts">Accounts</a>
+        <a href="./" aria-current="page">Help</a>
+        <a href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+    <main id="top" class="manual-main help-guide">
+      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="artwork.html" aria-current="page">Artwork authoring</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+      <h1>Artwork authoring &amp; previews</h1>
+      <!-- help-metadata --><p class="manual-version">Updated for goThoom test 60 · Clan Lord 1501 · September 16, 2026</p><!-- /help-metadata -->
+      <p class="help-guide-intro">Use the original artwork as a reference, inspect replacements at their actual game size, and reload edits while developing. If you only want to install a pack, start with the <a href="performance.html#sprite-packs">sprite-pack walkthrough</a>.</p>
+      <details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#sprite-artwork">Prepare artwork</a><a href="#hd-preview">HD Sprite Preview</a><a href="#effects-preview">Effects Preview</a><a href="#shader-development">Edit shaders</a><a href="#export-originals">Export originals</a><a href="#troubleshooting">Troubleshooting</a></nav></details>
+      <p><a href="./#help-search">Search all help topics</a> · <a href="performance.html">Performance &amp; visuals</a></p>
+      <article class="manual-content">
+        <section id="sprite-artwork" class="manual-section">
+          <h2 id="prepare-a-sprite-replacement">Prepare a sprite replacement</h2>
+          <p>Use a PNG named for the original picture ID, such as <code>1068.png</code>. Pack loading supports static pictures; animated pictures and mobile pose sheets use other rendering paths. You can organize files in subfolders such as <code>held</code> or <code>ground</code>, or package those folders inside a ZIP.</p>
+          <p>Keep the canvas proportional to the original. For a 4× version of a 42 × 42 picture, use 168 × 168 pixels. Scale the transparent margins along with the drawing. The client fits the whole canvas into the original picture rectangle, so cropping or adding padding changes the apparent size and position of the contents.</p>
+          <ul>
+            <li>Keep foreground objects’ transparent backgrounds and contact points aligned with the original.</li>
+            <li>Check outlines, highlights, and contrast at normal game size against busy scenery, not only against an empty preview background.</li>
+            <li>For opaque floor tiles, keep the original rectangle filled and match opposite edges. Inspect several repeated tiles for seams and conspicuous repetition.</li>
+            <li>Check overlaps with nearby scenery and characters. A higher resolution does not change the sprite’s draw order, but a wider visible footprint can cover neighboring objects.</li>
+          </ul>
+          <p>Use one active file per sprite while iterating. The <a href="performance.html#sprite-packs">pack location and duplicate rules</a> explain which copy wins when files overlap. Packs are optional runtime files and do not need to be embedded or rebuilt into the client.</p>
+        </section>
+        <section id="hd-preview" class="manual-section">
+          <h2 id="compare-original-and-hd-artwork">Compare original and HD artwork</h2>
+          <ol>
+            <li>Install the PNG or ZIP and enable <strong>Settings → Experimental → Use sprite pack files</strong>.</li>
+            <li>Open <strong>Settings → Experimental → View HD Sprite Replacements</strong>.</li>
+            <li>Choose a ZIP from <strong>Sprite pack</strong>, or choose <strong>Loose files</strong> for PNGs stored outside ZIPs. Select HD, original, or side-by-side display; the gallery fits each picture into its card so you can compare shape, proportions, and detail.</li>
+            <li>After saving an edit, use <strong>Reload HD Sprites</strong> in the preview. New and removed packs and IDs update the gallery; Console reports the folders scanned and the discovered count.</li>
+            <li>Check the result in a live scene or a movie, toggling Use sprite pack files for a before/after comparison. The small preview does not reproduce surrounding scenery, repeated tiles, or every draw-order interaction.</li>
+          </ol>
+          <p>The original side needs the normal Clan Lord artwork to finish loading. Reload HD Sprites rereads pack files; it does not download originals. Both the Debug window and the preview provide the same pack reload action.</p>
+        </section>
+        <section id="effects-preview" class="manual-section">
+          <h2 id="compare-animated-effects">Compare animated effects</h2>
+          <p>Open <strong>Settings → Tools → Debug Settings → Open Effects Preview</strong>. The gallery uses the game view with a grassy background. It can be used while ordinary Replacement Effects are off; its display options apply only to the preview.</p>
+          <!-- help-figure:effects-preview -->
+<figure class="help-figure" data-screen="effects-preview">
+  <div class="help-image" style="max-width:601px">
+    <img src="images/effects-preview.png" width="601" height="352" loading="lazy" decoding="async" alt="Effects preview controls. Highlighted controls: Animation rate.">
+<div class="help-highlights"><span class="help-highlight" style="left:2.6622%;top:62.5000%;width:44.9251%;height:13.6364%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Tools → Debug Settings → Open Effects Preview</strong>
+<ol class="help-legend"><li><b>1</b><p>Use this to match the original sprite’s animation cadence when comparing it with a shader. UPS means original-animation updates per second, not displayed frames per second. The shader remains smooth between updates, and this preview setting does not change live gameplay.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/effects-preview.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+          <div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Use it to</th></tr></thead><tbody>
+            <tr><td>Effect</td><td>Show All effects as a gallery, or select one for close inspection.</td></tr>
+            <tr><td>Display</td><td>Choose New effect only, Original animation, or Original + new effect.</td></tr>
+            <tr><td>Scale</td><td>Inspect one effect At real size, at 200% size, or fitted to the Full window size. The gallery always fits its own tiles.</td></tr>
+            <tr><td>Animation rate</td><td>Set the original animation’s cadence from 1 to 30 updates per second (UPS). The shader continues smoothly between those updates; this does not set the client’s FPS or the server’s update rate.</td></tr>
+            <tr><td>Close Preview</td><td>Return the game view to its normal scene.</td></tr>
+          </tbody></table></div>
+          <p>The original comparison needs the game’s image archive. For final review, inspect repeated and overlapping effects in a recording as well: the gallery is useful for shape and timing, while a scene shows whether the effect remains readable in context.</p>
+        </section>
+        <section id="shader-development" class="manual-section">
+          <h2 id="reload-a-replacement-shader">Reload a replacement shader</h2>
+          <p>Replacement shaders live in <code>source/data/shaders</code> in a source checkout. Follow the repository’s <a href="https://github.com/Distortions81/goThoom/blob/main/AGENTS.md#clean-setup">development setup</a>, then run from <code>source</code>:</p>
+          <pre><code>CGO_ENABLED=0 go run . -effectsPreview</code></pre>
+          <ol>
+            <li>Select the effect you are editing and compare its original animation.</li>
+            <li>Edit its existing <code>.kage</code> file in <code>source/data/shaders</code>, then save.</li>
+            <li>Press <strong>Reload Shaders</strong> and check Console for success or the compiler error. Correct an error and reload again before judging the new version.</li>
+            <li>Compare actual size, a larger view, and the original/new overlay. Use a movie to check timing, placement, and several instances together.</li>
+          </ol>
+          <p>Replacement-shader reload reads the checkout associated with the running build and otherwise uses its bundled shader source. It does not read replacement shaders from the user-data folder or from sprite-pack ZIPs. Run from the checkout you are editing; an unrelated packaged binary may continue to use its bundled effects.</p>
+          <p>Editing a shader for an existing effect can be reloaded. Adding a new shader or mapping a new picture ID requires client code changes and a rebuild. The existing mappings and preview entries are in <code>source/replacement_effects.go</code>.</p>
+        </section>
+        <section id="export-originals" class="manual-section">
+          <h2 id="export-reference-images">Export reference images</h2>
+          <p>With the development environment and normal game assets installed, build a local executable in <code>source</code> and run the exporter:</p>
+          <pre><code>CGO_ENABLED=0 go build -o gothoom .
+./gothoom -imgDump -imgDumpSingleFrame</code></pre>
+          <p>The client exports PNGs to <code>dump/img</code> beside that executable and exits. The single-frame option uses frame 0 for pictures and the first southeast-facing pose for mobile sheets. Omit <code>-imgDumpSingleFrame</code> to inspect all animation frames and full pose sheets. Keep reference exports separate from your replacement artwork; repeating an export can replace files with the same names.</p>
+          <p><code>-imgDumpScale</code> accepts 1, 2, 3, or 4, and <code>-imgDumpScaleType</code> accepts nearest, crisp, balanced, smooth, or ultra-smooth. Start with the default 1× export when measuring the original canvas. On headless Linux, use Xvfb for commands that start the renderer.</p>
+          <p>The <a href="https://github.com/Distortions81/goThoom/blob/main/docs/assets/README.md">asset catalog</a> provides reviewed example IDs and a tool for exporting a selected ID range with metadata.</p>
+        </section>
+        <section id="troubleshooting" class="manual-section">
+          <h2 id="when-an-edit-does-not-appear">When an edit does not appear</h2>
+          <ul>
+            <li>Use <strong>Reload HD Sprites</strong> for PNGs or sprite-pack ZIPs, and <strong>Reload Shaders</strong> for shader source. Check Console after either operation.</li>
+            <li>For a missing or unexpected PNG, follow the <a href="performance.html#sprite-pack-troubleshooting">pack troubleshooting steps</a>, including duplicate IDs in the game and user folders.</li>
+            <li>For shader edits, check the source checkout used to launch the client and the selected effect. Changing a different build’s file will not update the running shader.</li>
+            <li>If a preview looks correct but the game does not, compare at actual size in the same scene. Check the active pack/effect toggles and the original sprite’s footprint and animation.</li>
+          </ul>
+        </section>
+      </article>
+      <p class="help-guide-end"><a href="#top">Back to top</a> · <a href="./">Player manual</a></p>
+    </main><script src="manual.js" defer></script>
+  </body>
+</html>

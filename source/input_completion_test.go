@@ -59,6 +59,31 @@ func TestInputCompletionOnlyPredictsAtEnd(t *testing.T) {
 	}
 }
 
+func TestInputPredictionShowsCommandSyntaxWithoutMakingItCompletion(t *testing.T) {
+	candidates := inputCompletionCandidates{commands: []string{"/give", "/money"}}
+	for _, test := range []struct {
+		text string
+		want string
+	}{
+		{text: "/gi", want: "ve"},
+		{text: "/give", want: " <person> <amount>"},
+		{text: "/give ", want: "<person> <amount>"},
+		{text: "/give Agratis", want: ""},
+		{text: "/money", want: ""},
+	} {
+		cursor := len([]rune(test.text))
+		if got := inputPredictionSuffix(test.text, cursor, candidates); got != test.want {
+			t.Errorf("prediction for %q = %q, want %q", test.text, got, test.want)
+		}
+	}
+	if got := inputCompletionSuffix("/give", len("/give"), candidates); got != "" {
+		t.Fatalf("Tab completion would insert syntax %q", got)
+	}
+	if got := inputPredictionSuffix("/give", 3, candidates); got != "" {
+		t.Fatalf("mid-line command prediction = %q, want none", got)
+	}
+}
+
 func TestCompletionPreservesNormalizationAndUnicode(t *testing.T) {
 	candidates := []string{" healing potion ", "Healing Potion", "Élodie", "élodie", "", "SUNSTONE", "Sunstone"}
 	for _, test := range []struct{ text, want string }{

@@ -54,7 +54,7 @@ func updateMessageInputPresentation(flow *eui.ItemData) {
 		item.CursorPos = wrappedCursorPos(item.Text, inputPos)
 		item.Prediction = ""
 		if gs.InputAutocomplete && inputActive {
-			item.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
+			item.Prediction = currentInputPredictionSuffix(string(inputText), inputPos)
 		}
 	}
 }

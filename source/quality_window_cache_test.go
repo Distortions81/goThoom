@@ -204,9 +204,19 @@ func TestPerformanceTabKeepsFeaturesIndependentlyAvailable(t *testing.T) {
 	if shaderSection == nil {
 		t.Fatal("performance options are missing the Lighting & Effects group")
 	}
-	for _, control := range []*eui.ItemData{shaderLightingCB, mobileLightConeShadowsCB, replacementEffectsCB} {
-		if !contains(shaderSection, control) {
-			t.Errorf("shader-backed control %q is outside the Lighting & Effects group", control.Text+control.Label)
+	if !contains(shaderSection, shaderLightingCB) {
+		t.Errorf("shader-backed control %q is outside the Lighting & Effects group", shaderLightingCB.Text+shaderLightingCB.Label)
+	}
+	experimentalSection := findSection("Experimental Effects", replacementEffectsCB)
+	if experimentalSection == nil {
+		t.Fatal("Settings is missing the Experimental Effects group")
+	}
+	for _, control := range []*eui.ItemData{mobileLightConeShadowsCB, replacementEffectsCB} {
+		if !contains(experimentalSection, control) {
+			t.Errorf("experimental control %q is outside the Experimental Effects group", control.Text+control.Label)
+		}
+		if contains(shaderSection, control) {
+			t.Errorf("experimental control %q is still in Lighting & Effects", control.Text+control.Label)
 		}
 	}
 	if contains(shaderSection, upscaleModeDD) {
@@ -219,5 +229,30 @@ func TestPerformanceTabKeepsFeaturesIndependentlyAvailable(t *testing.T) {
 	shadowSection := findSection("Shadows", fasterCharacterShadowsCB)
 	if shadowSection == nil {
 		t.Fatal("quality window is missing Faster Character Shadows from Shadows")
+	}
+}
+
+func TestHDSpritePreviewRequiresSpritePacks(t *testing.T) {
+	initFont()
+	originalSettings, originalWindow := gs, settingsWin
+	gs = gsdef
+	settingsWin = nil
+	t.Cleanup(func() {
+		if settingsWin != nil {
+			settingsWin.RemoveWindow()
+		}
+		gs, settingsWin = originalSettings, originalWindow
+	})
+
+	makeSettingsWindow()
+	if hdSpritePackCB == nil || hdPicturePreviewOpenBtn == nil {
+		t.Fatal("Experimental settings is missing the HD sprite controls")
+	}
+	if !hdPicturePreviewOpenBtn.Disabled {
+		t.Fatal("HD sprite preview should be unavailable while sprite packs are disabled")
+	}
+	hdSpritePackCB.Handler.Emit(eui.UIEvent{Item: hdSpritePackCB, Type: eui.EventCheckboxChanged, Checked: true})
+	if hdPicturePreviewOpenBtn.Disabled {
+		t.Fatal("HD sprite preview remained unavailable after enabling sprite packs")
 	}
 }

@@ -103,9 +103,6 @@ func TestStatusBarStyleDefaultsModernThin(t *testing.T) {
 	if gsdef.BarStyle != BarStyleCompact {
 		t.Fatalf("status bar style = %v, want Modern -- thin", gsdef.BarStyle)
 	}
-	if gsdef.ToolbarStatusBars {
-		t.Fatal("status bars below toolbar hands should default off")
-	}
 }
 
 func TestBubbleBaseLifeDefault(t *testing.T) {

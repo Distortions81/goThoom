@@ -1443,9 +1443,15 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			// A leading button image shifts the caption. Position the help
 			// marker after that final caption, not its text-only estimate.
 			var captionWidth float64
+			lineIndex := 0
 			for line := range strings.SplitSeq(item.Text, "\n") {
 				w, _ := text.Measure(line, face, 0)
+				if lineIndex == 0 && item.Prediction != "" {
+					predictionWidth, _ := text.Measure(item.Prediction, face, 0)
+					w += predictionWidth
+				}
 				captionWidth = math.Max(captionWidth, w)
+				lineIndex++
 			}
 			info.X0 = min(float32(textCenterX+captionWidth/2)+6*uiScale, offset.X+maxSize.X-14*uiScale)
 			info.X1 = info.X0 + 12*uiScale
@@ -1467,14 +1473,32 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		startY := float64(offset.Y) + float64(maxSize.Y)/2 - float64(lineHeight)*float64(lineCount-1)/2
 		i := 0
 		for line := range strings.SplitSeq(item.Text, "\n") {
+			lineCenterX := textCenterX
+			lineWidth := float64(0)
+			if i == 0 && item.Prediction != "" {
+				lineWidth, _ = text.Measure(line, face, 0)
+				predictionWidth, _ := text.Measure(item.Prediction, face, 0)
+				lineCenterX -= predictionWidth / 2
+			}
 			tdop.GeoM.Reset()
 			tdop.GeoM.Translate(
-				textCenterX,
+				lineCenterX,
 				startY+float64(i)*lineHeight,
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 			top.ColorScale.ScaleWithColor(captionColor)
 			text.Draw(textTarget, line, face, top)
+			if i == 0 && item.Prediction != "" {
+				ghostLayout := loo
+				ghostLayout.PrimaryAlign = text.AlignStart
+				ghostOpts := &text.DrawOptions{LayoutOptions: ghostLayout}
+				ghostOpts.GeoM.Translate(
+					lineCenterX+lineWidth/2,
+					startY,
+				)
+				ghostOpts.ColorScale.ScaleWithColor(style.disabledTextColor())
+				text.Draw(textTarget, item.Prediction, face, ghostOpts)
+			}
 			i++
 		}
 
@@ -2490,6 +2514,50 @@ func drawCheckmark(screen *ebiten.Image, start, mid, end point, width float32, c
 	if !drawCachedCheckmark(screen, start, mid, end, width, col) {
 		drawCheckmarkVector(screen, start, mid, end, width, col)
 	}
+}
+
+// DrawCheckboxIndicator draws the checkbox surface and checkmark used by EUI
+// controls. It is useful for controls embedded in custom game-view rendering
+// that should retain the active UI theme and style.
+func DrawCheckboxIndicator(screen *ebiten.Image, bounds image.Rectangle, checked bool) {
+	if screen == nil || bounds.Empty() {
+		return
+	}
+	style := &baseTheme.Checkbox
+	if currentTheme != nil {
+		style = &currentTheme.Checkbox
+	}
+	itemColor, borderColor := checkboxIndicatorColors(style, checked)
+	position := point{X: float32(bounds.Min.X), Y: float32(bounds.Min.Y)}
+	size := point{X: float32(bounds.Dx()), Y: float32(bounds.Dy())}
+	if style.Filled {
+		drawRoundRect(screen, &roundRect{
+			Size: size, Position: position, Fillet: style.Fillet,
+			Filled: true, Color: itemColor,
+		})
+	}
+	drawRoundRect(screen, &roundRect{
+		Size: size, Position: position, Fillet: style.Fillet,
+		Filled: false, Color: borderColor, Border: style.Border,
+	})
+	if !checked {
+		return
+	}
+	margin := size.X * 0.25
+	drawCheckmark(screen,
+		point{X: position.X + margin, Y: position.Y + size.Y*0.55},
+		point{X: position.X + size.X*0.45, Y: position.Y + size.Y - margin},
+		point{X: position.X + size.X - margin, Y: position.Y + margin},
+		2, style.surfaceTextColor(style.TextColor, itemColor, style.Filled),
+	)
+}
+
+func checkboxIndicatorColors(style *itemData, checked bool) (itemColor, borderColor Color) {
+	itemColor, borderColor = style.Color, style.OutlineColor
+	if checked {
+		return style.ClickColor, style.Color
+	}
+	return itemColor, borderColor
 }
 
 func drawCheckmarkVector(screen *ebiten.Image, start, mid, end point, width float32, col Color) {

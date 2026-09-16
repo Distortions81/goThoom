@@ -63,6 +63,9 @@ func TestEncodeEmojiShortcodes(t *testing.T) {
 }
 
 func TestDecodeEmojiChatAndBubbles(t *testing.T) {
+	old := gs.ExpandEmojiNames
+	gs.ExpandEmojiNames = true
+	t.Cleanup(func() { gs.ExpandEmojiNames = old })
 	for _, wire := range []string{":smile: :rocket:", `\U0001F604 \U0001F680`} {
 		for _, sender := range []string{"Self", "Another exile"} {
 			for _, kind := range []int{kBubbleNormal, kBubbleThought} {

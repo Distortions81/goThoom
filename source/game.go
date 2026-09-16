@@ -911,6 +911,7 @@ type worldRenderKey struct {
 	nameTagsOnHoverOnly                        bool
 	smoothNameTagMotion                        bool
 	snapshotHideNameTags                       bool
+	snapshotHideSpeechBubbles                  bool
 	barOpacity                                 float64
 	barPlacement                               BarPlacement
 	barColorByValue                            bool
@@ -993,6 +994,7 @@ func currentSessionWorldRenderKey(session *Session, width, height int) worldRend
 		nameTagsOnHoverOnly:       gs.NameTagsOnHoverOnly,
 		smoothNameTagMotion:       gs.SmoothNameTagMotion,
 		snapshotHideNameTags:      snapshotHidesNameTags(),
+		snapshotHideSpeechBubbles: snapshotHidesSpeechBubbles(),
 		barOpacity:                gs.BarOpacity,
 		barPlacement:              gs.BarPlacement,
 		barColorByValue:           gs.BarColorByValue,
@@ -1009,13 +1011,13 @@ func currentSessionWorldRenderKey(session *Session, width, height int) worldRend
 
 func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
 	return g != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
-		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActive() &&
+		!bubbleTorture && !scriptMobileFlashesActive() &&
 		g.worldRenderValid && g.lastWorldRenderKey == key
 }
 
 func viewportWorldRenderCanBeReused(state *viewportRenderState, key worldRenderKey) bool {
 	return state != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
-		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActiveForSession(scriptSessionForID(key.source)) &&
+		!bubbleTorture && !scriptMobileFlashesActiveForSession(scriptSessionForID(key.source)) &&
 		state.worldRenderValid && state.lastWorldRenderKey == key
 }
 
@@ -1108,8 +1110,8 @@ func (g *Game) Update() error {
 		refreshThemePreview()
 	}
 	// Startup and download callbacks can reopen Login after a command-line
-	// preview was requested. Enforce preview ownership of the game view here,
-	// before EUI updates and draws its windows for this frame.
+	// preview was requested. Keep the preview window unobscured here, before
+	// EUI updates and draws its windows for this frame.
 	if replacementEffectsPreview {
 		closeLoginForReplacementEffectsPreview()
 	}
@@ -2110,6 +2112,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// UI not ready yet
 		snapshotReady = true
 		worldViewRect = image.Rectangle{}
+		drawPendingHDPicturePreviewImages()
+		updateReplacementEffectsPreviewImages()
 		if assetTrace != nil {
 			uiStarted := time.Now()
 			eui.Draw(screen)
@@ -2128,6 +2132,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	snapshotReady = selectedResult.ready
 
 	// Finally, draw UI (which includes the game window image)
+	drawPendingHDPicturePreviewImages()
+	updateReplacementEffectsPreviewImages()
 	if assetTrace != nil {
 		uiStarted := time.Now()
 		eui.Draw(screen)
@@ -4144,7 +4150,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 }
 
 func drawSpeechBubblesForViewport(screen *ebiten.Image, snap drawSnapshot, alpha float64, windowScale float64, state *viewportRenderState) {
-	if !gs.SpeechBubbles {
+	if !gs.SpeechBubbles || snapshotHidesSpeechBubbles() {
 		return
 	}
 	if wasmPrivacyActive() {
@@ -4508,10 +4514,6 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	if gs.BarStyle == BarStyleHidden {
 		return
 	}
-	if gs.ToolbarStatusBars {
-		drawToolbarStatusBars(snap, alpha)
-		return
-	}
 	bounds := screen.Bounds()
 	ox += bounds.Min.X
 	oy += bounds.Min.Y
@@ -4673,80 +4675,6 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	sp := lerpBar(snap.prevSP, snap.sp, alpha)
 	spMax := lerpBar(snap.prevSPMax, snap.spMax, alpha)
 	drawBar(x, y, sp, spMax, color.RGBA{0xff, 0x00, 0x00, 0xff})
-}
-
-// drawToolbarStatusBars renders full-width, stacked bars directly beneath the
-// toolbar's two hand slots.
-func drawToolbarStatusBars(snap drawSnapshot, alpha float64) {
-	if toolbarStatusBarsImage == nil || toolbarStatusBarsItem == nil {
-		return
-	}
-	image := toolbarStatusBarsImage
-	image.Clear()
-	bounds := image.Bounds()
-	framePad := 1
-	barHeight := 4
-	gap := 2
-	if gs.BarStyle == BarStyleCompact {
-		barHeight = 3
-		gap = 1
-	}
-	barWidth := max(1, bounds.Dx()-2*framePad)
-	totalHeight := 3*(barHeight+2*framePad) + 2*gap
-	y := max(0, (bounds.Dy()-totalHeight)/2) + framePad
-	frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
-	if !eui.IsLightTheme() {
-		frameClr = color.RGBA{0x00, 0x00, 0x00, 0xff}
-	}
-	drawRect := func(x, y, w, h int, clr color.RGBA) {
-		op := acquireDrawOpts()
-		op.Filter = ebiten.FilterNearest
-		op.DisableMipmaps = true
-		op.GeoM.Scale(float64(w), float64(h))
-		op.GeoM.Translate(float64(x), float64(y))
-		op.ColorScale.ScaleWithColor(clr)
-		op.ColorScale.ScaleAlpha(float32(gs.BarOpacity))
-		image.DrawImage(whiteImage, op)
-		releaseDrawOpts(op)
-	}
-	drawBar := func(cur, maximum int, clr color.RGBA) {
-		drawRect(0, y-framePad, barWidth+2*framePad, framePad, frameClr)
-		drawRect(0, y+barHeight, barWidth+2*framePad, framePad, frameClr)
-		drawRect(0, y, framePad, barHeight, frameClr)
-		drawRect(barWidth+framePad, y, framePad, barHeight, frameClr)
-		if maximum < cur {
-			maximum = cur
-		}
-		cur, maximum = min(255, cur), min(255, maximum)
-		currentWidth := barWidth * cur / 255
-		maximumWidth := barWidth * maximum / 255
-		if currentWidth > 0 {
-			base := clr
-			if gs.BarColorByValue && maximum > 0 {
-				ratio := float64(cur) / float64(maximum)
-				switch {
-				case ratio <= 0.33:
-					base = color.RGBA{R: 0xff, A: 0xff}
-				case ratio <= 0.66:
-					base = color.RGBA{R: 0xff, G: 0xff, A: 0xff}
-				default:
-					base = color.RGBA{G: 0xff, A: 0xff}
-				}
-			}
-			drawRect(framePad, y, currentWidth, barHeight, base)
-		}
-		if maximumWidth > currentWidth {
-			drawRect(framePad+currentWidth, y, maximumWidth-currentWidth, barHeight, color.RGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff})
-		}
-		if maximumWidth < barWidth {
-			drawRect(framePad+maximumWidth, y, barWidth-maximumWidth, barHeight, color.RGBA{R: 0x80, G: 0x80, A: 0xff})
-		}
-		y += barHeight + 2*framePad + gap
-	}
-	drawBar(lerpBar(snap.prevHP, snap.hp, alpha), lerpBar(snap.prevHPMax, snap.hpMax, alpha), color.RGBA{G: 0xff, A: 0xff})
-	drawBar(lerpBar(snap.prevBalance, snap.balance, alpha), lerpBar(snap.prevBalanceMax, snap.balanceMax, alpha), color.RGBA{B: 0xff, A: 0xff})
-	drawBar(lerpBar(snap.prevSP, snap.sp, alpha), lerpBar(snap.prevSPMax, snap.spMax, alpha), color.RGBA{R: 0xff, A: 0xff})
-	toolbarStatusBarsItem.Dirty = true
 }
 
 // equippedItemPicts returns pict IDs for items equipped in right and left hands.

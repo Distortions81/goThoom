@@ -129,6 +129,11 @@ func (g *helpCaptureGame) Draw(screen *ebiten.Image) {
 		}
 	}
 	settingsWin.Close()
+	makeReplacementEffectsPreviewWindow()
+	if !g.capture(screen, replacementEffectsPreviewWin, "effects-preview", "Effects preview gallery", "Settings → Experimental → View Experimental Effects") {
+		return
+	}
+	replacementEffectsPreviewWin.Close()
 	makeTileLayoutWindow()
 	if !g.capture(screen, tileLayoutWin, "tiled-layout", "Arrange tiled windows", "Settings → Display → Window Layout") {
 		return
@@ -138,6 +143,8 @@ func (g *helpCaptureGame) Draw(screen *ebiten.Image) {
 	gs.MessagesToConsole = false
 	gs.TiledLayout = TiledLayoutMessagesBelow
 	makeTileLayoutWindow()
+	tileWorkspaceEditor.action.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected, Index: 3}) // Above
+	tileWorkspaceEditor.panes["Chat"].Handler.Emit(eui.UIEvent{Type: eui.EventClick})
 	if !g.capture(screen, tileLayoutWin, "tiled-separate", "Separate message panes", "Settings → Display → Window Layout") {
 		return
 	}

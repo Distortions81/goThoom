@@ -36,9 +36,9 @@
     </header>
 
     <main id="top" class="manual-main help-guide">
-      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html" aria-current="page">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html" aria-current="page">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="artwork.html">Artwork authoring</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
       <h1>Macros, scripts &amp; hotkeys</h1>
-      <!-- help-metadata --><p class="manual-version">Updated for goThoom test 58 · Clan Lord 1501 · September 14, 2026</p><!-- /help-metadata -->
+      <!-- help-metadata --><p class="manual-version">Updated for goThoom test 60 · Clan Lord 1501 · September 16, 2026</p><!-- /help-metadata -->
       <p class="help-guide-intro">Use a key for a common action, expand a command while typing, install a classic macro package, or write a script that responds to the game. Start with the smallest tool that covers the task.</p>
       <details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#automation">Choose a tool</a><a href="#hotkeys">Hotkeys and context</a><a href="#text-shortcuts">Text shortcuts</a><a href="#go-scripts">Go scripts</a><a href="#script-permissions">Permissions</a><a href="#legacy-macros">Legacy macros</a><a href="#binding-conflicts">Troubleshooting</a></nav></details>
       <p><a href="./#help-search">Search all help topics</a> · <a href="reference.html">Visual control reference</a></p>
@@ -71,9 +71,9 @@
 
             <!-- help-figure:hotkey-editor -->
 <figure class="help-figure" data-screen="hotkey-editor">
-  <div class="help-image" style="max-width:440px">
-    <img src="images/hotkey-editor.png" width="440" height="200" loading="lazy" decoding="async" alt="Create a hotkey. Highlighted controls: Command.">
-<div class="help-highlights"><span class="help-highlight" style="left:4.5455%;top:58.0000%;width:81.8182%;height:10.0000%" aria-hidden="true"><b>1</b></span></div>
+  <div class="help-image" style="max-width:444px">
+    <img src="images/hotkey-editor.png" width="444" height="200" loading="lazy" decoding="async" alt="Create a hotkey. Highlighted controls: Command.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5045%;top:58.0000%;width:81.0811%;height:10.0000%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Actions → Hotkeys → +</strong>
 <ol class="help-legend"><li><b>1</b><p>The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value.</p></li></ol>
@@ -210,7 +210,7 @@ func Init() {
 
             </section><section id="legacy-macros" class="manual-section"><h2 id="legacy-macros-2">Legacy macros</h2>
             <p>Open <strong>Actions → Legacy Macros</strong>. Like scripts, a macro can be enabled for the selected player or globally. Use the information button for its description and diagnostics, <strong>Refresh</strong> after adding or renaming files, and <strong>Reload Macros</strong> after editing enabled macros.</p>
-            <p>Add personal <code>.mac</code> files to <code>Macros/Library</code> in the user data directory. Embedded examples populate an empty library without replacing your work. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros.</p>
+            <p>Add personal <code>.mac</code> files to <code>Macros/Library</code> in the user data directory. Macros supplied with the client are labeled <strong>Included with goThoom</strong>; missing copies are added and unchanged copies receive updates, while your edits and enable selections are preserved. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output.</p>
 
 <h3 id="install-legacy-macro">Install an existing legacy macro</h3>
 <ol><li>Open <strong>Settings → Files → Open User Data Folder</strong> and locate <code>Macros/Library</code>. If you configured an alternate macro folder, use that location.</li><li>Copy the macro’s <code>.mac</code> file and any accompanying files into the library, preserving relative folder paths. An include file is part of the package, not necessarily a second macro to enable.</li><li>Open <strong>Actions → Legacy Macros</strong> and use <strong>Refresh</strong> so new or renamed files appear.</li><li>Open its information panel. Read the description and available diagnostics, then enable it for the intended player or for all players.</li><li>Try the trigger named in the macro’s documentation. If a binding collides with a hotkey or script, use Actions → Keybindings to inspect its owner.</li></ol>

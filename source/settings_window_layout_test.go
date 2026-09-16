@@ -201,57 +201,22 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 	}
 }
 
-func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
+func TestWindowLayoutUsesVisualWorkspaceEditor(t *testing.T) {
 	initFont()
-	originalSettings := gs
-	originalTileLayoutWin := tileLayoutWin
-	originalTileCombine := tileCombineMessagesCB
-	originalDirty := settingsDirty
-	gs = gsdef
-	gs.TiledWindows = true
-	gs.TiledLayout = TiledLayoutCenter
-	tileLayoutWin = nil
+	original, originalWin, originalEditor := gs, tileLayoutWin, tileWorkspaceEditor
 	t.Cleanup(func() {
-		if tileLayoutWin != nil {
+		if tileLayoutWin != nil && tileLayoutWin != originalWin {
 			tileLayoutWin.RemoveWindow()
 		}
-		gs = originalSettings
-		tileLayoutWin = originalTileLayoutWin
-		tileCombineMessagesCB = originalTileCombine
-		settingsDirty = originalDirty
+		gs, tileLayoutWin, tileWorkspaceEditor = original, originalWin, originalEditor
 	})
-
+	gs, tileLayoutWin = gsdef, nil
 	makeTileLayoutWindow()
-	var sideLayout, centerLayout, gameSide *eui.ItemData
-	var visit func([]*eui.ItemData)
-	visit = func(items []*eui.ItemData) {
-		for _, item := range items {
-			switch {
-			case item.Name == "tiled-layout-preview" && item.Selected == 0:
-				centerLayout = item
-			case item.Name == "tiled-layout-preview" && item.Selected == 1:
-				sideLayout = item
-			case item.Text == "Swap game side":
-				gameSide = item
-			}
-			visit(item.Contents)
-		}
+	if tileWorkspaceEditor == nil || tileWorkspaceEditor.root.ParentWindow != tileLayoutWin {
+		t.Fatal("Window Layout is missing its workspace editor")
 	}
-	visit(tileLayoutWin.Contents)
-	if sideLayout == nil || centerLayout == nil || gameSide == nil {
-		t.Fatal("tiled layout window is missing arrangement controls")
-	}
-	if !gameSide.Disabled {
-		t.Fatal("alternate game side is enabled for the centered layout")
-	}
-
-	sideLayout.Handler.Emit(eui.UIEvent{Item: sideLayout, Type: eui.EventClick})
-	if gameSide.Disabled {
-		t.Fatal("alternate game side remains disabled for the side layout")
-	}
-	centerLayout.Handler.Emit(eui.UIEvent{Item: centerLayout, Type: eui.EventClick})
-	if !gameSide.Disabled {
-		t.Fatal("alternate game side was not disabled after selecting the centered layout")
+	if len(tileWorkspaceEditor.panes) != 5 || tileWorkspaceEditor.action == nil {
+		t.Fatal("workspace editor is missing its pane-placement controls")
 	}
 }
 
@@ -318,8 +283,8 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	})
 	makeSettingsWindow()
 	tabs := settingsWin.Contents[0].Tabs
-	if len(tabs) != 11 || settingsWin.Contents[0].TabColumns != 6 {
-		t.Fatal("settings should have eleven categories in balanced rows")
+	if len(tabs) != 12 || settingsWin.Contents[0].TabColumns != 6 || settingsWin.Contents[0].TabWidth != 112 || settingsWin.Contents[0].TabRowOffset != 0 {
+		t.Fatal("settings should have twelve categories in balanced rows")
 	}
 	locations := map[string]string{}
 	var visit func([]*eui.ItemData, string)
@@ -342,10 +307,12 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"Auto-record sessions": "Files", "Download Files": "Files",
 		"Windows & Toolbar": "Display", "Show / Hide Windows": "Display", "Window Layout": "Display",
 		"Keep window on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
-		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
+		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"Music SoundFont": "Audio", "Audio Mixer": "Audio", "Enhance sound effects": "Audio", "Sound effect ambience": "Audio", "Enhance bard music": "Audio", "Bard music ambience": "Audio", "Music Buffer (s)": "Audio", "TTS Voice": "TTS", "TTS Speed": "TTS", "Enable Text to Speech": "TTS", "TTS files installed": "TTS", "Open Voices Folder": "TTS", "Browse More Voices": "TTS", "Spoken Messages": "TTS", "Speech": "TTS", "Whispers": "TTS", "Yells": "TTS", "Thoughts": "TTS", "Actions": "TTS", "Ponders": "TTS", "Monster speech": "TTS", "Your messages": "TTS", "Notifications": "TTS", "TTS test phrase": "TTS", "Test TTS": "TTS", "Edit TTS corrections": "TTS", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
+		"Replacement Effects": "Experimental", "Mobile light-cone shadows": "Experimental", "View Experimental Effects": "Experimental",
+		"Use sprite pack files": "Experimental", "View HD Sprite Replacements": "Experimental", "Reload HD Sprites": "Experimental",
 		nlsptExpandedName: "Network", "Enable NLSPT": "Network", "Edit Server List": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
 	} {

@@ -581,8 +581,8 @@ kbd {
 @media (max-width: 620px) {
   .site-header, main, footer { width: min(100% - 28px, 1180px); }
   .site-header { min-height: 74px; }
-  nav { gap: 16px; }
-  nav a:not(:last-child) { display: none; }
+  .site-header nav { gap: 16px; }
+  .site-header nav a:not(:last-child) { display: none; }
   .hero { min-height: auto; padding-top: 48px; }
   .hero h1 { font-size: clamp(3.35rem, 17vw, 4.7rem); }
   .hero-actions { display: grid; grid-template-columns: 1fr; }

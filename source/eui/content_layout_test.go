@@ -40,6 +40,20 @@ func TestButtonWidthIncludesCaptionIconAndHelpAtEveryScale(t *testing.T) {
 	}
 }
 
+func TestButtonWidthIncludesPredictionAfterPrimaryCaption(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	button, _ := NewButton()
+	button.Text = "/give\nCoins."
+	button.FontSize = 11
+	withoutPrediction := button.buttonContentWidth()
+	button.Prediction = " <person> <amount>"
+	if withPrediction := button.buttonContentWidth(); withPrediction <= withoutPrediction {
+		t.Fatalf("button prediction did not increase caption width: %.1f <= %.1f", withPrediction, withoutPrediction)
+	}
+}
+
 func TestConstrainedFlowKeepsDeclaredViewportSize(t *testing.T) {
 	if err := Init(); err != nil {
 		t.Fatal(err)
@@ -80,6 +94,30 @@ func TestConstrainedButtonKeepsDeclaredWidth(t *testing.T) {
 	button.ConstrainToSize = true
 	if got := button.GetSize().X; got != 40 {
 		t.Fatalf("constrained button width = %.2f, want 40", got)
+	}
+}
+
+func TestDiagramButtonCaptionFitsAndRecoversAfterResize(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := UIScale()
+	t.Cleanup(func() { SetUIScale(oldScale) })
+	button, _ := NewButton()
+	button.Text = "Chat +\nConsole"
+	button.ConstrainToSize = true
+	for _, scale := range []float32{1, 1.5, 2} {
+		SetUIScale(scale)
+		button.Size = Point{X: 32, Y: 24}
+		button.FitButtonCaption(12)
+		if button.FontSize >= 12 || button.buttonContentWidth() > button.Size.X*scale {
+			t.Fatal("small diagram caption does not fit")
+		}
+		button.Size = Point{X: 140, Y: 100}
+		button.FitButtonCaption(12)
+		if button.FontSize != 12 {
+			t.Fatal("enlarging diagram did not restore the caption size")
+		}
 	}
 }
 

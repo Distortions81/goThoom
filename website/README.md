@@ -13,9 +13,10 @@ it), and use HTTPS. Versioned Clan Lord data archives may continue to live under
 
 ## Illustrated manual
 
-The hand-written manual has three areas: `help/index.html` for ordinary client
+The hand-written manual has four areas: `help/index.html` for ordinary client
 use, `help/automation.html` for macros, scripts, and hotkeys, and
-`help/performance.html` for graphics and performance tuning.
+`help/performance.html` for graphics, performance tuning, and sprite-pack installation.
+`help/artwork.html` covers artwork authoring, exports, and effect previews.
 `help/reference.html` is a generated visual control reference. All areas share
 navigation and search, and display the goThoom test number, Clan Lord data
 version, and date relevant to the most recent update. There are no

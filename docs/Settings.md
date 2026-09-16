@@ -14,7 +14,7 @@ other application windows.
 Settings and configuration controls with hover help display a small circled
 “i”. Hover over the control to read its tooltip.
 
-The Settings window replaces the former Advanced window with eleven topic tabs:
+The Settings window has twelve topic tabs:
 
 | Tab | Controls |
 | --- | --- |
@@ -22,10 +22,11 @@ The Settings window replaces the former Advanced window with eleven topic tabs:
 | World | Status bars, visibility, character names, and player-list grouping |
 | Text | Font sizes, chat timestamps, timestamp format, and text colors |
 | Bubbles | Speech bubble appearance, lifetime, and message-type options |
-| Audio | Music SoundFont and buffering, sound throttling/resampling, and notification preferences |
+| Audio | Music SoundFont and buffering, sound throttling/staggering/resampling, and notification preferences |
 | TTS | Speech enablement, voice downloads, voice and speed, test phrase, and corrections |
 | Controls | Movement behavior, keyboard walk speed, and gamepad |
 | Performance | Quality preset plus artwork, effects, rendering, caching, and power-saving subtabs |
+| Experimental | Replacement-effect selection and previews, mobile light-cone shadows, and HD sprite packs |
 | Network | Server address and NLSPT safety margin |
 | Files | File paths, downloaded assets, user data and diagnostics folders, and recording |
 | Tools | Setup wizard, debug settings, and resetting all preferences |
@@ -57,26 +58,36 @@ to provide searchable access to settings and actions.
 
 Chat, Console, Inventory, and Players omit title-bar close buttons. In floating
 mode, open or close them with the **Windows** toolbar selector or the matching
-**Show / Hide Windows** controls in Settings.
+**Show / Hide Windows** controls in Settings. In tiled mode, **Windows** opens
+the layout editor directly.
 
-**Display → Windows & Toolbar → Window Layout** starts with the tiled workspace
-used by default and shows clickable arrangements for the game, Inventory, Players,
-and messages. Turn off **Use tiled window layout** there to move and resize the
-main windows freely; the setup wizard keeps its tiled-layout choices and does not
-change that preference. Choose a centered game, a game on one side, a message row
-above or below the game, or a full-width message row. Turn off **Combine chat + console** in
-Window Layout to show separate message panes and the additional arrangement with
-messages above and below the game. Use the swap controls to place lists and
-messages on the preferred side, and **Message split** to put paired message
-panes **Side by side** or **Stacked**. Unavailable options remain visible but disabled.
-Drag dividers to adjust row heights, message splits, and list widths;
-these sizes are saved with the window settings. **Auto-size side panels**
+**Display → Windows & Toolbar → Window Layout** shows a clickable workspace
+preview. **Start with** offers centered, side, message-row, and side-column
+arrangements. Turn off **Combine chat + console** to place the message panes
+separately. **Move selected pane** offers Swap, Left of, Right of, Above, and
+Below: choose the operation, click a source pane, then click its target to apply
+the change immediately. Clicking the selected pane again cancels the selection.
+**Undo** reverses moves, starting-arrangement choices, and Even splits in the
+editor. **Even splits** rebalances pane sizes while allowing extra space for the
+game and toolbar; it does not give every pane identical dimensions. The setup
+wizard provides the same editor.
+
+Custom arrangements are saved automatically as `windows.custom_tiled_layout`
+and shown as **Current arrangement** in Start with. They use manual sizing.
+Combining Chat and Console hides Chat without discarding its saved position;
+separating them restores it. Drag actual workspace dividers to adjust row heights, message splits,
+and list widths. **Messages left, lists right** starts with a full-height left
+message column and stacked lists on the right; the two height splits are independent.
+Turn off **Use tiled window layout** to move and resize the main windows freely,
+and use **Snap floating windows** to align their edges.
+
+For supported starting arrangements, **Auto-size side panels**
 adjusts the side panel widths to use empty space beside the game, sizing the game
 column for the playfield proportions and available height. Dragging either
 vertical game divider moves the game sideways and adjusts both side panels.
 Turning it off keeps the current size and unlocks the dividers for resizing.
 Turning it back on fits the game around its current position, within the list
-width limits.
+width limits. This option is unavailable for custom arrangements and Game on a side.
 
 The **Performance** tab contains the quality preset and five subtabs:
 
@@ -84,9 +95,9 @@ The **Performance** tab contains the quality preset and five subtabs:
 | --- | --- |
 | Artwork | Scale override, upscale style, pixel alignment, foreground fading, gamma, and dither cleanup |
 | Motion | Movement smoothing, subpixel movement, and character/world animation blending |
-| Lighting & Effects | Lighting, window/character shadows, and a bottom Experimental section for replacement effects and mobile light-cone shadows |
+| Lighting & Effects | Lighting and window/character shadows |
 | Caching | Batch room artwork loading, sprite cache, sound precaching, activity dots, and GPU compatibility |
-| Power Saving | Background/focused power saving, FPS limit, and VSync |
+| Power Saving | Background/focused power saving, power-saving FPS, VSync, and the separate 250 FPS limit |
 
 ### Color theme
 
@@ -121,31 +132,40 @@ other windows use their new defaults until explicitly changed.
 
 ### Emoji names
 
-**Text → Chat & Messages → Show :smile: as emoji** defaults on. Turn it off to
-keep names such as `:smile:` and `:thumbs_up:` visible in chat and speech bubbles.
-The choice updates displayed messages immediately. Literal emoji still display
-as emoji, and outgoing messages continue to use readable names on the wire.
+**Text → Chat & Messages → Show :smile: as emoji** defaults off. Turn it on to
+display names such as `:smile:` and `:thumbs_up:` as emoji in chat and speech
+bubbles. The choice updates displayed messages immediately. Literal emoji still
+display as emoji, and outgoing messages continue to use readable names on the
+wire.
 The preference is saved as `chat.expand_emoji_names`.
 
-When enabled, an emoji button appears at the right of each chat input bar.
-The picker keeps group names on the left while emoji scroll on the right.
-Search finds emoji across groups. Choosing one appends its shortcode to the
-draft and closes the picker; press Enter in the input bar when you are ready to
-send the message.
+Each chat input bar has a command icon that lists input-bar shortcuts plus
+available client, script, macro, and server commands by source, with a short
+explanation of each. The window widens and grows to fit the display; long
+shortcut help wraps instead of being clipped. Choose a command to start it in
+the draft. Commands show their argument syntax in dimmed text, and the same
+guide appears in the input bar after an exact command name. It is not inserted
+when you press Tab.
+When emoji display is enabled, its picker appears beside the command icon. The
+picker keeps group names on the left while emoji scroll on the right. Search
+finds emoji across groups. Choosing one appends its shortcode to the draft and
+closes the picker; press Enter in the input bar when you are ready to send the
+message.
 
-## Audit summary
+## Persistent settings coverage
 
-The current internal `settings` structure contains 191 exported fields:
+The v4 JSON schema covers persistent preferences from the internal `settings`
+structure:
 
-- 185 are mapped directly by the v4 JSON schema.
+- Most fields map directly to categorized JSON values.
 - `BarPlacement`, `BarStyle`, and `SpriteUpscaleMode` are persisted separately
   as readable string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
 - `Version` is document metadata at the JSON root.
 
-That accounts for every exported field. The same structure also contains nine
-unexported debug/session fields, all listed below. NLSPT safety is separate atomic
-session state rather than a field in `settings`; it is listed as well.
+The schema regression test checks that every exported field is accounted for.
+Debug/session controls are listed below. NLSPT safety is separate atomic session
+state rather than a field in `settings`; it is listed as well.
 
 The safest way to inspect or change a persistent option is with the local
 `/setting` command:
@@ -167,14 +187,12 @@ goThoom first so the running client does not overwrite the edit when it exits.
 Modern -- thin uses thin fills, minimal frames, and tight spacing near the selected
 screen edge. Grouped placements share one frame, while Along Bottom keeps the
 three frames separate. It is the default for new settings and in the setup wizard.
-Enable **Status bars below toolbar hands** to stack the bars beneath the two
-hand slots at the same width as those slots.
 The saved settings are `interface.status_bar_style`, with values `regular`,
-`compact`, or `hidden`, and `interface.status_bars_below_toolbar_hands`.
+`compact`, or `hidden`.
 
 ### Window layout
 
-Window snapping is available under **Settings → Display → Window Layout**.
+**Snap floating windows** is available under **Settings → Display → Window Layout**.
 It aligns floating windows with nearby window and screen edges while they are
 moved or resized, and is saved as `windows.snapping`.
 
@@ -270,6 +288,18 @@ The Debug window may mark settings as dirty after these controls change, but
 the v4 schema intentionally omits their internal fields, so saving another
 setting does not persist them.
 
+**Experimental → View HD Sprite Replacements** opens a scrolling gallery of
+installed replacements. Choose one ZIP from the Sprite pack menu, or choose
+Loose files to browse PNGs stored directly in the `hdimg` folders. Choose HD,
+original, or side-by-side display, and use the zoom slider to resize the
+thumbnail grid. Use the checkbox on each card to decide whether the game uses
+that picture ID.
+**Reload HD Sprites** rescans installed packs. **View Experimental Effects**
+provides a scrolling original/new comparison gallery with resizable thumbnails, an animation-
+rate control, shader reload, and per-effect switches. Display and zoom controls
+affect only the previews; card checkboxes select the replacements used by the game. See the
+[artwork authoring guide](../website/help/artwork.html) for these workflows.
+
 ### Scripts
 
 **Actions → Scripts → Auto-kill spammy scripts** controls whether scripts that
@@ -297,6 +327,50 @@ Suggested starting points are 2x for screens up to 1080p, 3x for 1440p, and 4x
 for 4K or large game views. Smaller game windows may look just as good at 2x.
 Higher scales use more GPU memory. These are guidelines, not automatic rules.
 
+## Sprite packs and replacement effects
+
+**Settings → Experimental → Use sprite pack files** defaults off and
+is saved as `rendering.use_sprite_pack_files`. It loads static-picture PNG
+replacements from `data/hdimg` in the game directory and `hdimg` in the user
+data directory. Subfolders and ZIP files are supported. These are external
+runtime files, not embedded assets or automatic downloads. The Assets & Audio
+override in File Paths does not relocate the user-data `hdimg` folder.
+
+Use the numeric picture ID as the PNG filename. Game-folder copies take
+priority over user-folder copies. Within either folder, a root PNG wins over
+a subfolder PNG, then a ZIP entry; ties use alphabetical path order. Replacements
+keep the original picture rectangle and placement. Animated pictures and
+mobile pose sheets are not replaced by this loader.
+
+Use **Settings → Experimental → View HD Sprite Replacements** to compare the
+installed art with the originals and enable or disable individual pictures.
+Its Sprite pack menu browses each ZIP independently and groups PNGs outside
+ZIPs under Loose files.
+Use **Reload HD Sprites** after editing pack files; the Console reports the
+discovered files and source folders.
+
+**Experimental → Replacement Effects** separately enables procedural shaders
+for supported effects and scenery. It also defaults off and does not need a
+sprite pack. **View Experimental Effects** opens a scrolling preview gallery;
+each card's checkbox enables that effect family.
+Quality presets preserve these choices and the artwork scale override. See the
+[performance and visuals guide](../website/help/performance.html) for installation,
+comparisons, reflections, and troubleshooting.
+
+## Frame-rate controls
+
+**Performance → Power Saving** contains three independent limits:
+
+- **VSync** follows the display refresh rate.
+- **Power-save FPS** accepts 1–250 FPS and applies while **Always power save**
+  is on, or while **Power save in background** is on and the client lacks focus.
+- **Limit to 250 FPS** defaults on and applies when VSync is off and no
+  power-saving cap is active.
+
+The power-saving interval includes rendering and presentation time. Quality
+presets preserve these choices; check them before treating a steady frame-rate
+cap as a graphics-performance problem.
+
 ## Derived fields that are not independent JSON settings
 
 The internal `SpriteUpscale` value is derived from
@@ -313,7 +387,7 @@ a derived field.
 
 ## Sprite cache
 
-Settings → Performance → Sprite cache offers named presets. The
+Settings → Performance → Caching → Sprite cache offers named presets. The
 explanation below the selector updates immediately with the selected tradeoff
 and the reserve at each sprite resolution. **Balanced** is the default.
 

@@ -85,6 +85,7 @@ func (g *snapshotRenderGame) verify(screen *ebiten.Image) error {
 		// Exercise the Capture button, including closing before pixel capture.
 		row := snapshotWin.Contents[0].Contents[1]
 		snapshotWin.Contents[0].Contents[2].Checked = !full
+		snapshotWin.Contents[0].Contents[3].Checked = full
 		if full {
 			row.Contents[0].Selected = 1
 			snapshotName.Text = "Full window"
@@ -93,8 +94,8 @@ func (g *snapshotRenderGame) verify(screen *ebiten.Image) error {
 		if snapshotWin.Open || pendingSnapshot == nil {
 			return fmt.Errorf("Capture did not close and queue snapshot")
 		}
-		if snapshotHidesNameTags() != full {
-			return fmt.Errorf("name-tag checkbox did not reach the capture request")
+		if snapshotHidesNameTags() != full || snapshotHidesSpeechBubbles() != full {
+			return fmt.Errorf("snapshot overlay checkboxes did not reach the capture request")
 		}
 		screen.Fill(bg)
 		eui.Draw(screen)

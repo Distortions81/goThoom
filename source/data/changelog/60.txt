@@ -1,0 +1,19 @@
+goThoom 60 changes since test59.
+
+Visuals:
+- Upright character sun shadows now meet their feet with the classic client's baseline and crop.
+- Experimental replacement effects and HD sprite replacements have responsive, zoomable galleries with per-item checkboxes. The HD gallery can browse loose PNGs or each ZIP separately and displays its artwork as soon as it opens.
+
+Interface:
+- Emoji names remain as text by default. The input bar's new command icon lists its shortcuts plus client, script, macro, and server commands by source, explains each one without clipped help, shows dimmed argument syntax in the list and input bar, and starts a selected command in your draft.
+- Demo-character selection stays centered in the active game session.
+- Speech bubbles appear promptly, remain visible when their speaker is not crowded, and stay inset from the game-view edges.
+- Hover-only name tags fade correctly when the cursor leaves the game view.
+- Snapshots can omit speech bubbles, and single-frame image exports use a consistent southeast-facing mobile pose.
+- Window Layout offers a visual workspace editor: swap any two panes or place one beside, above, or below another. Start from familiar arrangements, including Messages left, lists right, then adjust dividers, even out splits, or undo an edit. Custom arrangements are saved, and all starting layouts stay available when Chat and Console are combined.
+
+Diagnostics:
+- Normal starts and exits no longer create a diagnostics log; logs are created when there is information to report.
+
+Documentation:
+- Updated the player manual and built-in help, with refreshed screenshots.

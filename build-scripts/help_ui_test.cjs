@@ -6,6 +6,20 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../website/help/manual.js'), 'utf8');
 const searchIndex = JSON.parse(fs.readFileSync(path.join(__dirname, '../website/help/search-index.json'), 'utf8'));
+test('compact site navigation does not hide manual guide links',()=>{
+  const styles=fs.readFileSync(path.join(__dirname, '../website/styles.css'), 'utf8');
+  assert.match(styles,/\.site-header nav a:not\(:last-child\)\s*\{\s*display:\s*none;/);
+  assert.doesNotMatch(styles,/(?:^|\n)\s*nav a[^{}]*\{[^{}]*display:\s*none;/);
+});
+test('layout diagrams match the current starting-arrangement menu',()=>{
+  const manual=fs.readFileSync(path.join(__dirname, '../website/help/index.html'), 'utf8');
+  const capture=JSON.parse(fs.readFileSync(path.join(__dirname, '../website/help/images/capture.json'), 'utf8'));
+  const editor=capture.screens.find(screen=>screen.id==='tiled-layout');
+  const starters=editor.controls.find(control=>control.label==='Start with').options.slice(1);
+  const captions=[...manual.matchAll(/<figure class="layout-card"><figcaption><strong>([^<]+)<\/strong>/g)].map(match=>match[1]);
+  assert.deepEqual(captions,starters);
+  assert.doesNotMatch(manual,/id="layout-(?:swap-|paired|stacked|above|combined-right)/);
+});
 class Element {
   constructor() { this.children=[];this.attrs={};this.handlers={};this.style={};this.dataset={};this.textContent='';this.hidden=false; }
   addEventListener(name, callback) {this.handlers[name]=callback;}
@@ -38,6 +52,22 @@ test('a cleared query cannot be replaced by an older pending request',async()=>{
   const pending=app.search('command');await app.search('');
   resolve({ok:true,json:async()=>searchIndex});await pending;
   assert.equal(app.results.hidden,true);assert.match(app.status.textContent,/Search the manual/);
+});
+test('artwork installation and authoring are searchable across guides',async()=>{
+  const app=searchApp(async()=>({ok:true,json:async()=>searchIndex}));
+  await app.search('sprite pack');
+  assert.ok(app.results.children.some(item=>item.children[0].href==='performance.html#install-a-sprite-pack'));
+  await app.search('replacement shader');
+  assert.ok(app.results.children.some(item=>item.children[0].href==='artwork.html#reload-a-replacement-shader'));
+  await app.search('animated effects');
+  assert.ok(app.results.children.some(item=>item.children[0].href==='artwork.html#compare-animated-effects'));
+});
+test('the current tiled-layout workflow is searchable',async()=>{
+  const app=searchApp(async()=>({ok:true,json:async()=>searchIndex}));
+  await app.search('starting layout');
+  assert.ok(app.results.children.some(item=>item.children[0].href==='./#arrange-workspace'));
+  await app.search('move selected pane');
+  assert.ok(app.results.children.some(item=>item.children[0].href.includes('reference.html#tiled')));
 });
 test('failed search can be retried and has a useful fallback',async()=>{
   let attempts=0;

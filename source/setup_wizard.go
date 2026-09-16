@@ -476,19 +476,6 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 	}
 	displayPanel.AddItem(placement)
 
-	toolbarBars, toolbarBarsEvents := eui.NewCheckbox()
-	toolbarBars.Text = "Status bars below toolbar hands"
-	toolbarBars.Checked = gs.ToolbarStatusBars
-	toolbarBars.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
-	toolbarBarsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ToolbarStatusBars = ev.Checked
-			placeToolbar(gs.ToolbarPlacement, false)
-			settingsDirty = true
-		}
-	}
-	displayPanel.AddItem(toolbarBars)
-
 	barStyle, barStyleEvents := eui.NewDropdown()
 	barStyle.Label = "Status bar style"
 	barStyle.Options = []string{"Regular", "Modern -- thin", "Hidden"}
@@ -560,11 +547,8 @@ func buildSetupLayoutPage(root *eui.ItemData) {
 	}, setupWizardPanelWidth))
 
 	buildSetupTiledWindowSettings(windowPanel, windowPanel, setupWizardPanelWidth)
-	tiledPanel.AddItem(newTiledLayoutGallery(func(layout TiledLayout) {
-		gs.TiledLayout = layout
-		applyTiledWorkspaceLayout()
-		rebuildSetupWizard()
-	}, 2))
+	wizardWorkspaceEditor = newTiledWorkspaceEditor(setupWizardPanelWidth - 10)
+	tiledPanel.AddItem(wizardWorkspaceEditor.root)
 	root.AddItem(panels)
 }
 
@@ -701,13 +685,11 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 
 	keepGameLarge := setupWizardCheckboxWidth("Auto-size side panels", "Fill empty space beside the game. Turn off to keep the current sizes and resize panels independently.", gs.TiledKeepGameLarge, setTiledKeepGameLarge, width)
 	wizardKeepGameLargeCB = keepGameLarge.Contents[0]
-	wizardKeepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
+	refreshTiledAutoSizeControl(wizardKeepGameLargeCB)
 	options.AddItem(keepGameLarge)
 
 	wizardCombineMessagesCB = newCombineMessagesCheckbox(width)
 	options.AddItem(wizardCombineMessagesCB)
-
-	root.AddItem(newTiledArrangementControls(width-10, rebuildSetupWizard))
 }
 
 func buildSetupGraphicsPage(root *eui.ItemData) {

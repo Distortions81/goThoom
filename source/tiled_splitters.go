@@ -197,6 +197,10 @@ func maximizeCenteredGameForWorkspace(width, height int, toolbarMinimum float64)
 }
 
 func tiledToolbarIsInFirstPane() bool {
+	if gs.TiledLayout == TiledLayoutSideColumns {
+		// Both list panes live in the right column in this layout.
+		return false
+	}
 	switch gs.ToolbarPlacement {
 	case ToolbarInInventory:
 		return gs.TiledInventoryLeft
@@ -270,6 +274,10 @@ func configureTiledWorkspaceDividers() {
 		eui.SetTileDividers(nil)
 		return
 	}
+	if gs.TiledCustomLayout != nil {
+		eui.SetTileDividers(customTiledDividers(width, height))
+		return
+	}
 	w := float32(width)
 	h := float32(height)
 	scale := eui.UIScale()
@@ -322,7 +330,7 @@ func configureTiledWorkspaceDividers() {
 		return
 	}
 
-	if gs.TiledLayout >= TiledLayoutMessagesBelow {
+	if tiledMessageBandLayout() {
 		top, bottom := tiledMessageBandHeights()
 		listStart, listEnd := float32(0), h
 		if tiledFullWidthMessages() {
@@ -339,6 +347,19 @@ func configureTiledWorkspaceDividers() {
 			add(eui.TileDividerHorizontal, float32(1-bottom)*h, start, end, tiledSplitterMessagesBottom, float64(height))
 		}
 		addMessageSplit()
+		eui.SetTileDividers(dividers)
+		return
+	}
+
+	if gs.TiledLayout == TiledLayoutSideColumns {
+		leftEnd := float32(gs.TiledLeftWidth * float64(width))
+		rightStart := float32((1 - gs.TiledRightWidth) * float64(width))
+		add(eui.TileDividerVertical, leftEnd, 0, h, tiledSplitterLeftWidth, float64(width))
+		add(eui.TileDividerVertical, rightStart, 0, h, tiledSplitterRightWidth, float64(width))
+		if !gs.MessagesToConsole {
+			add(eui.TileDividerHorizontal, float32((1-gs.TiledLeftBottom)*float64(height)), 0, leftEnd, tiledSplitterLeftBottom, float64(height))
+		}
+		add(eui.TileDividerHorizontal, float32((1-gs.TiledRightBottom)*float64(height)), rightStart, w, tiledSplitterRightBottom, float64(height))
 		eui.SetTileDividers(dividers)
 		return
 	}

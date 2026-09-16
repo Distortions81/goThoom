@@ -19,9 +19,15 @@ func (item *itemData) buttonContentWidth() float32 {
 		face = boldFace(size)
 	}
 	var width float64
+	lineIndex := 0
 	for line := range strings.SplitSeq(item.Text, "\n") {
 		w, _ := text.Measure(line, face, 0)
+		if lineIndex == 0 && item.Prediction != "" {
+			predictionWidth, _ := text.Measure(item.Prediction, face, 0)
+			w += predictionWidth
+		}
 		width = math.Max(width, w)
+		lineIndex++
 	}
 	width += 6 * float64(uiScale)
 	if item.Image != nil {
@@ -31,6 +37,27 @@ func (item *itemData) buttonContentWidth() float32 {
 		width += 18 * float64(uiScale)
 	}
 	return float32(math.Ceil(width))
+}
+
+// FitButtonCaption reduces a diagram button's font to fit its declared area.
+// Call after changing its size, caption, or UI scale. Ordinary action buttons
+// should continue to grow to fit their content instead.
+func (item *itemData) FitButtonCaption(maxFontSize float32) {
+	if item.ItemType != ITEM_BUTTON || item.Size.X <= 0 || item.Size.Y <= 0 || maxFontSize <= 0 {
+		return
+	}
+	item.FontSize = maxFontSize
+	for item.FontSize > 1 {
+		face := itemFace(item, item.FontSize*uiScale+2)
+		metrics := face.Metrics()
+		lineHeight := math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap)
+		height := float32(lineHeight*float64(strings.Count(item.Text, "\n")+1)) + 6*uiScale
+		if item.buttonContentWidth() <= item.Size.X*uiScale && height <= item.Size.Y*uiScale {
+			break
+		}
+		item.FontSize = max(float32(1), item.FontSize-.5)
+	}
+	item.Dirty = true
 }
 
 // LayoutWindowBody fits a vertical root into the window's client area. Body is

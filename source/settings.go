@@ -58,6 +58,9 @@ const (
 	TiledLayoutMessagesSplit
 	TiledLayoutFullMessagesBelow
 	TiledLayoutFullMessagesAbove
+	// TiledLayoutSideColumns keeps messages together in the left column and
+	// the player lists together in the right column.
+	TiledLayoutSideColumns
 )
 
 var gs settings = gsdef
@@ -174,7 +177,10 @@ func clampTiledPaneFraction(v float64) float64 {
 }
 
 func clampTiledLayoutSettings() {
-	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutFullMessagesAbove {
+	if gs.TiledCustomLayout != nil && !validTiledTree(gs.TiledCustomLayout) {
+		gs.TiledCustomLayout = nil
+	}
+	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutSideColumns {
 		gs.TiledLayout = gsdef.TiledLayout
 	}
 	gs.TiledLeftBottom = clampTiledPaneFraction(gs.TiledLeftBottom)
@@ -305,7 +311,7 @@ var gsdef settings = settings{
 	InputBarAlwaysOpen:            true,
 	InputAutocomplete:             true,
 	InputSpellcheck:               true,
-	ExpandEmojiNames:              true,
+	ExpandEmojiNames:              false,
 	KBWalkSpeed:                   0.25,
 	MainFontSize:                  8,
 	BubbleFontSize:                20,
@@ -388,7 +394,6 @@ var gsdef settings = settings{
 	MonitorGamma:                   2.2,
 	BarPlacement:                   BarPlacementBottom,
 	BarStyle:                       BarStyleCompact,
-	ToolbarStatusBars:              false,
 	MaxNightLevel:                  100,
 	MessagesToConsole:              true,
 	ChatTTS:                        false,
@@ -641,13 +646,14 @@ type settings struct {
 	SpriteUpscaleFilter            bool
 	SpriteUpscaleMode              int
 	UseSpritePackFiles             bool
+	DisabledHDPictures             []uint16
 	ReplacementEffects             bool
+	DisabledReplacementEffects     []replacementEffectKind
 	SpriteGammaCorrection          bool
 	SpriteGamma                    float64
 	MonitorGamma                   float64
 	BarPlacement                   BarPlacement
 	BarStyle                       BarStyle
-	ToolbarStatusBars              bool
 	MaxNightLevel                  int
 	forceNightLevel                int
 	Theme                          string
@@ -716,6 +722,7 @@ type settings struct {
 	AutoResizeWindows     bool
 	TiledWindows          bool
 	TiledLayout           TiledLayout
+	TiledCustomLayout     *TiledNode
 	TiledKeepGameLarge    bool
 	// TiledGamePosition places the fixed-width centered game pane between the
 	// side-column limits: -1 is far left, 0 centered, and 1 far right.
@@ -961,15 +968,14 @@ func loadSettings() bool {
 	return settingsLoaded
 }
 
-// normalizeStatusBarPlacement migrates the former toolbar_hands placement to
-// its dedicated toggle while preserving a normal screen placement.
+// normalizeStatusBarPlacement keeps the retired toolbar_hands placement from
+// older settings files on the normal in-game status-bar placement.
 func normalizeStatusBarPlacement(value *settings) {
 	if value == nil {
 		return
 	}
 	if value.BarPlacement == BarPlacementToolbarHands {
 		value.BarPlacement = BarPlacementBottom
-		value.ToolbarStatusBars = true
 	}
 	if value.BarPlacement < BarPlacementBottom || value.BarPlacement > BarPlacementUpperRight {
 		value.BarPlacement = gsdef.BarPlacement
@@ -1166,6 +1172,7 @@ func resetSavedWindowSettings() {
 	gs.ToolbarWindow = gsdef.ToolbarWindow
 	gs.TiledWindows = gsdef.TiledWindows
 	gs.TiledLayout = gsdef.TiledLayout
+	gs.TiledCustomLayout = nil
 	gs.TiledKeepGameLarge = gsdef.TiledKeepGameLarge
 	gs.TiledGamePosition = gsdef.TiledGamePosition
 	gs.TiledLeftBottom = gsdef.TiledLeftBottom
@@ -1427,6 +1434,10 @@ func applyTiledWindowStates() {
 		return
 	}
 	clampTiledLayoutSettings()
+	if gs.TiledCustomLayout != nil {
+		applyCustomTiledWindowStates()
+		return
+	}
 	if width, height := eui.ScreenSize(); width > 0 && height > 0 {
 		clampTiledMessagePairHeight(height)
 		toolbarMinimum := 0.0
@@ -1449,11 +1460,47 @@ func applyTiledWindowStates() {
 		applySideTiledWindowStates()
 		return
 	}
-	if gs.TiledLayout >= TiledLayoutMessagesBelow {
+	if gs.TiledLayout == TiledLayoutSideColumns {
+		applySideColumnTiledWindowStates()
+		return
+	}
+	if tiledMessageBandLayout() {
 		applyMessageBandTiledWindowStates()
 		return
 	}
 	applyCenteredTiledWindowStates()
+}
+
+// applySideColumnTiledWindowStates keeps Chat and Console in one side column
+// and Inventory and Players in the other. The existing pane-order settings
+// choose which member of each pair is on top.
+func applySideColumnTiledWindowStates() {
+	leftWidth := gs.TiledLeftWidth
+	rightWidth := gs.TiledRightWidth
+	gameWidth := 1 - leftWidth - rightWidth
+	leftTop := 1 - gs.TiledLeftBottom
+	rightTop := 1 - gs.TiledRightBottom
+
+	tiledWindowState(&gs.GameWindow, leftWidth, 0, gameWidth, 1)
+
+	firstMessage, secondMessage := &gs.MessagesWindow, &gs.ChatWindow
+	if !gs.TiledConsoleLeft {
+		firstMessage, secondMessage = secondMessage, firstMessage
+	}
+	if gs.MessagesToConsole {
+		tiledWindowState(&gs.MessagesWindow, 0, 0, leftWidth, 1)
+		gs.ChatWindow.Open = false
+	} else {
+		tiledWindowState(firstMessage, 0, 0, leftWidth, leftTop)
+		tiledWindowState(secondMessage, 0, leftTop, leftWidth, gs.TiledLeftBottom)
+	}
+
+	firstList, secondList := &gs.InventoryWindow, &gs.PlayersWindow
+	if !gs.TiledInventoryLeft {
+		firstList, secondList = secondList, firstList
+	}
+	tiledWindowState(firstList, leftWidth+gameWidth, 0, rightWidth, rightTop)
+	tiledWindowState(secondList, leftWidth+gameWidth, rightTop, rightWidth, gs.TiledRightBottom)
 }
 
 func applyCenteredTiledWindowStates() {

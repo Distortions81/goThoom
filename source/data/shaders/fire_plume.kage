@@ -99,12 +99,12 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// canvas rather than the original sprite rectangle.
 	p := (localPos-CanvasSize*0.5)/Size
 	p.x *= Size.x / Size.y
-	// One complete impact beat takes the same 1.35 seconds used by the preview
+	// One complete impact beat takes the same 1.6 seconds used by the preview
 	// player. Every time-dependent frequency below is integral, so the plume
 	// returns to precisely the same shape instead of visibly snapping on loop.
 	// Phase comes from the four source sprite frames. Keep its final frame at
 	// the end of the plume instead of wrapping it back to the ignition frame.
-	cycle := min(Phase / 1.35, 0.999)
+	cycle := min(Phase / 1.6, 0.999)
 	t := cycle * 6.2831853
 	turbulence := t * 2.0
 

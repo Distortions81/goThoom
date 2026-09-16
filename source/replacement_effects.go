@@ -3,7 +3,6 @@ package main
 import (
 	_ "embed"
 	"image"
-	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -12,8 +11,6 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 // Coin rewards are individual denomination sprites, not animation frames.
@@ -99,17 +96,7 @@ const (
 )
 
 var replacementEffectsPreviewMode = replacementEffectPreviewNew
-var replacementEffectsPreviewSelection = -1 // -1 displays the complete gallery.
-
-type replacementEffectPreviewScale uint8
-
-const (
-	replacementEffectPreviewNativeSize replacementEffectPreviewScale = iota
-	replacementEffectPreviewDoubleSize
-	replacementEffectPreviewFullWindow
-)
-
-var replacementEffectsPreviewScale = replacementEffectPreviewFullWindow
+var replacementEffectsPreviewZoom = previewGalleryZoomDefaultPercent / 100
 var replacementEffectsPreviewUPS = 5
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
@@ -526,6 +513,10 @@ func beginReplacementEffects() {
 		return
 	}
 	for key, effect := range replacementEffectDraws {
+		if !replacementEffectEnabled(effect.kind) {
+			delete(replacementEffectDraws, key)
+			continue
+		}
 		effect.seen = false
 		effect.drawnInline = false
 		replacementEffectDraws[key] = effect
@@ -536,8 +527,8 @@ func replacementEffectReplacesPict(id uint16) bool {
 	if !replacementEffectsShadersReady || !replacementEffectsEnabled() {
 		return false
 	}
-	_, ok := replacementEffectKindForPict(id)
-	return ok
+	kind, ok := replacementEffectKindForPict(id)
+	return ok && replacementEffectEnabled(kind)
 }
 
 func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
@@ -672,7 +663,7 @@ func replacementEffectFramePhase(frame, frames int, duration float32) float32 {
 
 func replacementEffectSequenceDuration(kind replacementEffectKind) float32 {
 	if kind == replacementEffectFirePlume {
-		return 1.35
+		return 1.6
 	}
 	if kind == replacementEffectMysticOrbitWard || kind == replacementEffectLavaPool || kind == replacementEffectMagicMoteRing || kind == replacementEffectTownPuddle || kind == replacementEffectShoreWave {
 		if kind == replacementEffectTownPuddle {
@@ -1405,8 +1396,6 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectWavingFlag, label: "Gold Flag", pictID: 5647},
 	{kind: replacementEffectWallTorch, label: "Wall Torch", pictID: 330},
 	{kind: replacementEffectWallTorch, label: "Wall Torch (mirrored)", pictID: 331},
-	{kind: replacementEffectHiddenPath, label: "Hidden Path Sparkles", pictID: 446},
-	{kind: replacementEffectHiddenPath, label: "Hidden Path Fading", pictID: 445},
 	{kind: replacementEffectMysticWard, label: "Mystic Ward", pictID: 1286},
 	{kind: replacementEffectMysticOrbitWard, label: "Amber Orbit Ward", pictID: 1587},
 	{kind: replacementEffectLavaPool, label: "Lava Pool (compact)", pictID: 597},
@@ -1429,6 +1418,29 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 	{kind: replacementEffectTeleportPrismatic, label: "Prismatic Teleport", pictID: 2978},
 	{kind: replacementEffectStoneForm, label: "Stone Form", pictID: 3125},
 	{kind: replacementEffectCoinReward, label: "Coin 123", pictID: coinRewardFirstPictID, coinDigits: [4]float32{1, 2, 3}, coinDigitCount: 3},
+}
+
+var replacementEffectConfigurationOptions = []struct {
+	kind  replacementEffectKind
+	label string
+}{
+	{replacementEffectHealing, "Healing"},
+	{replacementEffectFirePlume, "Fire plumes"},
+	{replacementEffectBloodGush, "Critical blood gush"},
+	{replacementEffectWavingFlag, "Waving flags"},
+	{replacementEffectWallTorch, "Wall torches"},
+	{replacementEffectMysticWard, "Mystic ward"},
+	{replacementEffectMysticOrbitWard, "Orbit ward"},
+	{replacementEffectMysticFade, "Ward fading"},
+	{replacementEffectTeleportGold, "Gold teleport"},
+	{replacementEffectTeleportBlue, "Blue teleport"},
+	{replacementEffectTeleportPrismatic, "Prismatic teleport"},
+	{replacementEffectStoneForm, "Stone form"},
+	{replacementEffectLavaPool, "Lava pools"},
+	{replacementEffectMagicMoteRing, "Magic mote rings"},
+	{replacementEffectTownPuddle, "Town puddles"},
+	{replacementEffectShoreWave, "Shore foam"},
+	{replacementEffectCoinReward, "Coin rewards"},
 }
 
 func replacementEffectPreviewLabel(mode replacementEffectPreviewMode) string {
@@ -1467,18 +1479,107 @@ func replacementEffectPreviewNativeDimensions(preview replacementEffectPreview) 
 	return 64, 64
 }
 
-func replacementEffectPreviewLavaBounds(left, top float64, width, height, nativeW, nativeH int) (float64, float64, int, int) {
+// replacementEffectPreviewBounds fits an effect's natural sprite rectangle
+// inside its preview canvas. Shaders use the resulting bounds as their Size,
+// so this preserves proportions for wide flags, tall effects, and floor art.
+func replacementEffectPreviewBounds(left, top float64, width, height, nativeW, nativeH int) (float64, float64, int, int) {
 	scale := math.Min(float64(width)/float64(nativeW), float64(height)/float64(nativeH))
 	drawW := max(1, roundToInt(float64(nativeW)*scale))
 	drawH := max(1, roundToInt(float64(nativeH)*scale))
 	return left + float64(width-drawW)/2, top + float64(height-drawH)/2, drawW, drawH
 }
 
-func replacementEffectPreviewItems() []replacementEffectPreview {
-	if replacementEffectsPreviewSelection >= 0 && replacementEffectsPreviewSelection < len(replacementEffectsPreviews) {
-		return replacementEffectsPreviews[replacementEffectsPreviewSelection : replacementEffectsPreviewSelection+1]
+func replacementEffectPreviewLavaBounds(left, top float64, width, height, nativeW, nativeH int) (float64, float64, int, int) {
+	return replacementEffectPreviewBounds(left, top, width, height, nativeW, nativeH)
+}
+
+type replacementEffectPreviewGroup struct {
+	label    string
+	previews []replacementEffectPreview
+}
+
+func (group replacementEffectPreviewGroup) enabled() bool {
+	for _, preview := range group.previews {
+		if !replacementEffectEnabled(preview.kind) {
+			return false
+		}
 	}
-	return replacementEffectsPreviews
+	return true
+}
+
+func (group replacementEffectPreviewGroup) setEnabled(enabled bool) {
+	for _, preview := range group.previews {
+		setReplacementEffectEnabled(preview.kind, enabled)
+	}
+}
+
+func replacementEffectPreviewGroupLabel(kind replacementEffectKind, fallback string) string {
+	if replacementEffectTeleportTheme(kind) >= 0 {
+		return "Teleports"
+	}
+	for _, option := range replacementEffectConfigurationOptions {
+		if option.kind == kind {
+			return option.label
+		}
+	}
+	return fallback
+}
+
+func replacementEffectPreviewGroupKind(kind replacementEffectKind) replacementEffectKind {
+	if replacementEffectTeleportTheme(kind) >= 0 {
+		return replacementEffectTeleportGold
+	}
+	return kind
+}
+
+func replacementEffectPreviewGalleryGroups() []replacementEffectPreviewGroup {
+	groups := make([]replacementEffectPreviewGroup, 0, len(replacementEffectConfigurationOptions))
+	indices := make(map[replacementEffectKind]int)
+	for _, preview := range replacementEffectsPreviews {
+		// The mirrored torch is the same effect presentation as the regular
+		// torch, and does not add anything useful to the comparison gallery.
+		if preview.kind == replacementEffectWallTorch && preview.pictID == 331 {
+			continue
+		}
+		// Shore foam's remaining source IDs only rotate the same shader for
+		// different coast directions. One representative gets the whole card.
+		if preview.kind == replacementEffectShoreWave && preview.pictID != 3568 {
+			continue
+		}
+		groupKind := replacementEffectPreviewGroupKind(preview.kind)
+		index, ok := indices[groupKind]
+		if !ok {
+			indices[groupKind] = len(groups)
+			groups = append(groups, replacementEffectPreviewGroup{
+				label: replacementEffectPreviewGroupLabel(groupKind, preview.label),
+			})
+			index = len(groups) - 1
+		}
+		groups[index].previews = append(groups[index].previews, preview)
+	}
+	return groups
+}
+
+// replacementEffectPreviewGalleryDimensions keeps gallery entries close to
+// their live game footprint instead of scaling a small source sprite to fill a
+// whole gallery cell. Coin rewards are composed from tiny digit sprites in the
+// world, so use a compact, legible fixed preview size for their combined coin.
+func replacementEffectPreviewGalleryDimensions(preview replacementEffectPreview, maxWidth, maxHeight int) (int, int) {
+	width, height := replacementEffectPreviewNativeDimensions(preview)
+	if preview.kind == replacementEffectShoreWave {
+		_, _, width, height = replacementEffectPreviewBounds(0, 0, maxWidth, maxHeight, width, height)
+		return width, height
+	} else if preview.kind == replacementEffectCoinReward {
+		width, height = 48, 48
+	} else {
+		width = max(1, roundToInt(float64(width)*gs.GameScale))
+		height = max(1, roundToInt(float64(height)*gs.GameScale))
+	}
+	if width <= maxWidth && height <= maxHeight {
+		return width, height
+	}
+	_, _, width, height = replacementEffectPreviewBounds(0, 0, maxWidth, maxHeight, width, height)
+	return width, height
 }
 
 func drawReplacementEffectOriginalPreview(screen *ebiten.Image, preview replacementEffectPreview, left, top float64, width, height int, elapsed float64) {
@@ -1507,179 +1608,140 @@ func drawReplacementEffectOriginalPreview(screen *ebiten.Image, preview replacem
 	releaseDrawOpts(op)
 }
 
-// replacementEffectsPreviewGrassPattern is deliberately coordinate-based rather
-// than random so the preview backdrop remains still while an effect animates.
-func replacementEffectsPreviewGrassPattern(column, row int) uint32 {
-	value := uint32(column)*0x9e3779b9 ^ uint32(row)*0x85ebca6b
-	value ^= value >> 16
-	value *= 0x7feb352d
-	value ^= value >> 15
-	return value
-}
-
-func drawReplacementEffectsPreviewGrass(screen *ebiten.Image, bounds image.Rectangle) {
-	const tileSize = 20
-	screen.Fill(color.RGBA{R: 45, G: 91, B: 48, A: 255})
-	for top := bounds.Min.Y; top < bounds.Max.Y; top += tileSize {
-		for left := bounds.Min.X; left < bounds.Max.X; left += tileSize {
-			pattern := replacementEffectsPreviewGrassPattern(left/tileSize, top/tileSize)
-			shade := uint8(pattern & 7)
-			base := color.RGBA{R: 42 + shade, G: 94 + shade*2, B: 46 + shade, A: 255}
-			vector.FillRect(screen, float32(left), float32(top), tileSize, tileSize, base, false)
-
-			bladeX := left + 2 + int((pattern>>4)%15)
-			bladeY := top + 4 + int((pattern>>8)%11)
-			bladeHeight := 5 + int((pattern>>12)%7)
-			blade := color.RGBA{R: 74 + shade, G: 132 + shade*2, B: 63 + shade, A: 170}
-			vector.FillRect(screen, float32(bladeX), float32(bladeY), 1, float32(bladeHeight), blade, false)
-			vector.FillRect(screen, float32(bladeX+3), float32(bladeY+3), 1, float32(max(3, bladeHeight-3)), blade, false)
+func drawReplacementEffectPreview(screen *ebiten.Image, preview replacementEffectPreview, left, top float64, effectW, effectH int, elapsed float64) {
+	phase := replacementEffectPreviewPhase(preview.kind, elapsed)
+	nativeW, nativeH := replacementEffectPreviewNativeDimensions(preview)
+	drawLeft, drawTop, drawW, drawH := replacementEffectPreviewBounds(left, top, effectW, effectH, nativeW, nativeH)
+	if replacementEffectsPreviewMode != replacementEffectPreviewNew {
+		drawReplacementEffectOriginalPreview(screen, preview, left, top, effectW, effectH, elapsed)
+	}
+	state := &replacementEffectShaderStates[preview.kind]
+	state.size = [2]float32{float32(drawW), float32(drawH)}
+	state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
+	state.maskOffset = [2]float32{}
+	state.coinDigits = preview.coinDigits
+	state.uniforms["Phase"] = phase
+	state.uniforms["Alpha"] = float32(1)
+	state.uniforms["Energy"] = float32(1)
+	state.uniforms["HasMask"] = float32(0)
+	state.uniforms["HasReflection"] = float32(0)
+	state.uniforms["HasPoolOutline"] = float32(0)
+	state.uniforms["MaskInvScale"] = float32(1)
+	state.uniforms["SpriteLightOnly"] = float32(0)
+	if preview.kind == replacementEffectWavingFlag {
+		state.uniforms["FlagTheme"] = replacementEffectFlagTheme(preview.pictID)
+		state.uniforms["FlagMirror"] = replacementEffectFlagMirror(preview.pictID)
+	}
+	if preview.kind == replacementEffectWallTorch {
+		state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(preview.pictID)
+	}
+	if preview.kind == replacementEffectFirePlume {
+		state.uniforms["FireTheme"] = replacementEffectFireTheme(preview.pictID)
+	}
+	if preview.kind == replacementEffectTownPuddle {
+		state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(preview.pictID)
+		state.rippleFeet = [12]float32{}
+		state.rippleMotion = [6]float32{}
+		state.rippleSeeds = [6]float32{}
+		state.rippleAges = [6]float32{}
+		state.uniforms["RippleTime"] = float32(elapsed)
+		previewRippleAge := math.Mod(elapsed+float64(preview.pictID-888)*0.35, 1.25)
+		if previewRippleAge < 1 {
+			state.rippleFeet[0], state.rippleFeet[1] = float32(drawW)*0.5, float32(drawH)*0.5
+			state.rippleMotion[0] = 0.9
+			state.rippleAges[0] = float32(previewRippleAge)
 		}
 	}
+	if preview.kind == replacementEffectShoreWave {
+		state.uniforms["WaveDirection"] = replacementEffectWaveDirection(preview.pictID)
+	}
+	if preview.kind == replacementEffectMagicMoteRing {
+		state.uniforms["MagicTheme"] = replacementEffectMagicTheme(preview.pictID)
+	}
+	if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
+		state.uniforms["TeleportTheme"] = theme
+	}
+	if preview.kind == replacementEffectCoinReward {
+		state.uniforms["CoinValue"] = preview.coinDigits[0]
+		state.uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
+	}
+	if replacementEffectsPreviewMode == replacementEffectPreviewOriginal {
+		return
+	}
+	state.op.Blend = ebiten.Blend{}
+	state.op.Images[0], state.op.Images[1] = whiteImage, nil
+	if preview.kind == replacementEffectLavaPool {
+		if outline := loadImageFrameOriginal(preview.pictID, 0); outline != nil {
+			outlineBounds := outline.Bounds()
+			state.outlineSize = [2]float32{float32(outlineBounds.Dx()), float32(outlineBounds.Dy())}
+			state.uniforms["HasPoolOutline"] = float32(1)
+			state.op.Images[0] = outline
+		}
+	}
+	drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
 }
 
-// drawReplacementEffectsPreview renders either the full shader gallery or one
-// enlarged effect. The selected display mode lets artists compare it directly
-// with the source sprite without changing live world replacement behavior.
-func drawReplacementEffectsPreview(screen *ebiten.Image) {
-	if !replacementEffectsShadersReady {
+func drawReplacementEffectPreviewGroup(screen *ebiten.Image, group replacementEffectPreviewGroup, elapsed float64) {
+	if screen == nil || len(group.previews) == 0 {
 		return
 	}
 	bounds := screen.Bounds()
-	if bounds.Dx() < 240 || bounds.Dy() < 180 {
-		return
+	if replacementEffectsPreviewWin != nil {
+		screen.Fill(replacementEffectsPreviewWin.BackgroundColor())
 	}
-	drawReplacementEffectsPreviewGrass(screen, bounds)
+	contentW, contentH := max(1, bounds.Dx()-16), max(1, bounds.Dy()-16)
+	zoom := float32(bounds.Dx()) / replacementEffectsPreviewCardWidth
+	if zoom <= 0 {
+		zoom = 1
+	}
+	baseContentW := max(1, roundToInt(float64(contentW)/float64(zoom)))
+	capacity := max(1, (baseContentW+4)/(56+4))
+	visible := min(len(group.previews), capacity)
+	variantW := max(1, (contentW-4*(visible-1))/visible)
+	for variantIndex, preview := range group.previews[:visible] {
+		slotLeft := bounds.Min.X + 8 + variantIndex*(variantW+4)
+		baseVariantW := max(1, roundToInt(float64(variantW)/float64(zoom)))
+		baseContentH := max(1, roundToInt(float64(contentH)/float64(zoom)))
+		drawW, drawH := replacementEffectPreviewGalleryDimensions(preview, baseVariantW, baseContentH)
+		drawW, drawH = replacementEffectPreviewZoomedDimensions(drawW, drawH, replacementEffectsPreviewZoom)
+		left := float64(slotLeft + (variantW-drawW)/2)
+		top := float64(bounds.Min.Y + 8 + (contentH-drawH)/2)
+		clip := screen.RecyclableSubImage(image.Rect(slotLeft, bounds.Min.Y+8, slotLeft+variantW, bounds.Min.Y+8+contentH))
+		drawReplacementEffectPreview(clip, preview, left, top, drawW, drawH, elapsed)
+		clip.Recycle()
+	}
+}
 
-	previews := replacementEffectPreviewItems()
-	if len(previews) == 0 {
+func replacementEffectPreviewZoomedDimensions(width, height int, zoom float32) (int, int) {
+	if zoom <= 0 {
+		zoom = 1
+	}
+	return max(1, roundToInt(float64(width)*float64(zoom))), max(1, roundToInt(float64(height)*float64(zoom)))
+}
+
+// updateReplacementEffectsPreviewImages redraws the live card images hosted by
+// the scrollable Effects Preview window. It deliberately leaves the game view
+// untouched.
+func updateReplacementEffectsPreviewImages() {
+	if !replacementEffectsPreview || !replacementEffectsShadersReady || replacementEffectsPreviewWin == nil || !replacementEffectsPreviewWin.IsOpen() {
 		return
 	}
-	columns := 3
-	if len(previews) == 1 {
-		columns = 1
-	}
-	cellW := float64(bounds.Dx()) / float64(columns)
-	rows := (len(previews) + columns - 1) / columns
-	cellH := float64(bounds.Dy()) / float64(rows)
-	effectW := max(56, roundToInt(cellW*0.68))
-	effectH := max(56, roundToInt(cellH*0.66))
-	if len(previews) == 1 {
-		switch replacementEffectsPreviewScale {
-		case replacementEffectPreviewNativeSize:
-			effectW, effectH = replacementEffectPreviewNativeDimensions(previews[0])
-		case replacementEffectPreviewDoubleSize:
-			effectW, effectH = replacementEffectPreviewNativeDimensions(previews[0])
-			effectW *= 2
-			effectH *= 2
-		default:
-			// Leave room for the preview title while otherwise using the game view.
-			effectW = max(56, bounds.Dx()-32)
-			effectH = max(56, bounds.Dy()-64)
-		}
-	}
-	coinCanvasW, coinCanvasH := roundToInt(float64(effectW)*1.70), roundToInt(float64(effectH)*1.70)
 	now := drawFrameNow
 	if now.IsZero() {
 		now = time.Now()
 	}
 	elapsed := now.Sub(replacementEffectsStarted).Seconds()
-	for i, preview := range previews {
-		col, row := i%columns, i/columns
-		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
-		top := float64(bounds.Min.Y) + float64(row)*cellH + 28
-		phase := replacementEffectPreviewPhase(preview.kind, elapsed)
-		drawW, drawH := effectW, effectH
-		drawLeft, drawTop := left, top
-		if preview.kind == replacementEffectLavaPool {
-			nativeW, nativeH := replacementEffectPreviewNativeDimensions(preview)
-			drawLeft, drawTop, drawW, drawH = replacementEffectPreviewLavaBounds(left, top, effectW, effectH, nativeW, nativeH)
+	for index := range replacementEffectsPreviewCards {
+		card := &replacementEffectsPreviewCards[index]
+		if card.image == nil {
+			continue
 		}
-		if replacementEffectsPreviewMode != replacementEffectPreviewNew {
-			drawReplacementEffectOriginalPreview(screen, preview, left, top, effectW, effectH, elapsed)
+		checked := card.group.enabled()
+		if card.checkbox != nil && card.checkbox.Checked != checked {
+			card.checkbox.Checked = checked
+			card.checkbox.Dirty = true
 		}
-		state := &replacementEffectShaderStates[preview.kind]
-		state.size = [2]float32{float32(drawW), float32(drawH)}
-		state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
-		state.maskOffset = [2]float32{}
-		state.coinDigits = preview.coinDigits
-		state.uniforms["Phase"] = phase
-		state.uniforms["Alpha"] = float32(1)
-		state.uniforms["Energy"] = float32(1)
-		state.uniforms["HasMask"] = float32(0)
-		state.uniforms["HasReflection"] = float32(0)
-		state.uniforms["HasPoolOutline"] = float32(0)
-		state.uniforms["MaskInvScale"] = float32(1)
-		state.uniforms["SpriteLightOnly"] = float32(0)
-		if preview.kind == replacementEffectWavingFlag {
-			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(preview.pictID)
-			state.uniforms["FlagMirror"] = replacementEffectFlagMirror(preview.pictID)
-		}
-		if preview.kind == replacementEffectWallTorch {
-			state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(preview.pictID)
-		}
-		if preview.kind == replacementEffectHiddenPath {
-			state.uniforms["PathVariant"] = replacementEffectPathVariant(preview.pictID)
-		}
-		if preview.kind == replacementEffectFirePlume {
-			state.uniforms["FireTheme"] = replacementEffectFireTheme(preview.pictID)
-		}
-		if preview.kind == replacementEffectTownPuddle {
-			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(preview.pictID)
-			state.rippleFeet = [12]float32{}
-			state.rippleMotion = [6]float32{}
-			state.rippleSeeds = [6]float32{}
-			state.rippleAges = [6]float32{}
-			state.uniforms["RippleTime"] = float32(elapsed)
-			// The gallery has no moving mobile; demonstrate one footfall so
-			// puddle movement ripples can still be judged in effectsPreview.
-			previewRippleAge := math.Mod(elapsed+float64(preview.pictID-888)*0.35, 1.25)
-			if previewRippleAge < 1 {
-				state.rippleFeet[0], state.rippleFeet[1] = float32(effectW)*0.5, float32(effectH)*0.5
-				state.rippleMotion[0] = 0.9
-				state.rippleAges[0] = float32(previewRippleAge)
-			}
-		}
-		if preview.kind == replacementEffectShoreWave {
-			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(preview.pictID)
-		}
-		if preview.kind == replacementEffectMagicMoteRing {
-			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(preview.pictID)
-		}
-		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
-			state.uniforms["TeleportTheme"] = theme
-		}
-		if replacementEffectNeedsOverscan(preview.kind) {
-			drawW, drawH = coinCanvasW, coinCanvasH
-			drawLeft -= float64(drawW-effectW) / 2
-			drawTop -= float64(drawH-effectH) / 2
-			state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
-		}
-		if preview.kind == replacementEffectCoinReward {
-			state.uniforms["CoinValue"] = preview.coinDigits[0]
-			state.uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
-		}
-		if replacementEffectsPreviewMode != replacementEffectPreviewOriginal {
-			state.op.Blend = ebiten.Blend{}
-			state.op.Images[0], state.op.Images[1] = whiteImage, nil
-			if preview.kind == replacementEffectLavaPool {
-				if outline := loadImageFrameOriginal(preview.pictID, 0); outline != nil {
-					outlineBounds := outline.Bounds()
-					state.outlineSize = [2]float32{float32(outlineBounds.Dx()), float32(outlineBounds.Dy())}
-					state.uniforms["HasPoolOutline"] = float32(1)
-					state.op.Images[0] = outline
-				}
-			}
-			drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
-		}
-
-		labelOpts := acquireTextDrawOpts()
-		labelOpts.GeoM.Translate(float64(bounds.Min.X)+float64(col)*cellW+8, float64(bounds.Min.Y)+float64(row)*cellH+8)
-		labelOpts.ColorScale.ScaleWithColor(color.RGBA{R: 224, G: 234, B: 255, A: 255})
-		label := preview.label
-		if len(previews) == 1 {
-			label += " — " + replacementEffectPreviewLabel(replacementEffectsPreviewMode)
-		}
-		text.Draw(screen, label, mainFont, labelOpts)
-		releaseTextDrawOpts(labelOpts)
+		card.image.Clear()
+		drawReplacementEffectPreviewGroup(card.image, card.group, elapsed)
 	}
 }

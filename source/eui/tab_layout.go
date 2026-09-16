@@ -42,6 +42,9 @@ func measureTabLayout(item, style *itemData, rects []rect) point {
 	for i, tab := range item.Tabs {
 		tw, _ := text.Measure(tab.Name, itemFace(tab, size), 0)
 		w := max(float32(math.Ceil(tw))+padding, 40*uiScale)
+		if item.TabWidth > 0 {
+			w = max(w, item.TabWidth*uiScale)
+		}
 		if columns > 0 && ((item.TabColumns > 0 && columns >= item.TabColumns) || (limit > 0 && x+w > limit)) {
 			row++
 			columns = 0

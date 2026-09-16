@@ -22,6 +22,9 @@ func TestNewWindowBackgroundFollowsTheme(t *testing.T) {
 	if got := win.backgroundColor(); got != first.Window.BGColor {
 		t.Fatalf("background = %v, want %v", got, first.Window.BGColor)
 	}
+	if got := win.BackgroundColor(); got != first.Window.BGColor {
+		t.Fatalf("public background = %v, want %v", got, first.Window.BGColor)
+	}
 
 	second := *baseTheme
 	second.Window.BGColor = NewColor(7, 8, 9, 255)

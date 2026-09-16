@@ -62,6 +62,12 @@ func makeSnapshotWindow() {
 	names.Size = eui.Point{X: 400, Y: 28}
 	names.SetTooltip("Turn off to hide overhead name tags for this snapshot.")
 	root.AddItem(names)
+	bubbles, _ := eui.NewCheckbox()
+	bubbles.Text = "Skip speech bubbles"
+	bubbles.Checked = true
+	bubbles.Size = eui.Point{X: 400, Y: 28}
+	bubbles.SetTooltip("Turn off to include speech bubbles in this snapshot.")
+	root.AddItem(bubbles)
 	hint, _ := eui.NewText()
 	hint.Text = "Saved in Screenshots. Duplicate names get a number."
 	hint.FontSize = 11
@@ -122,7 +128,7 @@ func makeSnapshotWindow() {
 			win.Refresh()
 			return
 		}
-		pendingSnapshot = &snapshotRequest{name: name.Text, fullWindow: area.Selected == 1, hideNameTags: !names.Checked, jpeg: format.Selected == 1, done: func(err error) {
+		pendingSnapshot = &snapshotRequest{name: name.Text, fullWindow: area.Selected == 1, hideNameTags: !names.Checked, hideSpeechBubbles: bubbles.Checked, jpeg: format.Selected == 1, done: func(err error) {
 			if err != nil {
 				status.Text = "Could not save snapshot; see Console for details."
 				win.MarkOpen()

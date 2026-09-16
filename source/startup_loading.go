@@ -86,7 +86,7 @@ func startupShaderPending() bool {
 }
 
 func optionalEffectsShaderPending() bool {
-	return replacementEffectsEnabled() && replacementEffectsShaderInitializationPending()
+	return (replacementEffectsEnabled() || replacementEffectsPreview) && replacementEffectsShaderInitializationPending()
 }
 
 func postStartupScriptLoadDue() bool {
