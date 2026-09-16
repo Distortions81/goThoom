@@ -14,6 +14,9 @@ func TestRenderHDPictureReplacesOriginalWithoutReupscale(t *testing.T) {
 	if os.Getenv("GOTHOOM_RENDER_HDIMG_TEST") == "" {
 		t.Skip("set GOTHOOM_RENDER_HDIMG_TEST=1 to verify the HD picture override")
 	}
+	originalEnabled := gs.UseSpritePackFiles
+	gs.UseSpritePackFiles = true
+	t.Cleanup(func() { gs.UseSpritePackFiles = originalEnabled })
 	game := &hdPictureRenderGame{}
 	if err := ebiten.RunGame(game); err != nil {
 		t.Fatal(err)
@@ -37,14 +40,34 @@ func (g *hdPictureRenderGame) Update() error {
 
 func (g *hdPictureRenderGame) Draw(_ *ebiten.Image) {
 	defer func() { g.done = true }()
-	for _, id := range []uint16{23, 208, 210, 307, 317, 417, 626, 635, 738, 1068, 1279, 2252, 4495, 5764} {
+	for _, id := range []uint16{23, 41, 194, 208, 210, 302, 307, 317, 417, 509, 601, 603, 626, 635, 738, 873, 985, 1068, 1279, 1404, 2245, 2252, 3785, 3786, 4495, 5764} {
 		img := loadImageFrame(id, 0)
-		wantSize := 168
-		if id == 307 || id == 317 || id == 5764 {
-			wantSize = 800
+		wantWidth, wantHeight := 168, 168
+		if id == 302 || id == 307 || id == 317 || id == 5764 {
+			wantWidth, wantHeight = 800, 800
+		} else if id == 873 {
+			wantWidth, wantHeight = 836, 924
+		} else if id == 985 {
+			wantWidth, wantHeight = 720, 640
+		} else if id == 601 {
+			wantWidth, wantHeight = 1468, 584
+		} else if id == 603 {
+			wantWidth, wantHeight = 584, 1468
+		} else if id == 2245 {
+			wantWidth, wantHeight = 304, 92
+		} else if id == 3785 || id == 3786 {
+			wantWidth, wantHeight = 156, 108
+		} else if id == 41 {
+			wantWidth, wantHeight = 96, 96
+		} else if id == 194 {
+			wantWidth, wantHeight = 1, 1
+		} else if id == 1404 {
+			wantWidth, wantHeight = 1, 1
+		} else if id == 509 {
+			wantWidth, wantHeight = 876, 928
 		}
-		if img == nil || !isHDPictureImage(id, img) || img.Bounds().Dx() != wantSize || img.Bounds().Dy() != wantSize {
-			g.err = fmt.Errorf("picture %d did not load its %dx%d HD replacement", id, wantSize, wantSize)
+		if img == nil || !isHDPictureImage(id, img) || img.Bounds().Dx() != wantWidth || img.Bounds().Dy() != wantHeight {
+			g.err = fmt.Errorf("picture %d did not load its %dx%d HD replacement", id, wantWidth, wantHeight)
 			return
 		}
 		if got := getScaledPictureFrame(id, 0, img); got != img {
@@ -55,8 +78,8 @@ func (g *hdPictureRenderGame) Draw(_ *ebiten.Image) {
 			g.err = fmt.Errorf("HD picture %d was decoded again instead of reused", id)
 			return
 		}
-		if location, count := reloadHDPictures(); !strings.HasSuffix(location, "data/hdimg") || count < 2 {
-			g.err = fmt.Errorf("HD reload source = %q (%d images), want checked-out data/hdimg", location, count)
+		if location, count := reloadHDPictures(); !strings.Contains(location, "hdimg") || count < 2 {
+			g.err = fmt.Errorf("HD reload source = %q (%d images), want an external hdimg folder", location, count)
 			return
 		}
 		if reloaded := loadImageFrame(id, 0); reloaded == nil || reloaded == img || !isHDPictureImage(id, reloaded) {
@@ -72,6 +95,9 @@ func TestRenderHDPicturePreviewWindow(t *testing.T) {
 	if os.Getenv("GOTHOOM_RENDER_HDIMG_PREVIEW_TEST") == "" {
 		t.Skip("set GOTHOOM_RENDER_HDIMG_PREVIEW_TEST=1 to verify the HD sprite preview")
 	}
+	originalEnabled := gs.UseSpritePackFiles
+	gs.UseSpritePackFiles = true
+	t.Cleanup(func() { gs.UseSpritePackFiles = originalEnabled })
 	initFont()
 	eui.SetScreenSize(640, 400)
 	game := &hdPicturePreviewRenderGame{}

@@ -3,55 +3,14 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"image"
+	"image/color"
 	"image/png"
 	"testing"
 	"testing/fstest"
 )
 
-func TestHDPictureBundleAndSourceScale(t *testing.T) {
-	for _, item := range []struct {
-		id     uint16
-		label  string
-		size   int
-		opaque bool
-	}{
-		{23, "data/hdimg/held/23.png", 168, false},
-		{208, "data/hdimg/held/208.png", 168, false},
-		{210, "data/hdimg/held/210.png", 168, false},
-		{417, "data/hdimg/held/417.png", 168, false},
-		{626, "data/hdimg/held/626.png", 168, false},
-		{635, "data/hdimg/held/635.png", 168, false},
-		{738, "data/hdimg/held/738.png", 168, false},
-		{1068, "data/hdimg/held/1068.png", 168, false},
-		{1279, "data/hdimg/held/1279.png", 168, false},
-		{2252, "data/hdimg/held/2252.png", 168, false},
-		{307, "data/hdimg/ground/307.png", 800, true},
-		{317, "data/hdimg/ground/317.png", 800, true},
-		{4495, "data/hdimg/held/4495.png", 168, false},
-		{5764, "data/hdimg/ground/5764.png", 800, true},
-	} {
-		source, ok := hdPictureSources[item.id]
-		if !ok || source.label != item.label {
-			t.Fatalf("HD picture %d source = (%q, %v), want %q", item.id, source.label, ok, item.label)
-		}
-		reader, err := source.open(hdPictureFiles)
-		if err != nil {
-			t.Fatal(err)
-		}
-		img, err := png.Decode(reader)
-		reader.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := img.Bounds().Size(); got.X != item.size || got.Y != item.size {
-			t.Fatalf("HD picture %d size = %v, want %dx%d", item.id, got, item.size, item.size)
-		}
-		if _, _, _, alpha := img.At(0, 0).RGBA(); item.opaque && alpha != 0xffff {
-			t.Fatalf("HD picture %d has a transparent tile edge", item.id)
-		} else if !item.opaque && alpha != 0 {
-			t.Fatalf("HD picture %d lost its transparent background", item.id)
-		}
-	}
+func TestHDPictureSourceScale(t *testing.T) {
 	sx, sy := pictureSourceScale(42, 42, 168, 168)
 	if sx != 0.25 || sy != 0.25 {
 		t.Fatalf("HD picture source scale = (%v, %v), want (0.25, 0.25)", sx, sy)
@@ -59,10 +18,7 @@ func TestHDPictureBundleAndSourceScale(t *testing.T) {
 }
 
 func TestHDPictureSourcesFindSubfoldersAndZIPEntries(t *testing.T) {
-	pngData, err := hdPictureFiles.ReadFile("data/hdimg/held/1068.png")
-	if err != nil {
-		t.Fatal(err)
-	}
+	pngData := hdPictureTestPNG(t)
 	var zipped bytes.Buffer
 	writer := zip.NewWriter(&zipped)
 	for _, name := range []string{"art/309.png", "477.png", "1068.png", "not-an-id.png"} {
@@ -98,13 +54,59 @@ func TestHDPictureSourcesFindSubfoldersAndZIPEntries(t *testing.T) {
 	if _, ok := sources[0]; ok {
 		t.Fatal("non-numeric ZIP entry was indexed as a picture")
 	}
-	reader, err := sources[309].open(files)
+	reader, err := sources[309].open()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reader.Close()
 	img, err := png.Decode(reader)
-	if err != nil || img.Bounds().Dx() != 168 {
+	if err != nil || img.Bounds().Dx() != 2 {
 		t.Fatalf("nested ZIP entry did not decode as HD PNG: image=%v err=%v", img, err)
 	}
+}
+
+func TestHDPictureSourcesSupportUserDataFolder(t *testing.T) {
+	files := fstest.MapFS{
+		"hdimg/42.png": {Data: hdPictureTestPNG(t)},
+	}
+	source, ok := indexHDPictureSourcesInFolder(files, "hdimg")[42]
+	if !ok || source.label != "hdimg/42.png" {
+		t.Fatalf("user-data source = (%q, %v), want hdimg/42.png", source.label, ok)
+	}
+	reader, err := source.open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	if _, err := png.Decode(reader); err != nil {
+		t.Fatalf("user-data sprite did not decode: %v", err)
+	}
+}
+
+func TestHDPictureAvailabilityRequiresSpritePackSetting(t *testing.T) {
+	originalSettings, originalSources, originalImages := gs, hdPictureSources, clImages
+	t.Cleanup(func() {
+		gs, hdPictureSources, clImages = originalSettings, originalSources, originalImages
+	})
+	gs.UseSpritePackFiles = false
+	hdPictureSources = map[uint16]hdPictureSource{42: {label: "data/hdimg/42.png"}}
+	clImages = nil
+	if hdPictureAvailableLocked(42) {
+		t.Fatal("sprite pack image was available while sprite packs were disabled")
+	}
+	gs.UseSpritePackFiles = true
+	if !hdPictureAvailableLocked(42) {
+		t.Fatal("single-frame sprite pack image was unavailable after enabling sprite packs")
+	}
+}
+
+func hdPictureTestPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 100, G: 150, B: 200, A: 255})
+	var data bytes.Buffer
+	if err := png.Encode(&data, img); err != nil {
+		t.Fatal(err)
+	}
+	return data.Bytes()
 }

@@ -150,6 +150,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},
 	{field: "MobileLightConeShadows", category: settingsRendering, name: "mobile_light_cone_shadows"},
+	{field: "UseSpritePackFiles", category: settingsRendering, name: "use_sprite_pack_files"},
 	{field: "ReplacementEffects", category: settingsRendering, name: "replacement_effects"},
 	{field: "ShaderLightStrength", category: settingsRendering, name: "light_strength"},
 	{field: "ShaderGlowStrength", category: settingsRendering, name: "glow_strength"},

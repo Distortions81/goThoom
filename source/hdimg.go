@@ -3,7 +3,6 @@ package main
 import (
 	"archive/zip"
 	"bytes"
-	"embed"
 	"image/png"
 	"io"
 	"io/fs"
@@ -18,41 +17,42 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// HD pictures are embedded by numeric picture ID. Each PNG replaces one
-// ordinary, single-frame picture; the renderer still uses its CL_Images size.
-//
-//go:embed data/hdimg
-var hdPictureFiles embed.FS
-
 var (
-	hdPictureSources           = indexHDPictureSources(hdPictureFiles)
-	hdPictureCache             = make(map[uint16]*ebiten.Image)
-	hdPictureActiveFiles fs.FS = hdPictureFiles
+	hdPictureSources, hdPicturePackLocation = externalHDPictureSources()
+	hdPictureCache                          = make(map[uint16]*ebiten.Image)
 )
 
 type hdPictureSource struct {
+	files    fs.FS
 	label    string
 	filePath string
 	zipEntry *zip.File
 	priority int
 }
 
-func (source hdPictureSource) open(files fs.FS) (io.ReadCloser, error) {
+func (source hdPictureSource) open() (io.ReadCloser, error) {
 	if source.zipEntry != nil {
 		return source.zipEntry.Open()
 	}
-	return files.Open(source.filePath)
+	return source.files.Open(source.filePath)
 }
 
 func indexHDPictureSources(files fs.FS) map[uint16]hdPictureSource {
+	return indexHDPictureSourcesInFolder(files, "data/hdimg")
+}
+
+func indexHDPictureSourcesInFolder(files fs.FS, folder string) map[uint16]hdPictureSource {
 	sources := make(map[uint16]hdPictureSource)
+	if files == nil {
+		return sources
+	}
 	add := func(id uint16, candidate hdPictureSource) {
 		current, exists := sources[id]
 		if !exists || candidate.priority < current.priority || candidate.priority == current.priority && candidate.label < current.label {
 			sources[id] = candidate
 		}
 	}
-	err := fs.WalkDir(files, "data/hdimg", func(filePath string, entry fs.DirEntry, walkErr error) error {
+	err := fs.WalkDir(files, folder, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -61,10 +61,10 @@ func indexHDPictureSources(files fs.FS) map[uint16]hdPictureSource {
 		}
 		if id, ok := hdPictureIDFromFilename(filePath); ok {
 			priority := 1
-			if path.Dir(filePath) == "data/hdimg" {
+			if path.Dir(filePath) == folder {
 				priority = 0
 			}
-			add(id, hdPictureSource{label: filePath, filePath: filePath, priority: priority})
+			add(id, hdPictureSource{files: files, label: filePath, filePath: filePath, priority: priority})
 			return nil
 		}
 		if !strings.EqualFold(path.Ext(filePath), ".zip") {
@@ -85,7 +85,7 @@ func indexHDPictureSources(files fs.FS) map[uint16]hdPictureSource {
 				continue
 			}
 			if id, ok := hdPictureIDFromFilename(zipped.Name); ok {
-				add(id, hdPictureSource{label: filePath + "!" + zipped.Name, filePath: filePath, zipEntry: zipped, priority: 2})
+				add(id, hdPictureSource{files: files, label: filePath + "!" + zipped.Name, filePath: filePath, zipEntry: zipped, priority: 2})
 			}
 		}
 		return nil
@@ -112,6 +112,9 @@ func hdPictureAvailable(id uint16) bool {
 }
 
 func hdPictureAvailableLocked(id uint16) bool {
+	if !gs.UseSpritePackFiles {
+		return false
+	}
 	if _, ok := hdPictureSources[id]; !ok {
 		return false
 	}
@@ -132,7 +135,7 @@ func loadHDPicture(id uint16) *ebiten.Image {
 	imageMu.Unlock()
 
 	source := hdPictureSources[id]
-	reader, err := source.open(hdPictureActiveFiles)
+	reader, err := source.open()
 	if err != nil {
 		log.Printf("HD picture %d (%s): %v", id, source.label, err)
 		cacheMissingHDPicture(id)
@@ -180,19 +183,18 @@ func isHDPictureImage(id uint16, img *ebiten.Image) bool {
 	return hd == img
 }
 
-// reloadHDPictures reads the checked-out artwork, not an installed user data
-// directory. The embedded bundle remains the fallback for packaged clients.
+// reloadHDPictures rescans external sprite packs in the game and user-data
+// directories. The game pack wins when both provide the same sprite ID.
 func reloadHDPictures() (string, int) {
-	files, location := developmentHDPictureFiles()
-	sources := indexHDPictureSources(files)
+	sources, location := externalHDPictureSources()
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
 	for _, img := range hdPictureCache {
 		deallocateImage(img)
 	}
 	hdPictureCache = make(map[uint16]*ebiten.Image)
-	hdPictureActiveFiles = files
 	hdPictureSources = sources
+	hdPicturePackLocation = location
 	imageMu.Unlock()
 	imageCacheLifecycleMu.Unlock()
 	toolbarHandsRendered = false
@@ -201,10 +203,43 @@ func reloadHDPictures() (string, int) {
 	return location, len(sources)
 }
 
-func developmentHDPictureFiles() (fs.FS, string) {
-	// goThoom changes its working directory to the executable directory. In a
-	// go run development session that is a temporary build folder, so locate
-	// the source tree the same way shader hot reload does.
+func externalHDPictureSources() (map[uint16]hdPictureSource, string) {
+	gameFiles, gameLocation := gameHDPictureFiles()
+	sources := indexHDPictureSources(gameFiles)
+	locations := make([]string, 0, 2)
+	if gameFiles != nil {
+		locations = append(locations, gameLocation)
+	}
+
+	userFolder := filepath.Join(dataDirPath, "hdimg")
+	if info, err := os.Stat(userFolder); err == nil && info.IsDir() {
+		for id, source := range indexHDPictureSourcesInFolder(os.DirFS(dataDirPath), "hdimg") {
+			if _, gamePackHasID := sources[id]; !gamePackHasID {
+				sources[id] = source
+			}
+		}
+		locations = append(locations, userFolder)
+	}
+	if len(locations) == 0 {
+		return sources, "data/hdimg or user-data hdimg (not found)"
+	}
+	return sources, strings.Join(locations, "; ")
+}
+
+func gameHDPictureFiles() (fs.FS, string) {
+	// The working directory is the application directory in a normal launch.
+	// In a go run session it is a temporary build directory, so fall back to
+	// the checked-out source tree for development.
+	for _, candidate := range []struct {
+		root, folder string
+	}{
+		{root: ".", folder: "data/hdimg"},
+		{root: "source", folder: "source/data/hdimg"},
+	} {
+		if info, err := os.Stat(candidate.folder); err == nil && info.IsDir() {
+			return os.DirFS(candidate.root), candidate.folder
+		}
+	}
 	if _, sourceFile, _, ok := runtime.Caller(0); ok {
 		sourceDir := filepath.Dir(sourceFile)
 		folder := filepath.Join(sourceDir, "data", "hdimg")
@@ -212,15 +247,7 @@ func developmentHDPictureFiles() (fs.FS, string) {
 			return os.DirFS(sourceDir), folder
 		}
 	}
-	for _, candidate := range []struct{ folder, root string }{
-		{"data/hdimg", "."},
-		{"source/data/hdimg", "source"},
-	} {
-		if info, err := os.Stat(candidate.folder); err == nil && info.IsDir() {
-			return os.DirFS(candidate.root), candidate.folder
-		}
-	}
-	return hdPictureFiles, "embedded data/hdimg"
+	return nil, "data/hdimg (not found)"
 }
 
 func hdPictureDrawScale(id uint16, img *ebiten.Image) (float64, float64) {

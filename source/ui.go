@@ -5279,6 +5279,23 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	}
 	artworkSection.AddItem(pixelPerfectCB)
 
+	spritePackCB, spritePackEvents := eui.NewCheckbox()
+	spritePackCB.Text = "Use sprite pack files"
+	spritePackCB.Size = eui.Point{X: width, Y: 24}
+	spritePackCB.Checked = gs.UseSpritePackFiles
+	spritePackCB.SetTooltip("Replace compatible single-frame sprites from PNGs and ZIPs in game or user-data hdimg folders.")
+	spritePackEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged && gs.UseSpritePackFiles != ev.Checked {
+			gs.UseSpritePackFiles = ev.Checked
+			reloadHDPictures()
+			settingsDirty = true
+			if gameWin != nil {
+				gameWin.Refresh()
+			}
+		}
+	}
+	artworkSection.AddItem(spritePackCB)
+
 	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
 	fadeObscuringCB = fadePicsCB
 	fadePicsCB.Text = "Fade objects obscuring mobiles"
@@ -6230,7 +6247,7 @@ func makeDebugWindow() {
 	reloadHDButton.Text = "Reload HD Sprites"
 	setMaterialButtonIcon(reloadHDButton, "restart_alt")
 	reloadHDButton.Size = eui.Point{X: width, Y: 24}
-	reloadHDButton.SetTooltip("Read PNGs and ZIPs in the checked-out data/hdimg folder again.")
+	reloadHDButton.SetTooltip("Read PNGs and ZIPs in the game or user-data hdimg folder again.")
 	reloadHDEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			reloadHDPictureDebug()

@@ -3181,6 +3181,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if targetH <= 0 && drawH > 0 {
 			targetH = float64(drawH)
 		}
+		if isHDPictureImage(p.PictID, img) {
+			drawHDPictureContactShadow(screen, p.PictID, left, top, targetW, targetH, fadeAlpha)
+		}
 		sx := gs.GameScale
 		sy := gs.GameScale
 		if drawW > 0 {

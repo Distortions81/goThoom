@@ -68,6 +68,12 @@ func TestArtworkUpscaleDefaults(t *testing.T) {
 	}
 }
 
+func TestSpritePackFilesDefaultOff(t *testing.T) {
+	if gsdef.UseSpritePackFiles {
+		t.Fatal("sprite pack files should be opt-in")
+	}
+}
+
 func TestFontSizeDefaults(t *testing.T) {
 	want := map[string]struct {
 		got  float64

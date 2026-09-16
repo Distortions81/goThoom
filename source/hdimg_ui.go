@@ -70,7 +70,7 @@ func makeHDPicturePreviewWindow() {
 	reloadButton.Text = "Reload HD Sprites"
 	setMaterialButtonIcon(reloadButton, "restart_alt")
 	reloadButton.Size = eui.Point{X: 280, Y: settingsControlHeight}
-	reloadButton.SetTooltip("Read PNGs and ZIPs in the checked-out data/hdimg folder again.")
+	reloadButton.SetTooltip("Read PNGs and ZIPs in the game or user-data hdimg folder again.")
 	reloadEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			reloadHDPictureDebug()
@@ -146,7 +146,9 @@ func updateHDPicturePreviewImages() {
 	hdPicturePreviewNew.Dirty = true
 	switch {
 	case len(hdPicturePreviewIDs) == 0:
-		hdPicturePreviewStatus.Text = "No HD sprites found in data/hdimg."
+		hdPicturePreviewStatus.Text = "No sprite pack files found in game or user-data hdimg."
+	case !gs.UseSpritePackFiles:
+		hdPicturePreviewStatus.Text = "Enable Use sprite pack files to preview replacements."
 	case clImages == nil:
 		hdPicturePreviewStatus.Text = "Original appears after CL_Images loads."
 	case hdPicturePreviewNew.Image == nil:

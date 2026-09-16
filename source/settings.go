@@ -381,6 +381,7 @@ var gsdef settings = settings{
 	SpriteUpscale:                  2,
 	SpriteUpscaleFilter:            true,
 	SpriteUpscaleMode:              artworkUpscaleBalanced,
+	UseSpritePackFiles:             false,
 	ReplacementEffects:             false,
 	SpriteGammaCorrection:          true,
 	SpriteGamma:                    1.8,
@@ -639,6 +640,7 @@ type settings struct {
 	SpriteUpscale                  int
 	SpriteUpscaleFilter            bool
 	SpriteUpscaleMode              int
+	UseSpritePackFiles             bool
 	ReplacementEffects             bool
 	SpriteGammaCorrection          bool
 	SpriteGamma                    float64

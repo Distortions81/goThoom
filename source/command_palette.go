@@ -617,6 +617,8 @@ func applySettingRuntimeEffects(entry settingsSchemaEntry) {
 		placeToolbar(gs.ToolbarPlacement, true)
 	case "SpriteUpscaleMode":
 		setArtworkUpscaleMode(gs.SpriteUpscaleMode)
+	case "UseSpritePackFiles":
+		reloadHDPictures()
 	}
 	if strings.HasPrefix(entry.field, "Tiled") || entry.field == "MessagesToConsole" {
 		applyTiledWorkspaceLayout()
