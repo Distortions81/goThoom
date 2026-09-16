@@ -9,7 +9,7 @@ Interface:
 - Demo-character selection stays centered in the active game session.
 - Speech bubbles appear promptly, remain visible when their speaker is not crowded, and stay inset from the game-view edges.
 - Hover-only name tags fade correctly when the cursor leaves the game view.
-- Snapshots can omit speech bubbles, and single-frame image exports use a consistent southeast-facing mobile pose.
+- Snapshots can omit speech bubbles.
 - Window Layout offers a visual workspace editor: swap any two panes or place one beside, above, or below another. Start from familiar arrangements, including Messages left, lists right, then adjust dividers, even out splits, or undo an edit. Custom arrangements are saved, and all starting layouts stay available when Chat and Console are combined.
 
 Diagnostics:
