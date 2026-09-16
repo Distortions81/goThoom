@@ -37,10 +37,10 @@ func (g *hdPictureRenderGame) Update() error {
 
 func (g *hdPictureRenderGame) Draw(_ *ebiten.Image) {
 	defer func() { g.done = true }()
-	for _, id := range []uint16{23, 208, 210, 417, 626, 635, 738, 1068, 1279, 2252, 4495, 5764} {
+	for _, id := range []uint16{23, 208, 210, 307, 317, 417, 626, 635, 738, 1068, 1279, 2252, 4495, 5764} {
 		img := loadImageFrame(id, 0)
 		wantSize := 168
-		if id == 5764 {
+		if id == 307 || id == 317 || id == 5764 {
 			wantSize = 800
 		}
 		if img == nil || !isHDPictureImage(id, img) || img.Bounds().Dx() != wantSize || img.Bounds().Dy() != wantSize {

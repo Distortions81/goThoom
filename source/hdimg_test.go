@@ -25,6 +25,8 @@ func TestHDPictureBundleAndSourceScale(t *testing.T) {
 		{1068, "data/hdimg/held/1068.png", 168, false},
 		{1279, "data/hdimg/held/1279.png", 168, false},
 		{2252, "data/hdimg/held/2252.png", 168, false},
+		{307, "data/hdimg/ground/307.png", 800, true},
+		{317, "data/hdimg/ground/317.png", 800, true},
 		{4495, "data/hdimg/held/4495.png", 168, false},
 		{5764, "data/hdimg/ground/5764.png", 800, true},
 	} {
