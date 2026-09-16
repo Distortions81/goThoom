@@ -37,7 +37,7 @@ func (g *hdPictureRenderGame) Update() error {
 
 func (g *hdPictureRenderGame) Draw(_ *ebiten.Image) {
 	defer func() { g.done = true }()
-	for _, id := range []uint16{23, 635, 1068, 1279} {
+	for _, id := range []uint16{23, 208, 210, 417, 626, 635, 738, 1068, 1279, 2252, 4495} {
 		img := loadImageFrame(id, 0)
 		if img == nil || !isHDPictureImage(id, img) || img.Bounds().Dx() != 168 || img.Bounds().Dy() != 168 {
 			g.err = fmt.Errorf("picture %d did not load its 168x168 HD replacement", id)

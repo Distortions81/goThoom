@@ -14,9 +14,16 @@ func TestHDPictureBundleAndSourceScale(t *testing.T) {
 		label string
 	}{
 		{23, "data/hdimg/held/23.png"},
+		{208, "data/hdimg/held/208.png"},
+		{210, "data/hdimg/held/210.png"},
+		{417, "data/hdimg/held/417.png"},
+		{626, "data/hdimg/held/626.png"},
 		{635, "data/hdimg/held/635.png"},
+		{738, "data/hdimg/held/738.png"},
 		{1068, "data/hdimg/held/1068.png"},
 		{1279, "data/hdimg/held/1279.png"},
+		{2252, "data/hdimg/held/2252.png"},
+		{4495, "data/hdimg/held/4495.png"},
 	} {
 		source, ok := hdPictureSources[item.id]
 		if !ok || source.label != item.label {
