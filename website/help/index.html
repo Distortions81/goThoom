@@ -743,6 +743,7 @@
                   <tr><td><code>Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
                   <tr><td><code>scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
                   <tr><td><code>shortcuts</code></td><td>Global and character-specific text shortcuts.</td></tr>
+                  <tr><td><code>Tunes</code></td><td>UTF-8 bard tune files and their saved instrument choices.</td></tr>
                   <tr><td><code>Notes</code></td><td>Personal note text, subjects, tags, and player assignments. Trashed notes remain in <code>Notes/Trash</code>.</td></tr>
                   <tr><td><code>Movies</code></td><td>Recorded <code>.clMov</code> sessions and optional ZIPs.</td></tr>
                   <tr><td><code>Screenshots</code></td><td>Snapshots captured from the toolbar.</td></tr>
@@ -754,10 +755,14 @@
               </table>
             </div>
 
+            <h3 id="bard-tunes">Bard tunes</h3>
+            <p>Open <strong>Tools → Bard</strong> to create, import, and edit tunes shared by your characters. The library reads UTF-8 <code>.tune</code> and <code>.txt</code> files from <code>Tunes</code> in the user data folder. Each tune remembers its instrument. The titlebar search finds tunes by name.</p>
+            <p><strong>Preview</strong> plays locally; the editor's Preview uses your unsaved draft. <strong>Play in Game</strong> equips the chosen inventory instrument and performs the saved tune in the selected session, splitting long songs automatically. Local preview and in-game performance have separate stop controls. Closing Bard or changing session tabs also stops its performance.</p>
+
             <h3 id="personal-notes">Personal notes</h3>
             <p>Open <strong>Tools → Personal Notes</strong> to keep local notes with subjects and comma-separated tags. Choose <strong>Global note</strong> for every character, or assign a note to one player. Filter the library by player and scope; the titlebar search matches subjects and tags.</p>
             <p><strong>Details</strong> changes the subject, tags, or owner. <strong>Open</strong> edits the body with search, undo/redo, and <strong>Save</strong>. Notes preserve your spacing. <strong>Trash</strong> moves the whole note into <code>Notes/Trash/</code>; to restore it, move its <code>note-…</code> folder back into <code>Notes/</code> and choose <strong>Refresh</strong>.</p>
-            <p>Notes, Go scripts, TTS substitutions, and theme/style files use Unicode (UTF-8). Only legacy macros support MacRoman.</p>
+            <p>Tunes, notes, Go scripts, TTS substitutions, and theme/style files use Unicode (UTF-8). Only legacy macros support MacRoman.</p>
 
             <h3 id="files-recipe">Move your files or prepare a backup</h3>
             <ol>

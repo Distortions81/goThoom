@@ -192,6 +192,14 @@ Go scripts, notes, TTS substitutions, and theme/style files use Unicode (UTF-8).
 The editors preserve an existing UTF-8 BOM and newline style. Only legacy
 macros accept MacRoman files.
 
+## Bard tunes
+
+Open **Tools → Bard** to create, import, and edit UTF-8 tune files in `Tunes/`.
+Each tune remembers its instrument. **Preview** plays locally; **Play in Game**
+equips a carried instrument and performs the saved tune, splitting long songs
+automatically. The editor also previews unsaved drafts and checks notation.
+See the [bard guide](docs/Bard.md) for notation and performance controls.
+
 ## Macros and scripts
 
 Settings are shared by every character and session tab. The existing

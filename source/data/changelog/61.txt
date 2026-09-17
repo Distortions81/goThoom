@@ -13,6 +13,11 @@ Personal notes:
 - Tools → Personal Notes stores global or player-specific notes with subjects, tags, and a plain-text body.
 - Filter notes by player and scope, search subjects and tags, and edit their details or text. Trashed notes remain recoverable in the user data folder.
 
+Bard tunes:
+- Tools → Bard manages a shared Tunes folder with new/import actions, tune search, and a saved instrument choice for each song.
+- Edit tunes with syntax colors and notation checks, preview drafts locally, or perform saved tunes using an instrument from the selected character's inventory. Long songs split into game commands automatically.
+- Local preview and in-game performance have separate stop controls.
+
 Interface:
 - Spelling corrections open only when right-clicking an underlined word and dismiss when the pointer moves away.
 - The main session tab's X disconnects and returns to login while keeping the tab open. The last remaining tab behaves the same way, including during login or reconnect attempts.

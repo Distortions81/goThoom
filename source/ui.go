@@ -456,7 +456,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	toolsBtn, toolsEvents := eui.NewButton()
 	toolsBtn.Text = "Tools"
 	setMaterialButtonIcon(toolsBtn, "tune")
-	toolsBtn.SetTooltip("Open live stats, command search, help, snapshots, streaming, and personal notes.")
+	toolsBtn.SetTooltip("Open live stats, command search, help, snapshots, streaming, personal notes, and bard tunes.")
 	toolsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	toolsBtn.FontSize = toolFontSize
 	toolsEvents.Handle = func(ev eui.UIEvent) {
@@ -464,8 +464,8 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			return
 		}
 		r := ev.Item.DrawRect
-		eui.ShowContextMenuWithIcons([]string{"Stats", "Palette", "Help", "Snap", "Stream", "Personal Notes"}, materialMenuIcons(
-			"query_stats", "palette", "help", "photo_camera", "live_tv", "edit",
+		eui.ShowContextMenuWithIcons([]string{"Stats", "Palette", "Help", "Snap", "Stream", "Personal Notes", "Bard"}, materialMenuIcons(
+			"query_stats", "palette", "help", "photo_camera", "live_tv", "edit", "music_note",
 		), r.X0, r.Y1, func(i int) {
 			switch i {
 			case 0:
@@ -485,6 +485,8 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 				showStreamWindow()
 			case 5:
 				showPersonalNotes()
+			case 6:
+				showBardWindow()
 			}
 		})
 	}

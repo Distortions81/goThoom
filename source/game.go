@@ -1110,6 +1110,7 @@ func (g *Game) Update() error {
 	}
 	drainScriptDispatcher()
 	processMusicRequests()
+	updateBardWindow()
 	bindMessageInputSession(selectedAppSession())
 	defer func() { storeMessageInputSession(selectedAppSession()) }()
 	if updateSystemTheme(now) {

@@ -298,6 +298,7 @@ func prefillPaletteCommand(text string) {
 
 func buildCommandPaletteActions() []commandPaletteAction {
 	actions := []commandPaletteAction{
+		{label: "Window: Bard", detail: "Browse, edit, preview, and perform tunes", search: "music instruments songs", run: showBardWindow},
 		{label: "Window: Personal Notes", detail: "Open global and player notes", search: "subjects tags", run: showPersonalNotes},
 		{label: "Command: /setting", detail: "Prefill settings command", search: "search get set reset", run: func() { prefillPaletteCommand("/setting ") }},
 		{label: "Window: Settings", detail: "Open settings", run: func() { openPaletteWindow(settingsWin) }},
