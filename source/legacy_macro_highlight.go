@@ -9,7 +9,7 @@ import (
 // Tokenize only the draft: highlighting never reads includes or executes macros.
 // The parser's byte-offset mapping preserves block comments inside tokens and
 // quotes, including the legacy rule that block comments take precedence there.
-func highlightLegacyMacro(value string, background eui.Color) []eui.TextColorSpan {
+func highlightLegacyMacro(value string, colors eui.SyntaxColors) []eui.TextColorSpan {
 	kinds := make([]sourceHighlightKind, len(value))
 	var comments []legacyMacroComment
 	lines, diagnostics := legacyMacroSourceLinesWithComments(legacyMacroSource{Text: value}, &comments)
@@ -67,7 +67,7 @@ func highlightLegacyMacro(value string, background eui.Color) []eui.TextColorSpa
 			paint(tail+comment, len(line.Text), sourceHighlightComment)
 		}
 	}
-	palette := sourceHighlightPalette(background)
+	palette := sourceHighlightPalette(colors)
 	var spans []eui.TextColorSpan
 	position := 0
 	for offset := range value {

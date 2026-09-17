@@ -29,6 +29,7 @@ var paletteAliases = map[string]string{
 
 // Theme bundles all style information for windows and widgets.
 type Theme struct {
+	Syntax   SyntaxColors
 	Window   windowData
 	Button   itemData
 	Text     itemData
@@ -132,13 +133,19 @@ func LoadTheme(name string) error {
 	if err := json.Unmarshal(data, &th); err != nil {
 		return err
 	}
-	// Extract additional color fields not present in Theme struct
+	// Resolve omitted syntax colors against the loaded input background, and
+	// extract the additional slider fill field.
 	var extra struct {
+		Syntax SyntaxColors
 		Slider struct {
 			SliderFilled string `json:"SliderFilled"`
 		} `json:"Slider"`
 	}
-	_ = json.Unmarshal(data, &extra)
+	extra.Syntax = DefaultSyntaxColors(th.Input.Color)
+	if err := json.Unmarshal(data, &extra); err != nil {
+		return err
+	}
+	th.Syntax = extra.Syntax
 
 	// Capture which fields referenced the named "accent" color so we can
 	// update them when the user tweaks the accent via the color wheel.

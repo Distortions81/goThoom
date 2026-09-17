@@ -659,6 +659,8 @@ type settings struct {
 	Theme                          string
 	Style                          string
 	MessagesToConsole              bool
+	EditorUseCustomColors          bool
+	EditorSyntaxColors             *eui.SyntaxColors
 	MessageTextColors              map[string]eui.Color
 	MessageTextColorsLight         map[string]eui.Color
 	OverrideThemeTextColor         bool

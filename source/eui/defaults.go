@@ -250,6 +250,7 @@ var (
 	baseProgress   = *defaultProgress
 	baseTab        = *defaultTab
 	baseTheme      = &Theme{
+		Syntax:   DefaultSyntaxColors(baseInput.Color),
 		Window:   baseWindow,
 		Button:   baseButton,
 		Text:     baseText,

@@ -18,6 +18,14 @@
     "disabledtoggletext": "#b2b7bcff"
   },
   "RecommendedStyle": "Flat",
+  "Syntax": {
+    "Comments": "#91c891ff",
+    "Strings": "#ebbe82ff",
+    "Keywords": "#78beffff",
+    "Numbers": "#cda5f0ff",
+    "Variables": "#78d7dcff",
+    "Bindings": "#eba0c8ff"
+  },
   "Window": {
     "Padding": 8,
     "BGColor": "background",

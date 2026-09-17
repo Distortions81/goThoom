@@ -29,7 +29,7 @@ type sourceEditor struct {
 	discard                bool
 	message                string
 	scale                  float32
-	highlightBackground    eui.Color
+	highlightColors        eui.SyntaxColors
 }
 
 var sourceEditorFont *text.GoTextFaceSource
@@ -43,7 +43,7 @@ type sourceEditorOptions struct {
 	check                                             func(string) error
 	reload                                            func() (string, error)
 	afterSave                                         func()
-	highlight                                         func(string, eui.Color) []eui.TextColorSpan
+	highlight                                         func(string, eui.SyntaxColors) []eui.TextColorSpan
 	format                                            func(string) (string, error)
 	formatPosition                                    func(before, after string, position int, trailing bool) int
 	lint                                              func(string) []string
@@ -76,9 +76,9 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	input.Text, input.AcceptTab = doc.savedText, true
 	input.FontSize = 14
 	if options.highlight != nil {
-		ed.highlightBackground = input.Color
+		ed.highlightColors = sourceEditorColors()
 		input.SetTextHighlighter(func(value string) []eui.TextColorSpan {
-			return options.highlight(value, input.Color)
+			return options.highlight(value, sourceEditorColors())
 		})
 	}
 	win.Searchable = true
@@ -117,6 +117,7 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	ed.saveButton = addButton("Save", func() { ed.save(false) })
 	ed.saveButton.SetTooltip(inputkeys.ShortcutLabel() + "+S saves this file.")
 	addButton("Save & Reload", func() { ed.save(true) }).SetTooltip(options.reloadTooltip)
+	addButton("Settings", openSourceEditorSettings).SetTooltip("Choose theme or custom syntax colors for all source editors.")
 	addButton("Close", win.Close)
 	win.AddItem(ed.root)
 	win.OnResize = ed.layout
@@ -363,12 +364,10 @@ func (ed *sourceEditor) beforeClose() bool {
 }
 
 func updateSourceEditors() {
+	refreshSourceEditorSettings()
 	for _, ed := range sourceEditors {
 		ed.refreshHistoryButtons()
-		if ed.options.highlight != nil && ed.highlightBackground != ed.input.Color {
-			ed.highlightBackground = ed.input.Color
-			ed.input.RefreshTextHighlighting()
-		}
+		ed.refreshHighlighting()
 		if ed.scale != eui.UIScale() {
 			ed.layout()
 		}
@@ -378,6 +377,13 @@ func updateSourceEditors() {
 		if ed.win.IsOpen() && ed.input.Focused && inputkeys.Current().Shortcut() && eui.ShiftPressed && inpututil.IsKeyJustPressed(ebiten.KeyI) && ed.options.format != nil {
 			ed.format()
 		}
+	}
+}
+
+func (ed *sourceEditor) refreshHighlighting() {
+	if ed.options.highlight != nil && ed.highlightColors != sourceEditorColors() {
+		ed.highlightColors = sourceEditorColors()
+		ed.input.RefreshTextHighlighting()
 	}
 }
 

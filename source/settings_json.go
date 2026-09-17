@@ -55,6 +55,8 @@ type settingsSchemaEntry struct {
 // readable v4 JSON names. Derived compatibility fields and runtime-only fields
 // are intentionally not included.
 var settingsSchema = []settingsSchemaEntry{
+	{field: "EditorUseCustomColors", category: settingsInterface, name: "editor_use_custom_colors"},
+	{field: "EditorSyntaxColors", category: settingsInterface, name: "editor_syntax_colors"},
 	{field: "SetupWizardVersion", category: settingsGeneral, name: "setup_wizard_version"},
 	{field: "LastCharacter", category: settingsGeneral, name: "last_character"},
 	{field: "ServerAddress", category: settingsGeneral, name: "server_address"},

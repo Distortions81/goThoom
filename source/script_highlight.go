@@ -11,11 +11,11 @@ import (
 
 // Scan the draft without loading imports or executing any script code. Scanner
 // recovery keeps highlighting available while a statement or literal is unfinished.
-func highlightGoScript(value string, background eui.Color) []eui.TextColorSpan {
+func highlightGoScript(value string, colors eui.SyntaxColors) []eui.TextColorSpan {
 	file := token.NewFileSet().AddFile("", -1, len(value))
 	var scan scanner.Scanner
 	scan.Init(file, []byte(value), nil, scanner.ScanComments)
-	palette := sourceHighlightPalette(background)
+	palette := sourceHighlightPalette(colors)
 	var spans []eui.TextColorSpan
 	byteOffset, runeOffset := 0, 0
 	for {

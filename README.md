@@ -175,6 +175,11 @@ Settings are shared by every character and session tab. The existing
 `enabled.json` files remain the source of truth for explicit per-character
 script and macro selections.
 
+Both source editors have a **Settings** button for syntax colors. Leave
+**Use custom syntax colors** unchecked to follow the color theme, or enable it
+to choose colors shared by all macro and Go script editors. Custom choices are
+saved and retained when you switch back to theme colors.
+
 ### Legacy macros
 
 Open **Actions → Legacy Macros** to browse the macro library.

@@ -11,7 +11,8 @@ import (
 
 func TestGoScriptHighlightSyntaxAndOffsets(t *testing.T) {
 	for _, background := range []eui.Color{eui.ColorBlack, eui.ColorWhite} {
-		palette := sourceHighlightPalette(background)
+		colors := eui.DefaultSyntaxColors(background)
+		palette := sourceHighlightPalette(colors)
 		for _, tt := range []struct {
 			name, source, fragment string
 			kind                   sourceHighlightKind
@@ -42,7 +43,7 @@ func TestGoScriptHighlightSyntaxAndOffsets(t *testing.T) {
 			{"BOM", "\ufeffpackage main", "package", sourceHighlightKeyword},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
-				spans := highlightGoScript(tt.source, background)
+				spans := highlightGoScript(tt.source, colors)
 				checkGoHighlightSpans(t, tt.source, spans)
 				colors := make([]eui.Color, utf8.RuneCountInString(tt.source))
 				for _, span := range spans {
@@ -85,7 +86,7 @@ func TestGoScriptHighlightBundledCorpus(t *testing.T) {
 			}
 			for _, source := range []string{string(data), strings.ReplaceAll(string(data), "\n", "\r\n")} {
 				for _, end := range []int{0, 1, len(source) / 2, len(source)} {
-					checkGoHighlightSpans(t, source[:end], highlightGoScript(source[:end], eui.ColorBlack))
+					checkGoHighlightSpans(t, source[:end], highlightGoScript(source[:end], eui.DefaultSyntaxColors(eui.ColorBlack)))
 				}
 			}
 		})
@@ -98,12 +99,16 @@ func TestGoScriptEditorHighlightsAndRefreshesPalette(t *testing.T) {
 		t.Fatal("script editor has no highlighter")
 	}
 	before := ed.input.Text
-	old := ed.options.highlight(before, eui.ColorBlack)
-	ed.input.Color = eui.ColorWhite
+	oldSettings := gs
+	t.Cleanup(func() { gs = oldSettings })
+	oldColors := eui.DefaultSyntaxColors(eui.ColorBlack)
+	old := ed.options.highlight(before, oldColors)
+	colors := eui.DefaultSyntaxColors(eui.ColorWhite)
+	gs.EditorUseCustomColors, gs.EditorSyntaxColors = true, &colors
 	ed.input.Focused = false
 	updateSourceEditors()
-	next := ed.options.highlight(before, ed.input.Color)
-	if len(old) == 0 || len(next) == 0 || ed.highlightBackground != ed.input.Color || old[0].Color == next[0].Color || ed.input.Text != before || ed.dirty() {
+	next := ed.options.highlight(before, sourceEditorColors())
+	if len(old) == 0 || len(next) == 0 || ed.highlightColors != colors || old[0].Color == next[0].Color || ed.input.Text != before || ed.dirty() {
 		t.Fatal("palette did not refresh independently of the draft")
 	}
 }

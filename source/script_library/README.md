@@ -39,6 +39,12 @@ indentation, and scrollbars. Search with the titlebar magnifier or Ctrl+F
 (Command+F on Mac). Enter/Shift+Enter moves between matches in search;
 F3/Shift+F3 also works while editing. Matches ignore case and wrap through the file.
 
+**Settings** controls syntax colors for all macro and Go script editors.
+Leave **Use custom syntax colors** unchecked to follow the active color theme.
+Enable it to choose your own colors; **Copy Theme Colors** replaces the custom
+palette with the current theme's colors. Custom colors are saved and retained
+when you switch back to theme colors.
+
 **Format** (Ctrl+Shift+I or Command+Shift+I) applies standard Go formatting,
 including indentation, spacing, and import order. Scripts also format when opened
 and saved. Opening changes only the draft until you save; Undo restores the

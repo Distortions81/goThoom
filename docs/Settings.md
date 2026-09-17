@@ -37,6 +37,14 @@ window size stable. Main Settings tabs wrap into balanced rows, while Performanc
 subtabs use a single row.
 Detailed editors such as File Paths still open separately.
 
+The macro and Go source editors each have a **Settings** button for syntax
+colors. **Use custom syntax colors** switches between the active theme and a
+shared custom palette. The choice is saved as
+`interface.editor_use_custom_colors` (default `false`), with custom RGBA colors
+in `interface.editor_syntax_colors`. Turning the checkbox off retains the custom
+palette. **Copy Theme Colors** replaces it with the active theme's syntax colors.
+
+
 **UI Scale** uses 0.1 steps, with 0.75 retained as the minimum compact setting.
 Automatic Retina and HiDPI display scaling is applied on top of that preference.
 

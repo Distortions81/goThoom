@@ -57,6 +57,27 @@ Each widget block (`Window`, `Button`, `Text`, `Checkbox`, `Radio`, `Input`, `Sl
 
 The `Window` block also supports `TitleColor`, `TitleBGColor`, `BorderColor`, `SizeTabColor`, `DragbarColor`, `HoverTitleColor`, `HoverColor`, `ActiveColor` and `TitleTextColor`.
 
+The `Syntax` block supplies colors for source editors:
+
+```json
+"Syntax": {
+  "Comments": "#91c891ff",
+  "Strings": "#ebbe82ff",
+  "Keywords": "#78beffff",
+  "Numbers": "#cda5f0ff",
+  "Variables": "#78d7dcff",
+  "Bindings": "#eba0c8ff"
+}
+```
+
+These fields accept the same color formats and named references as widget colors.
+`Strings` includes Go rune literals; `Variables` and `Bindings` color legacy macro
+variables and keybindings. Omitted fields use light or dark defaults based on the
+input background. Syntax colors update in open editors when a palette changes
+or reloads. In either editor, **Settings → Use custom syntax colors** overrides
+the theme with a shared, saved editor palette. Uncheck it to follow the theme
+again; custom choices are retained.
+
 `RecommendedStyle` hints at a style theme that pairs well with the palette.
 
 ## Styles

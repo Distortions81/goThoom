@@ -10,7 +10,8 @@ import (
 
 func TestMacroHighlightSyntaxAndOffsets(t *testing.T) {
 	for _, background := range []eui.Color{eui.NewColor(20, 22, 24, 255), eui.NewColor(245, 245, 245, 255)} {
-		palette := sourceHighlightPalette(background)
+		colors := eui.DefaultSyntaxColors(background)
+		palette := sourceHighlightPalette(colors)
 		for _, tt := range []struct {
 			name, source, fragment string
 			kind                   sourceHighlightKind
@@ -36,7 +37,7 @@ func TestMacroHighlightSyntaxAndOffsets(t *testing.T) {
 			{"unknown identifier", "call MyFunction", "MyFunction", sourceHighlightPlain},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
-				spans := highlightLegacyMacro(tt.source, background)
+				spans := highlightLegacyMacro(tt.source, colors)
 				colors := make([]eui.Color, utf8.RuneCountInString(tt.source))
 				end := 0
 				for _, span := range spans {
@@ -69,7 +70,7 @@ func TestMacroHighlightBundledCorpus(t *testing.T) {
 		// Also exercise drafts cut off midway through real-world source.
 		for _, source := range []string{value, value[:len(value)/2]} {
 			end := 0
-			for _, span := range highlightLegacyMacro(source, eui.ColorBlack) {
+			for _, span := range highlightLegacyMacro(source, eui.DefaultSyntaxColors(eui.ColorBlack)) {
 				if span.Start < end || span.End <= span.Start || span.End > utf8.RuneCountInString(source) {
 					t.Fatalf("%s: invalid span %+v", entry.Filename, span)
 				}
@@ -85,12 +86,16 @@ func TestMacroEditorHighlightsAndRefreshesPalette(t *testing.T) {
 		t.Fatal("macro editor has no highlighter")
 	}
 	before := ed.input.Text
-	old := ed.options.highlight("pause 5", eui.ColorBlack)
-	ed.input.Color = eui.ColorWhite
+	oldSettings := gs
+	t.Cleanup(func() { gs = oldSettings })
+	oldColors := eui.DefaultSyntaxColors(eui.ColorBlack)
+	old := ed.options.highlight("pause 5", oldColors)
+	colors := eui.DefaultSyntaxColors(eui.ColorWhite)
+	gs.EditorUseCustomColors, gs.EditorSyntaxColors = true, &colors
 	ed.input.Focused = false
 	updateSourceEditors()
-	next := ed.options.highlight("pause 5", ed.input.Color)
-	if ed.highlightBackground != ed.input.Color || old[0].Color == next[0].Color || ed.input.Text != before || ed.dirty() {
+	next := ed.options.highlight("pause 5", sourceEditorColors())
+	if ed.highlightColors != colors || old[0].Color == next[0].Color || ed.input.Text != before || ed.dirty() {
 		t.Fatal("palette did not refresh independently of the draft")
 	}
 }
