@@ -298,6 +298,7 @@ func prefillPaletteCommand(text string) {
 
 func buildCommandPaletteActions() []commandPaletteAction {
 	actions := []commandPaletteAction{
+		{label: "Window: Personal Notes", detail: "Open global and player notes", search: "subjects tags", run: showPersonalNotes},
 		{label: "Command: /setting", detail: "Prefill settings command", search: "search get set reset", run: func() { prefillPaletteCommand("/setting ") }},
 		{label: "Window: Settings", detail: "Open settings", run: func() { openPaletteWindow(settingsWin) }},
 		{label: "Settings: Graphics & Performance", detail: "Open artwork, effects, rendering, caching, and power settings", run: func() { selectSettingsTab("Performance"); openPaletteWindow(settingsWin) }},

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"gothoom/internal/inputkeys"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
@@ -232,11 +234,12 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		op.Filter = ebiten.FilterNearest
 		op.GeoM.Translate(float64(origin.X), float64(y))
 		op.ColorScale.ScaleWithColor(caption)
-		if len(highlights) == 0 {
+		if len(highlights) == 0 && len(item.textSwatches()) == 0 {
 			text.Draw(target, line.display, layout.face, op)
 		} else {
 			item.drawHighlightedEditLine(target, line, layout.face, point{X: origin.X, Y: y}, highlights, caption)
 		}
+		item.drawTextSwatches(target, line, layout, origin, y)
 		a, b := max(start, line.start), min(end, line.start+line.length)
 		if start != end && (a < b || start <= line.start+line.length && end > line.start+line.length) {
 			x0 := line.advance(a-line.start, layout.face)
@@ -262,12 +265,36 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 	}
 }
 
-func scrollEditable(items []*itemData, mpos, delta point) bool {
+func (item *itemData) editZoomWheel(delta point, mods inputkeys.Modifiers) bool {
+	state := item.editor()
+	if item.OnTextZoom == nil || !mods.Shortcut() {
+		state.zoomWheel = 0
+		return false
+	}
+	if delta.Y == 0 {
+		return false
+	}
+	if state.zoomWheel*delta.Y < 0 {
+		state.zoomWheel = 0
+	}
+	state.zoomWheel += delta.Y
+	steps := int(state.zoomWheel)
+	if steps != 0 {
+		state.zoomWheel -= float32(steps)
+		item.OnTextZoom(steps)
+	}
+	return true
+}
+
+func scrollEditable(items []*itemData, mpos, delta point, mods inputkeys.Modifiers) bool {
 	for _, item := range items {
 		if item.isInvisible() || !item.DrawRect.containsPoint(mpos) {
 			continue
 		}
 		if itemHandlesTextEditing(item) {
+			if !keyboardInputCaptured && item.editZoomWheel(delta, mods) {
+				return true
+			}
 			state := item.editor()
 			viewport, _ := item.editGeometry()
 			if item.Multiline && !ShiftPressed {
@@ -282,10 +309,10 @@ func scrollEditable(items []*itemData, mpos, delta point) bool {
 			return true
 		}
 		if len(item.Tabs) > 0 {
-			if item.ActiveTab >= 0 && item.ActiveTab < len(item.Tabs) && scrollEditable(item.Tabs[item.ActiveTab].Contents, mpos, delta) {
+			if item.ActiveTab >= 0 && item.ActiveTab < len(item.Tabs) && scrollEditable(item.Tabs[item.ActiveTab].Contents, mpos, delta, mods) {
 				return true
 			}
-		} else if scrollEditable(item.Contents, mpos, delta) {
+		} else if scrollEditable(item.Contents, mpos, delta, mods) {
 			return true
 		}
 	}

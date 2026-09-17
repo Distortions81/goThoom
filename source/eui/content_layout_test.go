@@ -218,3 +218,32 @@ func TestNestedFlowPositionIsAppliedOnce(t *testing.T) {
 		t.Fatalf("nested position = %v, want (%g,%g)", button.DrawRect, wantX, wantY)
 	}
 }
+
+func TestNestedFlowResizePropagatesBeforeFollowingSibling(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := UIScale()
+	t.Cleanup(func() { SetUIScale(oldScale) })
+	for _, scale := range []float32{1, 1.25, 2} {
+		SetUIScale(scale)
+		inner := NewColumn()
+		section := NewColumn(NewLabel("Text Sizes"), NewRow(inner))
+		following := NewColumn(NewLabel("Input Assistance"))
+		root := NewColumn(section, following)
+		// Populate the nested column after its ancestors have been measured.
+		for range 4 {
+			inner.AddItem(&ItemData{ItemType: ITEM_TEXT, Size: Point{X: 200, Y: 48}})
+		}
+		root.resizeFlow(Point{X: 700 * scale, Y: 700 * scale})
+		want := section.GetSize().Y + following.GetSize().Y
+		if root.GetSize().Y < want {
+			t.Fatalf("nested flow clipped following sibling at %gx: height %g, need %g", scale, root.GetSize().Y, want)
+		}
+		before := root.GetSize()
+		root.resizeFlow(Point{X: 700 * scale, Y: 700 * scale})
+		if root.GetSize() != before {
+			t.Fatalf("layout needed a second pass at %gx: %v -> %v", scale, before, root.GetSize())
+		}
+	}
+}

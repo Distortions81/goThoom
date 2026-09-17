@@ -26,9 +26,7 @@ func openLegacyMacroEditor(entry legacyMacroLibraryEntry) *sourceEditor {
 			}
 			return warnings
 		},
-		reloadTooltip:  "Save the shared macro file and reload the selected session's enabled macros.",
-		checkedMessage: "No macro syntax errors found.",
-		savedMessage:   "Saved. Use Save & Reload to apply it to this session's enabled macros.",
+		reloadTooltip: "Save the shared macro file and reload the selected session's enabled macros.",
 		check: func(value string) error {
 			program := doc.check(value)
 			if len(program.Diagnostics) == 0 {

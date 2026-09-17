@@ -372,6 +372,9 @@ func Update() error {
 
 	if hoveredItem != nil && !hoveredItem.Disabled && hoveredItem.editScrollbarAt(mpos) == PART_NONE && (itemAcceptsTextEditing(hoveredItem) || hoveredItem.SelectableText) && c == ebiten.CursorShapeDefault {
 		c = ebiten.CursorShapeText
+		if _, ok := hoveredItem.textSwatchAt(mpos); ok && !shiftPressed {
+			c = ebiten.CursorShapePointer
+		}
 	}
 	if cursorShape != c {
 		ebiten.SetCursorShape(c)
@@ -495,7 +498,7 @@ func Update() error {
 				if scrollDropdown(win.Contents, mpos, wheelDelta) {
 					break
 				}
-				if scrollEditable(win.Contents, mpos, wheelDelta) {
+				if scrollEditable(win.Contents, mpos, wheelDelta, mods) {
 					break
 				}
 				if scrollFlow(win.Contents, mpos, wheelDelta) {
@@ -692,6 +695,10 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 		activeItem = item
 		item.Clicked = updateNow
 		if itemHandlesTextEditing(item) {
+			if span, ok := item.textSwatchAt(mpos); ok && !ShiftPressed {
+				item.textSwatchClick(span)
+				return true
+			}
 			if part := item.editScrollbarAt(mpos); part != PART_NONE {
 				item.pressEditScrollbar(mpos, part)
 				item.Focused, focusedItem = true, item

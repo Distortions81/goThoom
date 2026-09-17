@@ -1348,6 +1348,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		text.Draw(textTarget, item.Text, face, top)
 
 	} else if item.ItemType == ITEM_BUTTON {
+		surfaceOffset, surfaceSize := item.buttonSurfaceGeometry(offset, maxSize)
 
 		itemColor := style.Color
 		if renderNow.Sub(item.Clicked) < clickFlash {
@@ -1373,8 +1374,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 
 		if filled {
 			drawRoundRect(subImg, &roundRect{
-				Size:     maxSize,
-				Position: offset,
+				Size:     surfaceSize,
+				Position: surfaceOffset,
 				Fillet:   item.Fillet,
 				Filled:   true,
 				Color:    itemColor,
@@ -2023,13 +2024,14 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 	}
 
 	if itemDrawsOutline(item, style) {
+		outlineOffset, outlineSize := item.buttonSurfaceGeometry(offset, maxSize)
 		outlineColor := item.OutlineColor
 		if outlineColor == (Color{}) {
 			outlineColor = style.OutlineColor
 		}
 		drawRoundRect(subImg, &roundRect{
-			Size:     maxSize,
-			Position: offset,
+			Size:     outlineSize,
+			Position: outlineOffset,
 			Fillet:   item.Fillet,
 			Filled:   false,
 			Color:    outlineColor,
@@ -2037,6 +2039,14 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		})
 	}
 
+	if item.ItemType == ITEM_BUTTON && item.splitLeading {
+		separator := style.OutlineColor
+		if style.Border == 0 {
+			separator = style.TextColor
+			separator.A = 100
+		}
+		strokeLine(subImg, offset.X+uiScale/2, offset.Y+2*uiScale, offset.X+uiScale/2, offset.Y+maxSize.Y-2*uiScale, max(1, uiScale), separator, false)
+	}
 	if DebugMode {
 		strokeRect(subImg,
 			item.DrawRect.X0,

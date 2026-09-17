@@ -167,6 +167,26 @@ breaking ties. A shaped glyph or ligature takes the color of its starting rune.
 Call `RefreshTextHighlighting()` when a palette or other callback input changes.
 Call `SetTextHighlighter(nil)` to restore plain text.
 
+`SetTextColorSwatches(provider, onClick)` displays source ranges as clickable
+color previews. The provider returns `TextColorSpan` values in rune offsets;
+the callback receives the clicked span. Source text and copying remain unchanged.
+A selection or caret inside the range reveals the source for direct editing.
+Password and disabled controls do not show interactive previews.
+
+`OnTextZoom` receives signed font-size steps for shortcut +/- and modified wheel
+input over an editable control. The application chooses the size bounds and
+persistence. Controls without this callback retain normal scrolling.
+
+`NewSplitButton(first, second)` joins two ordinary buttons into one row with a
+shared visual edge. Each segment retains its handler, tooltip, and disabled state.
+The pair stays together when the parent lays out or wraps its controls. For example:
+
+```go
+smaller := eui.NewActionButton("Font -", decreaseSize)
+larger := eui.NewActionButton("+", increaseSize)
+row.AddItem(eui.NewSplitButton(smaller, larger))
+```
+
 ## Fonts and themes
 
 `Init` uses embedded Go regular/bold fonts and preserves fonts supplied earlier

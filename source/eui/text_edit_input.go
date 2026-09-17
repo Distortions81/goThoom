@@ -21,7 +21,7 @@ func (item *itemData) updateTextEditing(chars []rune, mods inputkeys.Modifiers, 
 	item.editor()
 	handled := false
 	if mods.Shortcut() {
-		for _, key := range []ebiten.Key{ebiten.KeyA, ebiten.KeyZ, ebiten.KeyY} {
+		for _, key := range []ebiten.Key{ebiten.KeyA, ebiten.KeyZ, ebiten.KeyY, ebiten.KeyEqual, ebiten.KeyMinus, ebiten.KeyKPAdd, ebiten.KeyKPSubtract} {
 			if inpututil.IsKeyJustPressed(key) {
 				handled = item.editKey(key, mods, shift) || handled
 			}

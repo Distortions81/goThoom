@@ -49,10 +49,15 @@ func loadSourceDocument(path string, allowMacRoman bool) (*sourceDocument, error
 	if err != nil {
 		return nil, err
 	}
-	if !allowMacRoman && !utf8.Valid(raw) {
-		return nil, fmt.Errorf("Go scripts must use UTF-8 encoding")
+	text := bytes.TrimPrefix(raw, []byte{0xef, 0xbb, 0xbf})
+	macRoman := allowMacRoman && !utf8.Valid(text)
+	if !macRoman && !utf8.Valid(text) {
+		return nil, fmt.Errorf("text files must use UTF-8 encoding")
 	}
-	decoded := decodeLegacyMacroSourceText(raw)
+	decoded := string(text)
+	if macRoman {
+		decoded = decodeMacRoman(text)
+	}
 	newline := "\n"
 	if i := strings.IndexAny(decoded, "\r\n"); i >= 0 && decoded[i] == '\r' {
 		newline = "\r"
@@ -61,7 +66,7 @@ func loadSourceDocument(path string, allowMacRoman bool) (*sourceDocument, error
 		}
 	}
 	return &sourceDocument{path: path, targetPath: targetPath, original: raw, savedText: normalizeSourceEditorText(decoded),
-		newline: newline, macRoman: !utf8.Valid(bytes.TrimPrefix(raw, []byte{0xef, 0xbb, 0xbf})),
+		newline: newline, macRoman: macRoman,
 		bom: bytes.HasPrefix(raw, []byte{0xef, 0xbb, 0xbf})}, nil
 }
 
@@ -70,6 +75,9 @@ func (doc *sourceDocument) changed(value string) bool {
 }
 
 func (doc *sourceDocument) encode(value string) ([]byte, error) {
+	if !utf8.ValidString(value) {
+		return nil, fmt.Errorf("text must be valid Unicode")
+	}
 	value = strings.ReplaceAll(normalizeSourceEditorText(value), "\n", doc.newline)
 	data := []byte(value)
 	if doc.macRoman {

@@ -37,8 +37,15 @@ window size stable. Main Settings tabs wrap into balanced rows, while Performanc
 subtabs use a single row.
 Detailed editors such as File Paths still open separately.
 
-The macro and Go source editors each have a **Settings** button for syntax
-colors. **Use custom syntax colors** switches between the active theme and a
+**Text → Editor Text Size** sets the text size for all file and personal note
+editors (8–48, default 11). The editor’s gear shortcut opens this page.
+**Ctrl+- / Ctrl++** changes the same saved preference. **Ctrl+=** works without Shift; keypad +/−
+works too. On Mac, Command is also supported. **Ctrl+scroll up/down** over editor
+text changes its size without scrolling. Text, selection, and undo history stay
+intact. The preference is stored as `interface.editor_font_size`.
+
+**Text → Editor Colors** opens syntax colors for macro, Go script, TTS, and
+theme/style editors. **Use custom syntax colors** switches between the active theme and a
 shared custom palette. The choice is saved as
 `interface.editor_use_custom_colors` (default `false`), with custom RGBA colors
 in `interface.editor_syntax_colors`. Turning the checkbox off retains the custom
@@ -51,7 +58,7 @@ Automatic Retina and HiDPI display scaling is applied on top of that preference.
 Toolbar controls have one home: **Settings → Display → Show / Hide Windows** for window
 visibility and reset, **Actions** for Hotkeys/Keybindings, **Audio** for
 notification sound and audio enhancement, **Tools** for Stats, command
-search, Help, and snapshots, and **Record** for session recording. Stats also contains NLSPT enablement
+search, Personal Notes, Help, and snapshots, and **Record** for session recording. Stats also contains NLSPT enablement
 and live network timing.
 TTS has its own **Settings → TTS** tab with enablement, file downloads, voice
 and speed controls, a test phrase, and pronunciation corrections. **Open Voices
@@ -115,6 +122,34 @@ startup and every 10 seconds, updating the palette only when the system
 appearance changes. Automatic switches keep your style and accent color.
 Choose a named palette to keep it fixed. If system appearance is unavailable,
 Follow system uses AccentDark.
+
+**Edit Color Theme** and **Edit Style Theme** open the active theme's JSON.
+Built-in files get a user copy with the same name in `themes/palettes/` or
+`themes/styles/`. **Check** validates without applying changes; **Format**
+indents the JSON. Valid JSON also formats on open and save, with opening changes
+kept in the draft. **Save** writes the file, and **Save & Apply** selects it.
+Applying a color theme selects that named palette instead of Follow system.
+Hex values appear as clickable color swatches. The picker changes the draft as
+one undoable edit; **Save & Apply** activates it. Selecting a value or moving the
+caret into it reveals its hex code. Copying still copies the underlying JSON.
+
+### Notes and text files
+
+**Tools → Personal Notes** stores local notes with subjects and comma-separated
+tags. Choose **Global note** to make a note available with every character,
+or assign it to one player. The library filters by player and scope, and its
+titlebar search matches subjects and tags. **Details** edits that metadata;
+**Open** edits the body. Notes preserve whitespace and require **Save**.
+Trashed notes remain in the user data folder's `Notes/Trash/` directory.
+
+**TTS → Edit TTS corrections** opens the substitutions file in the client.
+Use one `original=replacement` per line and `#` at the start of comment lines.
+**Check** validates it; **Save & Apply** saves and uses it for future speech.
+
+Notes, Go scripts, TTS substitutions, and theme/style files require UTF-8.
+Existing UTF-8 BOMs and newline styles are preserved. Only legacy macro files
+support MacRoman. File editors warn before discarding unsaved body/source edits
+and refuse to overwrite files changed externally since opening or saving.
 
 ### Smooth nametag motion
 

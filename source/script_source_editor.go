@@ -38,8 +38,6 @@ func openScriptSourceEditor(owner, path string) *sourceEditor {
 		format:         formatGoScript,
 		formatPosition: remapGoFormattedPosition,
 		reloadTooltip:  "Save the shared script file and reload it in the selected session if it is running.",
-		checkedMessage: "Validation passed. The draft was checked without activating it.",
-		savedMessage:   "Saved. Use Save & Reload to apply this version to the selected session.",
 		check:          func(value string) error { return checkScriptEditorDraft(owner, doc.path, value) },
 		reload: func() (string, error) {
 			// A changed ID or duplicate must not reload a different file under

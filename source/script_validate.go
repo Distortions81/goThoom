@@ -10,9 +10,20 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
+func checkScriptSourceEncoding(source []byte) error {
+	if !utf8.Valid(source) {
+		return fmt.Errorf("Go scripts must use UTF-8 encoding; convert legacy-encoded files to UTF-8")
+	}
+	return nil
+}
+
 func checkScriptSourceRequirements(source []byte) error {
+	if err := checkScriptSourceEncoding(source); err != nil {
+		return err
+	}
 	file, err := parser.ParseFile(token.NewFileSet(), "_.go", source, parser.SkipObjectResolution)
 	if err != nil {
 		return fmt.Errorf("syntax error: %w", err)

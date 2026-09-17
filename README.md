@@ -152,9 +152,11 @@ slot in all files, in instrument-index order from 0 through 22.
 You can also customize goThoom without modifying the program:
 
 - Place `background.png` in the user data folder to use a custom background.
-- Put custom color palettes in the user data folder's `themes/palettes/` and
-  styles in `themes/styles/`. Example files and format documentation are
-  created for you.
+- Use **Settings → Display → Edit Color Theme / Edit Style Theme** to edit
+  the active theme. Built-in themes get an editable copy in your user data
+  folder under `themes/palettes/` or `themes/styles/`. **Check** validates the
+  draft; **Save & Apply** saves and selects it. **Format** tidies the JSON.
+  Example files and format documentation are included in the themes folder.
 - Install optional PNG or ZIP sprite packs in the user data folder's `hdimg`
   directory and enable **Settings → Experimental → Use sprite pack
   files**. Subfolders are supported. Packs are off by default; see the
@@ -169,15 +171,41 @@ You can also customize goThoom without modifying the program:
 For original/new comparisons, live reloads, reference exports, and making your
 own pack, see the [artwork authoring guide](https://gothoom.m45sci.xyz/help/artwork.html).
 
+## Notes and pronunciation corrections
+
+Open **Tools → Personal Notes** for global or player-specific notes. Each note
+has a subject, comma-separated tags, and a plain-text body. Use the player and
+scope filters to choose which notes appear, and search subjects and tags with
+the titlebar magnifier. **Details** changes the subject, tags, or owner;
+**Open** edits the body with search, undo/redo, and **Save**. Notes keep your
+spacing and are stored locally under `Notes/` in the user data folder.
+**Trash** moves a note into `Notes/Trash/`; restore it by moving its whole
+`note-…` directory back into `Notes/`, then choose **Refresh**.
+
+Use **Settings → TTS → Edit TTS corrections** to edit `tts_substitute.txt`.
+Write one `original=replacement` per line; lines beginning with `#` are comments.
+**Check** validates the draft. **Save** keeps it on disk; **Save & Apply** also
+updates substitutions for future speech.
+
+Go scripts, notes, TTS substitutions, and theme/style files use Unicode (UTF-8).
+The editors preserve an existing UTF-8 BOM and newline style. Only legacy
+macros accept MacRoman files.
+
 ## Macros and scripts
 
 Settings are shared by every character and session tab. The existing
 `enabled.json` files remain the source of truth for explicit per-character
 script and macro selections.
 
-Both source editors have a **Settings** button for syntax colors. Leave
+Use the editor’s gear shortcut to open **Settings → Text** and adjust
+**Editor Text Size**. **Ctrl+- / Ctrl++** also resizes editor text; **Ctrl+=**
+and keypad +/− also work. On Mac, Command works too. **Ctrl+scroll up/down** over
+the text resizes it without scrolling. **Settings → Text → Editor Text Size**
+controls the same preference, saved for all editors (default 11).
+
+Choose **Settings → Text → Editor Colors** for syntax colors. Leave
 **Use custom syntax colors** unchecked to follow the color theme, or enable it
-to choose colors shared by all macro and Go script editors. Custom choices are
+to choose colors shared by macro, Go script, TTS, and theme/style editors. Custom choices are
 saved and retained when you switch back to theme colors.
 
 ### Legacy macros

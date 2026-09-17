@@ -272,10 +272,14 @@ type itemData struct {
 
 	Action        func()
 	OnColorChange func(Color)
-	WheelColor    Color
-	TextPtr       *string
-	wrappedLabel  *wrappedLabelLayout
-	Underlines    []TextSpan
+	// OnTextZoom handles font-size steps from shortcut +/- or shortcut-wheel
+	// in an editable text control. A nil callback keeps normal editing/scrolling.
+	OnTextZoom                  func(steps int)
+	splitLeading, splitTrailing bool
+	WheelColor                  Color
+	TextPtr                     *string
+	wrappedLabel                *wrappedLabelLayout
+	Underlines                  []TextSpan
 	// Prediction is rendered after the primary caption in the disabled text
 	// color. It is display-only and is not included in selection or cursor positions.
 	Prediction string
@@ -295,6 +299,8 @@ type itemData struct {
 	AcceptTab              bool
 	textEdit               *textEditState
 	textHighlighter        TextHighlighter
+	textSwatchProvider     TextHighlighter
+	textSwatchClick        func(TextColorSpan)
 	hoverDismissRect       *rect
 	textDrawOrigin         point
 	textDrawSize           point

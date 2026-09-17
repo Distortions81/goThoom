@@ -241,6 +241,7 @@ func normalizeLoadedNumericSettings(value *settings) bool {
 	clampFloat(&value.ChatFontSize, 4, 48)
 	clampFloat(&value.InventoryFontSize, 5, 48)
 	clampFloat(&value.PlayersFontSize, 5, 48)
+	clampInt(&value.EditorFontSize, 8, 48)
 	clampFloat(&value.BubbleOpacity, 0, 1)
 	clampFloat(&value.BubbleBaseLife, 1, 5)
 	clampFloat(&value.BubbleLifePerWord, 0, 2)
@@ -319,6 +320,7 @@ var gsdef settings = settings{
 	ChatFontSize:                  12,
 	InventoryFontSize:             14,
 	PlayersFontSize:               14,
+	EditorFontSize:                11,
 	ShowRecentPlayers:             true,
 	GroupClanMembers:              false,
 	PlayerShareIcons:              false,
@@ -660,6 +662,7 @@ type settings struct {
 	Style                          string
 	MessagesToConsole              bool
 	EditorUseCustomColors          bool
+	EditorFontSize                 int
 	EditorSyntaxColors             *eui.SyntaxColors
 	MessageTextColors              map[string]eui.Color
 	MessageTextColorsLight         map[string]eui.Color

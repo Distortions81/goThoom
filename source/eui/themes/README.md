@@ -2,6 +2,18 @@
 
 This directory holds the built-in color palettes and style themes used by EUI. Themes are JSON files that control the appearance and spacing of all widgets. You can load them at runtime or create your own variants. Set `eui.AutoReload = true` to have changes picked up automatically while editing.
 
+In goThoom, open **Settings → Display → Edit Color Theme / Edit Style Theme**.
+The editor uses your existing user file, or creates a copy of the built-in
+JSON under the same name in your user themes folder. **Check** validates a
+draft without changing the interface. **Format** indents the JSON; valid JSON
+also formats on open and save. Opening keeps those changes in the draft.
+**Save** writes the file; **Save & Apply** saves and selects that named theme.
+Files use Unicode (UTF-8), with an existing UTF-8 BOM and newline style preserved.
+Hex color values appear as clickable swatches, with a checkerboard showing
+transparency. The picker changes the draft; **Save & Apply** applies it. Select
+a value or move the caret into it to reveal and edit the hex code. Copying always
+uses the underlying JSON, and **Undo** restores a picker edit.
+
 ## Loading Themes
 
 Apply a palette and style from Go code:
@@ -71,10 +83,10 @@ The `Syntax` block supplies colors for source editors:
 ```
 
 These fields accept the same color formats and named references as widget colors.
-`Strings` includes Go rune literals; `Variables` and `Bindings` color legacy macro
-variables and keybindings. Omitted fields use light or dark defaults based on the
+`Strings` includes Go rune literals and JSON values. `Variables` colors macro
+variables, JSON keys, and TTS originals; `Bindings` colors macro keybindings. Omitted fields use light or dark defaults based on the
 input background. Syntax colors update in open editors when a palette changes
-or reloads. In either editor, **Settings → Use custom syntax colors** overrides
+or reloads. In a source editor, **Settings → Use custom syntax colors** overrides
 the theme with a shared, saved editor palette. Uncheck it to follow the theme
 again; custom choices are retained.
 

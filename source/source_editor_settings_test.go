@@ -11,6 +11,8 @@ func editorSettingsFixture(t *testing.T) *sourceEditor {
 	ed := scriptSourceEditorFixture(t, false)
 	oldGS, oldDirty := gs, settingsDirty
 	oldPanel, oldPicker := sourceEditorSettings, colorPickerWin
+	oldSettingsWin := settingsWin
+	settingsWin = nil
 	oldTheme, oldStyle := eui.CurrentThemeName(), eui.CurrentStyleName()
 	sourceEditorSettings, colorPickerWin = nil, nil
 	gs.EditorUseCustomColors, gs.EditorSyntaxColors = false, nil
@@ -21,6 +23,10 @@ func editorSettingsFixture(t *testing.T) *sourceEditor {
 		if colorPickerWin != nil {
 			colorPickerWin.Close()
 		}
+		if settingsWin != nil {
+			settingsWin.RemoveWindow()
+		}
+		settingsWin = oldSettingsWin
 		gs, settingsDirty = oldGS, oldDirty
 		sourceEditorSettings, colorPickerWin = oldPanel, oldPicker
 		_ = eui.LoadTheme(oldTheme)
@@ -29,7 +35,16 @@ func editorSettingsFixture(t *testing.T) *sourceEditor {
 	if err := eui.LoadTheme("AccentDark"); err != nil {
 		t.Fatal(err)
 	}
-	clickMacroEditorButton(t, ed.win, "Settings")
+	for _, action := range ed.actions {
+		if action.Tooltip == "Open text settings for editor size and colors." {
+			action.Handler.Handle(eui.UIEvent{Type: eui.EventClick})
+			break
+		}
+	}
+	if settingsWin == nil || !settingsWin.IsOpen() || selectedSettingsTab() != "Text" {
+		t.Fatal("editor gear did not open text settings")
+	}
+	clickMacroEditorButton(t, settingsWin, "Editor Colors")
 	if sourceEditorSettings == nil {
 		t.Fatal("Settings did not open editor preferences")
 	}

@@ -81,8 +81,11 @@ func TestScriptSourceEditorChecksDraftAndSavesWorkInProgress(t *testing.T) {
 	if running, _ := scriptManagerSession().scriptRuntimeSnapshot("editor-test"); running {
 		t.Fatal("check activated the script")
 	}
-	if !ed.save(true) || !strings.Contains(ed.message, "remains stopped") {
+	if !ed.save(true) {
 		t.Fatal(ed.message)
+	}
+	if running, _ := scriptManagerSession().scriptRuntimeSnapshot("editor-test"); running {
+		t.Fatal("saving activated the stopped script")
 	}
 }
 
@@ -108,7 +111,7 @@ func TestScriptSourceEditorFolderValidationAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { other.stopSessionScript("editor-test", "test cleanup") })
-	if !ed.save(true) || !strings.Contains(ed.message, "reloaded in the selected session") {
+	if !ed.save(true) {
 		t.Fatal(ed.message)
 	}
 	for _, tc := range []struct {

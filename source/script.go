@@ -4409,6 +4409,9 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 	seenIDs := map[string]bool{}
 	for _, dir := range scriptDirs {
 		for _, script := range discoverScriptPackages(dir) {
+			if script.err == nil {
+				script.err = checkScriptSourceEncoding(script.source)
+			}
 			path := script.sourcePath
 			if path == "" {
 				path = script.containerPath

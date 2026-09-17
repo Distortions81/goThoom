@@ -38,20 +38,10 @@ func loadTTSSubstitutions() {
 			return
 		}
 	}
-	m := make(map[string]string)
-	lines := strings.Split(string(b), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if idx := strings.Index(line, "="); idx >= 0 {
-			from := strings.TrimSpace(line[:idx])
-			to := strings.TrimSpace(line[idx+1:])
-			if from != "" {
-				m[from] = to
-			}
-		}
+	m, err := parseTTSSubstitutions(string(b), false)
+	if err != nil {
+		logError("read tts_substitute: %v", err)
+		return
 	}
 	ttsSubsMu.Lock()
 	ttsSubs = m

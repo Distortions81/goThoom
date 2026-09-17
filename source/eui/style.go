@@ -155,6 +155,10 @@ func LoadStyle(name string) error {
 	if err != nil {
 		return err
 	}
+	data = themeSourceText(data)
+	if err := ValidateStyleSource(data); err != nil {
+		return err
+	}
 	next := baseStyle
 	if err := json.Unmarshal(data, &next); err != nil {
 		return err

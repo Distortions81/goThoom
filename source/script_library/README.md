@@ -2,7 +2,9 @@
 
 Scripts add commands, hotkeys, notifications, automation, and small interface
 tools to goThoom. They are ordinary Go files run by goThoom's restricted script
-engine; you do not need to compile the client.
+engine; you do not need to compile the client. Save Go source as Unicode (UTF-8),
+with an optional UTF-8 BOM. MacRoman source is not supported, including in folder
+and ZIP packages. Unicode comments and strings are preserved.
 
 > The easiest way to find the active folder is **Actions -> Scripts -> Open
 > scripts folder**. On macOS, use this button instead of the documentation copy
@@ -32,6 +34,11 @@ working copy keeps running when possible.
 Use **Edit** beside a script or in its information panel. **New Script** and
 the included examples also open the in-game editor. Loose `.go` files and the Go
 source file inside a package folder are editable. Unpack ZIP packages first.
+
+The editor’s gear shortcut opens **Settings → Text** for font size and colors.
+**Ctrl+- / Ctrl++** and **Ctrl+scroll up/down** over the text adjust its size. **Ctrl+=** and keypad +/− also work; on Mac, Command is
+supported too. **Settings → Text → Editor Text Size** controls the same saved
+preference for all editors, with a default of 11.
 
 The editor colors Go comments, strings, rune literals, keywords, and numbers.
 It supports selection, clipboard shortcuts, undo/redo, Tab/Shift+Tab

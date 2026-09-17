@@ -101,7 +101,7 @@ func (g *sourceEditorRenderGame) render(screen *ebiten.Image) error {
 		if err := check(ed.win.Contents); err != nil {
 			return err
 		}
-		if ed.input.DrawRect.Y1 <= ed.input.DrawRect.Y0 || ed.input.DrawRect.Y1 > ed.status.DrawRect.Y0 {
+		if ed.input.DrawRect.Y1 <= ed.input.DrawRect.Y0 || (!ed.status.Invisible && ed.input.DrawRect.Y1 > ed.status.DrawRect.Y0) {
 			return fmt.Errorf("editor overlaps status")
 		}
 		for _, button := range ed.actions {

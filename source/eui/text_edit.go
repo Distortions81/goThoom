@@ -27,6 +27,7 @@ type textEditState struct {
 	caretReset         time.Time
 	caretOn            bool
 	scroll             point
+	zoomWheel          float32
 	followCaret        bool
 	preferredX         float32
 	hasPreferredX      bool
@@ -39,6 +40,9 @@ type textEditState struct {
 	layout             *editTextLayout
 	highlightText      string
 	highlightsValid    bool
+	swatchText         string
+	swatchesValid      bool
+	swatches           []TextColorSpan
 	highlights         []TextColorSpan
 	highlightGlyphs    []text.LazyGlyph
 	highlightDraws     []editGlyphDraw
@@ -405,6 +409,15 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 	s := item.editor()
 	if mods.Shortcut() {
 		switch key {
+		case ebiten.KeyEqual, ebiten.KeyKPAdd, ebiten.KeyMinus, ebiten.KeyKPSubtract:
+			if item.OnTextZoom != nil {
+				steps := 1
+				if key == ebiten.KeyMinus || key == ebiten.KeyKPSubtract {
+					steps = -1
+				}
+				item.OnTextZoom(steps)
+				return true
+			}
 		case ebiten.KeyA:
 			s.group = ""
 			item.editSelect(0, len([]rune(item.editText())))

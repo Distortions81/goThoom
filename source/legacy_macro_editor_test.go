@@ -277,6 +277,9 @@ func clickMacroEditorButton(t *testing.T, win *eui.WindowData, label string) {
 			if find(item.Contents) {
 				return true
 			}
+			if len(item.Tabs) > 0 && find(item.Tabs[item.ActiveTab].Contents) {
+				return true
+			}
 		}
 		return false
 	}

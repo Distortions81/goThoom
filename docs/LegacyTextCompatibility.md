@@ -64,6 +64,15 @@ MacRoman `.mac` files and modern UTF-8 files, including UTF-8 files with a byte
 order mark. Macro source is not treated as escaped wire text, so existing macro
 syntax such as `\r` and `\\` continues to work normally.
 
+## Go script files
+
+Go source files must use Unicode encoded as UTF-8, with an optional UTF-8 BOM.
+The editor, script discovery, validation, and runtime do not decode Go source as
+MacRoman. This applies to loose scripts and source inside folder or ZIP packages.
+Convert a legacy-encoded source file to UTF-8 in a text editor before loading it.
+Unicode comments and string literals are preserved; outgoing messages still use
+the server encoding described above.
+
 ## Go functions
 
 The compatibility boundary is provided by:

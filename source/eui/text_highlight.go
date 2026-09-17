@@ -98,9 +98,13 @@ type editGlyphDraw struct {
 func (item *itemData) drawHighlightedEditLine(dst *ebiten.Image, line editTextLine, face text.Face, origin point, spans []TextColorSpan, caption Color) {
 	s := item.editor()
 	s.highlightGlyphs = text.AppendLazyGlyphs(s.highlightGlyphs[:0], line.display, face, nil)
+	swatches := item.textSwatches()
 	bounds := dst.Bounds()
 	// Realize all visible images before drawing to preserve atlas batching.
 	for _, glyph := range s.highlightGlyphs {
+		if item.textSwatchCovers(swatches, line.sourceRuneAtDisplayByte(glyph.StartIndexInBytes)) {
+			continue
+		}
 		r := glyph.ImageBounds
 		if r.Empty() || float32(r.Max.X)+origin.X <= float32(bounds.Min.X) || float32(r.Min.X)+origin.X >= float32(bounds.Max.X) ||
 			float32(r.Max.Y)+origin.Y <= float32(bounds.Min.Y) || float32(r.Min.Y)+origin.Y >= float32(bounds.Max.Y) {

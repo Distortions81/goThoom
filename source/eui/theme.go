@@ -111,41 +111,13 @@ func LoadTheme(name string) error {
 		}
 	}
 
-	// Reset named colors
-	namedColors = map[string]Color{}
-
+	data = themeSourceText(data)
+	th, tf, colors, err := decodeThemeSource(data)
+	if err != nil {
+		return err
+	}
 	oldTheme := currentTheme
-
-	var tf themeFile
-	if err := json.Unmarshal(data, &tf); err != nil {
-		return err
-	}
-	for n, v := range tf.Colors {
-		c, err := resolveColor(v, tf.Colors, map[string]bool{strings.ToLower(n): true})
-		if err != nil {
-			return fmt.Errorf("%s: %w", n, err)
-		}
-		namedColors[strings.ToLower(n)] = c
-	}
-
-	// Start with the compiled in defaults
-	th := *baseTheme
-	if err := json.Unmarshal(data, &th); err != nil {
-		return err
-	}
-	// Resolve omitted syntax colors against the loaded input background, and
-	// extract the additional slider fill field.
-	var extra struct {
-		Syntax SyntaxColors
-		Slider struct {
-			SliderFilled string `json:"SliderFilled"`
-		} `json:"Slider"`
-	}
-	extra.Syntax = DefaultSyntaxColors(th.Input.Color)
-	if err := json.Unmarshal(data, &extra); err != nil {
-		return err
-	}
-	th.Syntax = extra.Syntax
+	namedColors = colors
 
 	// Capture which fields referenced the named "accent" color so we can
 	// update them when the user tweaks the accent via the color wheel.
@@ -201,12 +173,7 @@ func LoadTheme(name string) error {
 	themeAccentRefs.TabClick = isAccent(refs.Tab.ClickColor)
 	themeAccentRefs.ProgressSelect = isAccent(refs.Progress.SelectedColor)
 	currentTheme = &th
-	if extra.Slider.SliderFilled != "" {
-		if col, err := resolveColor(extra.Slider.SliderFilled, tf.Colors, map[string]bool{"sliderfilled": true}); err == nil {
-			namedColors["sliderfilled"] = col
-			currentTheme.Slider.SelectedColor = col
-		}
-	}
+
 	SetCurrentThemeName(name)
 	applyStyleToTheme(currentTheme)
 	updateThemeReferences(oldTheme, currentTheme)
@@ -429,4 +396,56 @@ func SetAccentSaturation(s float64) {
 		}
 	}
 	markAllDirty()
+}
+
+func decodeThemeSource(data []byte) (Theme, themeFile, map[string]Color, error) {
+	data = themeSourceText(data)
+	if err := validateThemeObject(data); err != nil {
+		return Theme{}, themeFile{}, nil, err
+	}
+	previous := namedColors
+	defer func() { namedColors = previous }()
+	// Reset named colors
+	namedColors = map[string]Color{}
+
+	var tf themeFile
+	if err := json.Unmarshal(data, &tf); err != nil {
+		return Theme{}, themeFile{}, nil, err
+	}
+	for n, v := range tf.Colors {
+		c, err := resolveColor(v, tf.Colors, map[string]bool{strings.ToLower(n): true})
+		if err != nil {
+			return Theme{}, themeFile{}, nil, fmt.Errorf("%s: %w", n, err)
+		}
+		namedColors[strings.ToLower(n)] = c
+	}
+
+	// Start with the compiled in defaults
+	th := *baseTheme
+	if err := json.Unmarshal(data, &th); err != nil {
+		return Theme{}, themeFile{}, nil, err
+	}
+	// Resolve omitted syntax colors against the loaded input background, and
+	// extract the additional slider fill field.
+	var extra struct {
+		Syntax SyntaxColors
+		Slider struct {
+			SliderFilled string `json:"SliderFilled"`
+		} `json:"Slider"`
+	}
+	extra.Syntax = DefaultSyntaxColors(th.Input.Color)
+	if err := json.Unmarshal(data, &extra); err != nil {
+		return Theme{}, themeFile{}, nil, err
+	}
+	th.Syntax = extra.Syntax
+
+	if extra.Slider.SliderFilled != "" {
+		col, err := resolveColor(extra.Slider.SliderFilled, tf.Colors, map[string]bool{"sliderfilled": true})
+		if err != nil {
+			return Theme{}, themeFile{}, nil, fmt.Errorf("SliderFilled: %w", err)
+		}
+		namedColors["sliderfilled"] = col
+		th.Slider.SelectedColor = col
+	}
+	return th, tf, namedColors, nil
 }

@@ -1783,6 +1783,16 @@ func (item *itemData) resizeFlow(parentSize point) {
 
 	if item.ItemType == ITEM_FLOW {
 		req := item.contentBounds()
+		// Descendants may have resized during this pass. Propagate their
+		// final bounds back up before siblings are placed or clipped.
+		if !item.Scrollable && !item.ConstrainToSize {
+			if item.Fixed {
+				item.Size.X = max(item.Size.X, req.X/uiScale)
+				item.Size.Y = max(item.Size.Y, req.Y/uiScale)
+			} else {
+				item.Size = point{X: req.X / uiScale, Y: req.Y / uiScale}
+			}
+		}
 		size := item.GetSize()
 		if req.Y <= size.Y {
 			item.Scroll.Y = 0

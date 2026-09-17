@@ -21,7 +21,7 @@ var sourceSyntaxColorOptions = []struct {
 	{"Strings and rune literals", func(c *eui.SyntaxColors) *eui.Color { return &c.Strings }},
 	{"Keywords", func(c *eui.SyntaxColors) *eui.Color { return &c.Keywords }},
 	{"Numbers", func(c *eui.SyntaxColors) *eui.Color { return &c.Numbers }},
-	{"Macro variables", func(c *eui.SyntaxColors) *eui.Color { return &c.Variables }},
+	{"Variables and JSON keys", func(c *eui.SyntaxColors) *eui.Color { return &c.Variables }},
 	{"Macro keybindings", func(c *eui.SyntaxColors) *eui.Color { return &c.Bindings }},
 }
 
@@ -44,7 +44,7 @@ func openSourceEditorSettings() {
 		}
 	}
 	content := eui.NewColumn()
-	content.AddItem(eui.NewLabel("Colors apply to all macro and Go script editors."))
+	content.AddItem(eui.NewLabel("Colors apply to all source editors."))
 	panel.custom, _ = eui.NewCheckbox()
 	panel.custom.Text = "Use custom syntax colors"
 	panel.custom.Size = eui.Point{X: 380, Y: 28}

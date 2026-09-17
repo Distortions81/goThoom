@@ -102,6 +102,13 @@ func makeSettingsWindow() {
 	windowsSection := addSettingsSection(displayLayoutPage, "Show / Hide Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
+	textSizeColumns := eui.NewRow()
+	textSizeLeft := newSettingsPage("", displayColumnWidth)
+	textSizeRight := newSettingsPage("", displayColumnWidth)
+	textSizeColumns.AddItem(textSizeLeft)
+	textSizeColumns.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 20, Y: 1}})
+	textSizeColumns.AddItem(textSizeRight)
+	textSizeSection.AddItem(textSizeColumns)
 	textColumns := eui.NewRow()
 	textMessagesPage := newSettingsPage("", displayColumnWidth)
 	textInputPage := newSettingsPage("", displayColumnWidth)
@@ -254,6 +261,17 @@ func makeSettingsWindow() {
 			}
 		}
 	}
+	styleDD.Action = func() {
+		if restoreThemePreview != nil {
+			return
+		}
+		for i, name := range styleDD.Options {
+			if name == eui.CurrentStyleName() && styleDD.Selected != i {
+				styleDD.Selected = i
+				styleDD.Dirty = true
+			}
+		}
+	}
 	styleDD.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	styleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
@@ -278,6 +296,17 @@ func makeSettingsWindow() {
 		if name == currentThemeChoice() {
 			themeDD.Selected = i
 			break
+		}
+	}
+	themeDD.Action = func() {
+		if restoreThemePreview != nil {
+			return
+		}
+		for i, name := range themeDD.Options {
+			if name == currentThemeChoice() && themeDD.Selected != i {
+				themeDD.Selected = i
+				themeDD.Dirty = true
+			}
 		}
 	}
 	themeDD.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
@@ -319,6 +348,11 @@ func makeSettingsWindow() {
 		refreshThemePreview()
 		settingsDirty = true
 	})
+	accentSwatch.Action = func() {
+		if col := eui.AccentColor(); accentSwatch.WheelColor != col {
+			eui.SetColorSwatch(accentSwatch, col)
+		}
+	}
 
 	bindThemePreview(themeDD, true, func() {
 		for i, name := range styleDD.Options {
@@ -340,6 +374,12 @@ func makeSettingsWindow() {
 	themeRow.AddItem(themeDD)
 	themeRow.AddItem(styleDD)
 	appearanceSection.AddItem(themeRow)
+	editTheme := eui.NewActionButton("Edit Color Theme", func() { openThemeSourceEditor(false) })
+	editStyle := eui.NewActionButton("Edit Style Theme", func() { openThemeSourceEditor(true) })
+	editTheme.Disabled, editStyle.Disabled = isWASM, isWASM
+	editTheme.SetTooltip("Edit the active palette as a user theme file. Save & Apply selects it.")
+	editStyle.SetTooltip("Edit the active style as a user theme file. Save & Apply selects it.")
+	appearanceSection.AddItem(eui.NewRow(editTheme, editStyle))
 	accLabel, _ := eui.NewText()
 	accLabel.Text = "Accent Color"
 	accLabel.FontSize = 12
@@ -921,7 +961,7 @@ func makeSettingsWindow() {
 	labelFontSlider.MinValue = 5
 	labelFontSlider.MaxValue = 48
 	labelFontSlider.Value = float32(gs.MainFontSize)
-	labelFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	labelFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
@@ -932,7 +972,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	textSizeSection.AddItem(labelFontSlider)
+	textSizeLeft.AddItem(labelFontSlider)
 
 	// Inventory font size slider
 	invFontSlider, invFontEvents := eui.NewSlider()
@@ -945,7 +985,7 @@ func makeSettingsWindow() {
 		}
 		return float32(gs.ConsoleFontSize)
 	}()
-	invFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	invFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	invFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
@@ -956,7 +996,7 @@ func makeSettingsWindow() {
 			updateInventoryWindow()
 		}
 	}
-	textSizeSection.AddItem(invFontSlider)
+	textSizeLeft.AddItem(invFontSlider)
 
 	// Players list font size slider
 	plFontSlider, plFontEvents := eui.NewSlider()
@@ -969,7 +1009,7 @@ func makeSettingsWindow() {
 		}
 		return float32(gs.ConsoleFontSize)
 	}()
-	plFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	plFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	plFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
@@ -983,7 +1023,7 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	textSizeSection.AddItem(plFontSlider)
+	textSizeLeft.AddItem(plFontSlider)
 
 	recentPlayersCB, recentPlayersEvents := eui.NewCheckbox()
 	recentPlayersCB.Text = "Show recently on-screen group"
@@ -1029,7 +1069,7 @@ func makeSettingsWindow() {
 	consoleFontSlider.MinValue = 4
 	consoleFontSlider.MaxValue = 48
 	consoleFontSlider.Value = float32(gs.ConsoleFontSize)
-	consoleFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	consoleFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	consoleFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
@@ -1043,14 +1083,20 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	textSizeSection.AddItem(consoleFontSlider)
+	textSizeRight.AddItem(consoleFontSlider)
+	editorFontSlider := newSourceEditorFontSlider()
+	editorFontSlider.Size.X = displayColumnWidth
+	textSizeLeft.AddItem(editorFontSlider)
+	editorColorsButton := eui.NewActionButton("Editor Colors", openSourceEditorSettings)
+	editorColorsButton.SetTooltip("Choose theme or custom syntax colors for all source editors.")
+	textSizeLeft.AddItem(editorColorsButton)
 
 	chatWindowFontSlider, chatWindowFontEvents := eui.NewSlider()
 	chatWindowFontSlider.Label = "Chat Window Font Size"
 	chatWindowFontSlider.MinValue = 4
 	chatWindowFontSlider.MaxValue = 48
 	chatWindowFontSlider.Value = float32(gs.ChatFontSize)
-	chatWindowFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	chatWindowFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	chatWindowFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			SettingsLock.Lock()
@@ -1064,14 +1110,14 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	textSizeSection.AddItem(chatWindowFontSlider)
+	textSizeRight.AddItem(chatWindowFontSlider)
 
 	chatFontSlider, chatFontEvents := eui.NewSlider()
 	chatFontSlider.Label = "Chat Bubble Font Size"
 	chatFontSlider.MinValue = 4
 	chatFontSlider.MaxValue = 48
 	chatFontSlider.Value = float32(gs.BubbleFontSize)
-	chatFontSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	chatFontSlider.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
@@ -1079,7 +1125,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	textSizeSection.AddItem(chatFontSlider)
+	textSizeRight.AddItem(chatFontSlider)
 
 	addDisplaySettings(windowSection, displayColumnWidth)
 	addWindowSettings(windowsSection, displayColumnWidth)
@@ -1796,11 +1842,13 @@ func addTTSSettings(ttsSection, messagesSection, testSection *eui.ItemData) {
 
 	ttsEditBtn, ttsEditEvents := eui.NewButton()
 	ttsEditBtn.Text = "Edit TTS corrections"
+	ttsEditBtn.Disabled = isWASM
+	ttsEditBtn.SetTooltip("Edit original=replacement lines. Save & Apply uses them for future speech.")
 	setMaterialButtonIcon(ttsEditBtn, "edit")
 	ttsEditBtn.Size = eui.Point{X: 200, Y: settingsControlHeight}
 	ttsEditEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			open.Run(dataDirPath)
+			openTTSSubstitutionEditor()
 		}
 	}
 	ttsActions := eui.NewRow()

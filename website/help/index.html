@@ -392,6 +392,9 @@
 
             <h3 id="text-scale-and-fullscreen">Text, scale, and fullscreen</h3>
             <p><strong>Settings → Display</strong> controls UI scale, fullscreen, themes, window layout, and the optional FPS display. The manual UI scale uses stable 0.1 steps, with automatic HiDPI scaling applied on top. <strong>Settings → Text</strong> contains separate size controls for Chat, Console, Inventory, Players, names, and bubbles.</p>
+            <p><strong>Settings → Text → Editor Text Size</strong> sets the size shared by file and personal note editors (default 11). The editor’s gear shortcut opens this settings page, which also has <strong>Editor Colors</strong> for syntax colors. Use <strong>Ctrl+- / Ctrl++</strong> or <strong>Ctrl+scroll up/down</strong> over editor text to change its size. <strong>Ctrl+=</strong> and keypad +/− also work; on Mac, Command works too. The size is saved without changing the draft or undo history.</p>
+            <p><strong>Edit Color Theme</strong> and <strong>Edit Style Theme</strong> open the active theme's JSON. Built-in themes get an editable copy in your user themes folder. <strong>Check</strong> validates without applying, and <strong>Format</strong> indents the JSON. <strong>Save &amp; Apply</strong> saves and selects the named theme; applying a color theme turns off Follow system. These editors share the syntax color settings used by macros, Go scripts, and TTS substitutions.</p>
+            <p>Hex colors appear as clickable swatches. Choose a color in the picker to update the draft, then use <strong>Save &amp; Apply</strong> to apply the theme. A checkerboard shows transparency. Select a value or move the caret into it to edit the hex code directly; copying preserves the JSON, and <strong>Undo</strong> restores picker edits.</p>
           </section>
 
           <section id="communication" class="manual-section">
@@ -553,7 +556,7 @@
 
             <h3 id="text-to-speech">Text to speech</h3>
             <p>Enable chat TTS, pick an installed Piper voice, and adjust voice speed and volume. <strong>Open Voices Folder</strong> creates and opens the active <code>piper/voices</code> folder. <strong>Browse More Voices</strong> opens the Piper voice catalog; install both the <code>.onnx</code> model and its matching <code>.onnx.json</code> configuration file. Use <strong>Spoken Messages</strong> to choose whether speech, whispers, yells, thoughts, actions, ponders, monster speech, your own messages, and in-game notifications are read aloud. These choices work whether chat has its own pane or is combined with Console. Use <strong>Test TTS</strong> before relying on it. <strong>Download TTS files</strong> installs the bundled Piper components and voices. The client combines nearby messages from the same speaker and limits its pending speech queue.</p>
-            <p><strong>Edit TTS corrections</strong> opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly.</p>
+            <p><strong>Edit TTS corrections</strong> opens the substitutions editor. Write one <code>original=replacement</code> per line; lines beginning with <code>#</code> are comments. <strong>Check</strong> validates the draft, <strong>Save</strong> keeps it on disk, and <strong>Save &amp; Apply</strong> uses it for future speech.</p>
 
             <h3 id="tts-setup">Set up text to speech</h3>
             <ol>
@@ -563,7 +566,7 @@
               <li>Enter a short sentence in <strong>TTS test phrase</strong> and press <strong>Test TTS</strong>.</li>
               <li>Adjust <strong>TTS Speed</strong> for pronunciation and pace. Open the toolbar’s <strong>Audio</strong> mixer to adjust TTS volume relative to game sounds and music.</li>
               <li>If you hear nothing, check the master mute and TTS channel in the mixer, plus Mute when unfocused. Return to the client and test again.</li>
-              <li>Use <strong>Edit TTS corrections</strong> to open the data folder and edit the generated substitutions file for names or game terms that need different pronunciation.</li>
+              <li>Use <strong>Edit TTS corrections</strong> to edit the substitutions file in the client for names or game terms that need different pronunciation.</li>
             </ol>
             <!-- help-figure:settings-tts -->
 <figure class="help-figure" data-screen="settings-tts">
@@ -740,6 +743,7 @@
                   <tr><td><code>Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
                   <tr><td><code>scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
                   <tr><td><code>shortcuts</code></td><td>Global and character-specific text shortcuts.</td></tr>
+                  <tr><td><code>Notes</code></td><td>Personal note text, subjects, tags, and player assignments. Trashed notes remain in <code>Notes/Trash</code>.</td></tr>
                   <tr><td><code>Movies</code></td><td>Recorded <code>.clMov</code> sessions and optional ZIPs.</td></tr>
                   <tr><td><code>Screenshots</code></td><td>Snapshots captured from the toolbar.</td></tr>
                   <tr><td><code>piper</code></td><td>Local text-to-speech program, voices, and support files.</td></tr>
@@ -749,6 +753,11 @@
                 </tbody>
               </table>
             </div>
+
+            <h3 id="personal-notes">Personal notes</h3>
+            <p>Open <strong>Tools → Personal Notes</strong> to keep local notes with subjects and comma-separated tags. Choose <strong>Global note</strong> for every character, or assign a note to one player. Filter the library by player and scope; the titlebar search matches subjects and tags.</p>
+            <p><strong>Details</strong> changes the subject, tags, or owner. <strong>Open</strong> edits the body with search, undo/redo, and <strong>Save</strong>. Notes preserve your spacing. <strong>Trash</strong> moves the whole note into <code>Notes/Trash/</code>; to restore it, move its <code>note-…</code> folder back into <code>Notes/</code> and choose <strong>Refresh</strong>.</p>
+            <p>Notes, Go scripts, TTS substitutions, and theme/style files use Unicode (UTF-8). Only legacy macros support MacRoman.</p>
 
             <h3 id="files-recipe">Move your files or prepare a backup</h3>
             <ol>
