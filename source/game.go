@@ -1094,10 +1094,10 @@ func (g *Game) Update() error {
 		return errApplicationShutdown
 	default:
 	}
-	if legacyMacroQuitRequested {
+	if sourceEditorQuitRequested {
 		return ebiten.Termination
 	}
-	if ebiten.IsWindowBeingClosed() && !confirmLegacyMacroEditorQuit(func() { legacyMacroQuitRequested = true }) {
+	if ebiten.IsWindowBeingClosed() && !confirmSourceEditorQuit(func() { sourceEditorQuitRequested = true }) {
 		return ebiten.Termination
 	}
 	if updateStartupLoading() {
@@ -1140,7 +1140,7 @@ func (g *Game) Update() error {
 		eui.Update()
 	} // Captured clicks must not activate controls behind the recorder.
 	if !bindingCaptureFrameActive() {
-		updateLegacyMacroEditors()
+		updateSourceEditors()
 	}
 	inputSession = selectedAppSession()
 	bindMessageInputSession(inputSession)

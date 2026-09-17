@@ -243,34 +243,35 @@ func scriptRuntimeStatusForSession(session *Session, owner string, scope scriptS
 }
 
 func reloadScriptForSession(session *Session, owner string) {
+	_ = reloadScriptForSessionResult(session, owner)
+}
+
+func reloadScriptForSessionResult(session *Session, owner string) error {
 	if session == nil {
-		return
+		return fmt.Errorf("script session is unavailable")
 	}
+	defer func() { refreshscriptsWindow(); refreshscriptDetails() }()
 	info, err := refreshScriptPackage(owner)
 	if err != nil {
 		session.automation.scriptMu.Lock()
 		session.automation.scriptErrors[owner] = err.Error()
 		session.automation.scriptMu.Unlock()
 		session.publishClientConsole("[script] reload error: "+err.Error(), messageTextTypeSystem)
-		refreshscriptsWindow()
-		refreshscriptDetails()
-		return
+		return err
 	}
 	running, _ := session.scriptRuntimeSnapshot(owner)
 	if !running {
 		deleteSessionScriptError(session, owner)
-		refreshscriptsWindow()
-		refreshscriptDetails()
-		return
+		return nil
 	}
 	if err := session.startSessionScriptVersion(owner, info.src, restrictedStdlib(), info.assets, info.fingerprint); err != nil {
 		session.automation.scriptMu.Lock()
 		session.automation.scriptErrors[owner] = err.Error()
 		session.automation.scriptMu.Unlock()
 		session.publishClientConsole("[script] reload error: "+err.Error(), messageTextTypeSystem)
+		return err
 	}
-	refreshscriptsWindow()
-	refreshscriptDetails()
+	return nil
 }
 
 func deleteSessionScriptError(session *Session, owner string) {

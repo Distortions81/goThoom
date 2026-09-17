@@ -352,6 +352,9 @@ func TestLegacyMacroLibraryRowLabelUsesAvailableSpace(t *testing.T) {
 }
 
 func TestLegacyMacroLibraryInfoUsesThreeColumns(t *testing.T) {
+	if err := eui.Init(); err != nil {
+		t.Fatal(err)
+	}
 	columns := legacyMacroLibraryInfoColumns(legacyMacroLibraryInfo{
 		Metadata:    []string{"Description: Useful"},
 		Commands:    []string{"/wave"},

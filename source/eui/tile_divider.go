@@ -68,7 +68,7 @@ func tileDividerAt(p point) int {
 
 func tileDividerCoveredByStandaloneWindow(p point) bool {
 	for _, win := range windows {
-		if win.Open && !win.Docked && win.getWinRect().containsPoint(p) {
+		if win.Open && !win.Docked && win.containsPointer(p) {
 			return true
 		}
 	}

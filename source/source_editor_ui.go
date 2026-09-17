@@ -16,8 +16,9 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 )
 
-type legacyMacroEditor struct {
-	doc                 *legacyMacroDocument
+type sourceEditor struct {
+	options             sourceEditorOptions
+	doc                 *sourceDocument
 	win                 *eui.WindowData
 	root, input, status *eui.ItemData
 	saveButton          *eui.ItemData
@@ -29,37 +30,40 @@ type legacyMacroEditor struct {
 	scale               float32
 }
 
-var legacyMacroEditorFont *text.GoTextFaceSource
+var sourceEditorFont *text.GoTextFaceSource
 
-var legacyMacroEditors = map[string]*legacyMacroEditor{}
-var legacyMacroQuitPrompt *eui.WindowData
-var legacyMacroQuitRequested bool
+var sourceEditors = map[string]*sourceEditor{}
+var sourceEditorQuitPrompt *eui.WindowData
+var sourceEditorQuitRequested bool
 
-func openLegacyMacroEditor(entry legacyMacroLibraryEntry) *legacyMacroEditor {
-	doc, err := loadLegacyMacroDocument(entry.Path)
-	if err != nil {
-		legacyMacroLibraryReport("open macro editor: " + err.Error())
-		return nil
-	}
-	if existing := legacyMacroEditors[doc.path]; existing != nil {
+type sourceEditorOptions struct {
+	kind, description, checkedMessage, savedMessage string
+	check                                           func(string) error
+	reload                                          func() (string, error)
+	afterSave                                       func()
+}
+
+func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceEditor {
+	if existing := sourceEditors[doc.path]; existing != nil {
 		existing.win.MarkOpen()
 		existing.focus()
 		return existing
 	}
-	if legacyMacroEditorFont == nil {
-		legacyMacroEditorFont, err = text.NewGoTextFaceSource(bytes.NewReader(gomono.TTF))
+	if sourceEditorFont == nil {
+		var err error
+		sourceEditorFont, err = text.NewGoTextFaceSource(bytes.NewReader(gomono.TTF))
 		if err != nil {
-			legacyMacroLibraryReport("load editor font: " + err.Error())
+			consoleMessage("[editor] load font: " + err.Error())
 			return nil
 		}
 	}
-	ed := &legacyMacroEditor{doc: doc, win: eui.NewWindow(), root: eui.NewColumn(), status: eui.NewLabel("")}
+	ed := &sourceEditor{options: options, doc: doc, win: eui.NewWindow(), root: eui.NewColumn(), status: eui.NewLabel("")}
 	win := ed.win
-	win.Title = "Edit Macro — " + filepath.Base(doc.path)
+	win.Title = "Edit " + options.kind + " — " + filepath.Base(doc.path)
 	win.Closable, win.Movable, win.Resizable, win.NoScroll = true, true, true, true
 	win.Size = eui.Point{X: 780, Y: 540}
 	win.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	intro := eui.NewLabel("Edits apply to every character using this file. Save & Reload also reloads the selected session's enabled macros.")
+	intro := eui.NewLabel(ed.options.description)
 	intro.Size = eui.Point{X: 740, Y: 42}
 	intro.ConstrainToSize = true
 	ed.root.AddItem(intro)
@@ -99,14 +103,14 @@ func openLegacyMacroEditor(entry legacyMacroLibraryEntry) *legacyMacroEditor {
 	win.BeforeClose = ed.beforeClose
 	win.OnClose = func() {
 		eui.ClearFocus(input)
-		delete(legacyMacroEditors, doc.path)
+		delete(sourceEditors, doc.path)
 		if ed.confirm != nil {
 			ed.confirm.Close()
 			ed.confirm = nil
 		}
 		win.RemoveWindow()
 	}
-	legacyMacroEditors[doc.path] = ed
+	sourceEditors[doc.path] = ed
 	win.AddWindow(false)
 	win.MarkOpen()
 	ed.layout()
@@ -115,17 +119,17 @@ func openLegacyMacroEditor(entry legacyMacroLibraryEntry) *legacyMacroEditor {
 }
 
 // Return to the draft without moving its cursor or dropping its selection.
-func (ed *legacyMacroEditor) focus() {
+func (ed *sourceEditor) focus() {
 	cursor, anchor, end := ed.input.CursorPos, ed.input.SelectStart, ed.input.SelectEnd
 	eui.Focus(ed.input)
 	ed.input.CursorPos, ed.input.SelectStart, ed.input.SelectEnd = cursor, anchor, end
 	ed.input.Dirty, ed.win.Dirty = true, true
 }
 
-func (ed *legacyMacroEditor) layout() {
+func (ed *sourceEditor) layout() {
 	ed.scale = eui.UIScale()
-	if legacyMacroEditorFont != nil {
-		ed.input.Face = &text.GoTextFace{Source: legacyMacroEditorFont, Size: float64(ed.input.FontSize*ed.scale + 2)}
+	if sourceEditorFont != nil {
+		ed.input.Face = &text.GoTextFace{Source: sourceEditorFont, Size: float64(ed.input.FontSize*ed.scale + 2)}
 	}
 	eui.LayoutWindowBody(ed.win, ed.root, ed.input)
 	// Keep actions reachable when a window or a high-DPI display is narrow.
@@ -146,7 +150,7 @@ func (ed *legacyMacroEditor) layout() {
 	ed.footer.Size.Y = 0
 	intro := ed.root.Contents[0]
 	face := &text.GoTextFace{Source: eui.FontSource(), Size: float64(intro.FontSize*ed.scale + 2)}
-	_, lines := eui.WrapText("Edits apply to every character using this file. Save & Reload also reloads the selected session's enabled macros.", face, float64(intro.Size.X*ed.scale))
+	_, lines := eui.WrapText(ed.options.description, face, float64(intro.Size.X*ed.scale))
 	intro.Text = strings.Join(lines, "\n")
 	intro.Size.Y = float32(len(lines)) * 18
 	eui.LayoutWindowBody(ed.win, ed.root, ed.input)
@@ -154,9 +158,9 @@ func (ed *legacyMacroEditor) layout() {
 	ed.win.Refresh()
 }
 
-func (ed *legacyMacroEditor) dirty() bool { return ed.doc.changed(ed.input.Text) }
+func (ed *sourceEditor) dirty() bool { return ed.doc.changed(ed.input.Text) }
 
-func (ed *legacyMacroEditor) find(query string, next, backward bool) {
+func (ed *sourceEditor) find(query string, next, backward bool) {
 	if query == "" {
 		ed.setStatus("")
 		return
@@ -175,9 +179,9 @@ func (ed *legacyMacroEditor) find(query string, next, backward bool) {
 	}
 }
 
-func (ed *legacyMacroEditor) refreshStatus() {
+func (ed *sourceEditor) refreshStatus() {
 	dirty := ed.dirty()
-	ed.win.Title = "Edit Macro — " + filepath.Base(ed.doc.path)
+	ed.win.Title = "Edit " + ed.options.kind + " — " + filepath.Base(ed.doc.path)
 	if dirty {
 		ed.win.Title += " *"
 	}
@@ -201,23 +205,19 @@ func (ed *legacyMacroEditor) refreshStatus() {
 	ed.win.Dirty = true
 }
 
-func (ed *legacyMacroEditor) setStatus(message string) { ed.message = message; ed.refreshStatus() }
+func (ed *sourceEditor) setStatus(message string) { ed.message = message; ed.refreshStatus() }
 
-func (ed *legacyMacroEditor) check() bool {
-	program := ed.doc.check(ed.input.Text)
-	if len(program.Diagnostics) == 0 {
-		ed.setStatus("No macro syntax errors found.")
-		return true
+func (ed *sourceEditor) check() bool {
+	if err := ed.options.check(ed.input.Text); err != nil {
+		consoleMessage("[editor] " + err.Error())
+		ed.setStatus("Check failed: " + err.Error())
+		return false
 	}
-	for _, diagnostic := range program.Diagnostics {
-		legacyMacroLibraryReport(diagnostic.Error())
-	}
-	first := program.Diagnostics[0]
-	ed.setStatus(fmt.Sprintf("Check found %d issue(s). %s:%d:%d: %s. Details are in Console.", len(program.Diagnostics), filepath.Base(first.Location.Path), first.Location.Line, first.Location.Column, first.Message))
-	return false
+	ed.setStatus(ed.options.checkedMessage)
+	return true
 }
 
-func (ed *legacyMacroEditor) save(reload bool) bool {
+func (ed *sourceEditor) save(reload bool) bool {
 	if reload && !ed.check() {
 		return false
 	}
@@ -225,21 +225,24 @@ func (ed *legacyMacroEditor) save(reload bool) bool {
 		ed.setStatus("Not saved: " + err.Error())
 		return false
 	}
-	message := "Saved. Use Save & Reload to apply it to this session's enabled macros."
+	message := ed.options.savedMessage
 	if reload {
-		if err := legacyMacroLibrarySession().loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+		result, err := ed.options.reload()
+		if err != nil {
 			message = "Saved; reload reported an error: " + err.Error()
-			legacyMacroLibraryReport(message)
+			consoleMessage("[editor] " + message)
 		} else {
-			message = "Saved; selected session's enabled macros reloaded."
+			message = result
 		}
 	}
-	refreshLegacyMacroLibraryWindow()
+	if ed.options.afterSave != nil {
+		ed.options.afterSave()
+	}
 	ed.setStatus(message)
 	return true
 }
 
-func (ed *legacyMacroEditor) beforeClose() bool {
+func (ed *sourceEditor) beforeClose() bool {
 	if ed.discard || !ed.dirty() {
 		return true
 	}
@@ -247,7 +250,7 @@ func (ed *legacyMacroEditor) beforeClose() bool {
 		ed.confirm.BringForward()
 		return false
 	}
-	ed.confirm = eui.ShowPopup("Unsaved macro changes", "Save changes to "+filepath.Base(ed.doc.path)+"?", []eui.PopupButton{
+	ed.confirm = eui.ShowPopup("Unsaved editor changes", "Save changes to "+filepath.Base(ed.doc.path)+"?", []eui.PopupButton{
 		{Text: "Keep Editing", Action: func() { ed.confirm = nil; ed.focus() }},
 		{Text: "Discard", Action: func() { ed.confirm = nil; ed.discard = true; ed.win.Close() }},
 		{Text: "Save & Close", Action: func() {
@@ -260,8 +263,8 @@ func (ed *legacyMacroEditor) beforeClose() bool {
 	return false
 }
 
-func updateLegacyMacroEditors() {
-	for _, ed := range legacyMacroEditors {
+func updateSourceEditors() {
+	for _, ed := range sourceEditors {
 		if ed.scale != eui.UIScale() {
 			ed.layout()
 		}
@@ -271,9 +274,9 @@ func updateLegacyMacroEditors() {
 	}
 }
 
-func dirtyLegacyMacroEditors() []*legacyMacroEditor {
-	var dirty []*legacyMacroEditor
-	for _, ed := range legacyMacroEditors {
+func dirtySourceEditors() []*sourceEditor {
+	var dirty []*sourceEditor
+	for _, ed := range sourceEditors {
 		if ed.dirty() {
 			dirty = append(dirty, ed)
 		}
@@ -284,20 +287,20 @@ func dirtyLegacyMacroEditors() []*legacyMacroEditor {
 
 // Returns true when the continuation is deferred for an unsaved-changes choice.
 // The popup is nonmodal, so Save All reads the current drafts when clicked.
-func confirmLegacyMacroEditorQuit(quit func()) bool {
-	if len(dirtyLegacyMacroEditors()) == 0 {
+func confirmSourceEditorQuit(quit func()) bool {
+	if len(dirtySourceEditors()) == 0 {
 		return false
 	}
-	if legacyMacroQuitPrompt != nil && legacyMacroQuitPrompt.IsOpen() {
-		legacyMacroQuitPrompt.BringForward()
+	if sourceEditorQuitPrompt != nil && sourceEditorQuitPrompt.IsOpen() {
+		sourceEditorQuitPrompt.BringForward()
 		return true
 	}
-	legacyMacroQuitPrompt = eui.ShowPopup("Unsaved macro changes", "Save your macro changes before quitting?", []eui.PopupButton{
-		{Text: "Keep Editing", Action: func() { legacyMacroQuitPrompt = nil }},
-		{Text: "Discard & Quit", Width: 144, Action: func() { legacyMacroQuitPrompt = nil; quit() }},
+	sourceEditorQuitPrompt = eui.ShowPopup("Unsaved editor changes", "Save your macro and script changes before quitting?", []eui.PopupButton{
+		{Text: "Keep Editing", Action: func() { sourceEditorQuitPrompt = nil }},
+		{Text: "Discard & Quit", Width: 144, Action: func() { sourceEditorQuitPrompt = nil; quit() }},
 		{Text: "Save All & Quit", Width: 144, Action: func() {
-			legacyMacroQuitPrompt = nil
-			for _, ed := range dirtyLegacyMacroEditors() {
+			sourceEditorQuitPrompt = nil
+			for _, ed := range dirtySourceEditors() {
 				if !ed.save(false) {
 					ed.win.BringForward()
 					return

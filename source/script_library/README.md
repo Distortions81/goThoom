@@ -15,9 +15,9 @@ engine; you do not need to compile the client.
    the folder opened by **Open scripts folder**.
 3. Select the script and enable it for **All** players or the selected **Player**.
    Review its permissions. Enabled scripts run after successful login.
-4. Save your changes. goThoom notices file changes and reloads enabled scripts
-   automatically. **Reload** reads the selected script from disk and restarts it.
-   **Refresh** rescans the folder.
+4. Use **Edit** to change its source in-game. **Save & Reload** reads the saved
+   version into the selected session if the script is running. **Reload** also
+   reads external edits from disk; **Refresh** rescans the folder.
 
 Scripts supplied with the client are labeled **Included with goThoom**.
 On startup or **Refresh**, goThoom adds missing included scripts and updates
@@ -26,6 +26,31 @@ not enable it.
 
 The Scripts window shows load and runtime errors. If a reload fails, the last
 working copy keeps running when possible.
+
+## Edit a script in-game
+
+Use **Edit** beside a script or in its information panel. **New Script** and
+the included examples also open the in-game editor. Loose `.go` files and the Go
+source file inside a package folder are editable. Unpack ZIP packages first.
+
+The editor supports selection, clipboard shortcuts, undo/redo, Tab/Shift+Tab
+indentation, and scrollbars. Search with the titlebar magnifier or Ctrl+F
+(Command+F on Mac). Enter/Shift+Enter moves between matches in search;
+F3/Shift+F3 also works while editing. Matches ignore case and wrap through the file.
+
+**Check** compiles the unsaved draft and runs `Init` in validation mode without
+activating its commands, timers, or stored changes. It uses the script's existing
+permissions and package assets. **Save** (Ctrl+S or Command+S) writes the file
+without validation or reload, so unfinished work can be saved. **Save & Reload**
+checks first, saves, then reloads this script in the selected session if running.
+Stopped scripts remain stopped, and enable settings are unchanged. Other sessions
+keep their running version until reloaded.
+
+Edits affect the shared file used by every character. Closing or quitting prompts
+for unsaved changes. External file changes stop a save from overwriting them.
+UTF-8 encoding, an existing BOM, and the file's newline style are preserved.
+If Check requests additional permissions, save the draft and review them under
+**Info → Permissions**. If you change `scriptID`, use **Refresh** to rediscover it.
 
 For a separate VS Code project, download `goThoom-Script-Template.zip` from the
 goThoom release. It includes a starter script, VS Code settings, and the same

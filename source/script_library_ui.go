@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"gothoom/eui"
-
-	open "github.com/skratchdot/open-golang/open"
 )
 
 var (
@@ -80,9 +78,7 @@ func refreshScriptLibraryWindow() {
 			rescanscripts()
 			selectedscript = entry.ID
 			refreshScriptLibraryWindow()
-			if err := open.Run(installedPath); err != nil {
-				consoleMessage("[script] open example: " + err.Error())
-			}
+			openScriptSourceEditor(entry.ID, installedPath)
 		}
 		row.AddItem(install)
 
@@ -93,9 +89,7 @@ func refreshScriptLibraryWindow() {
 		edit.Disabled = !installed || isWASM
 		editEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick && !edit.Disabled {
-				if err := open.Run(path); err != nil {
-					consoleMessage("[script] open example: " + err.Error())
-				}
+				openScriptSourceEditor(entry.ID, path)
 			}
 		}
 		row.AddItem(edit)

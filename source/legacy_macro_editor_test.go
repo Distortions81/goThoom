@@ -12,7 +12,7 @@ import (
 	"golang.org/x/text/encoding/charmap"
 )
 
-func macroDocumentFixture(t *testing.T, raw []byte) *legacyMacroDocument {
+func macroDocumentFixture(t *testing.T, raw []byte) *sourceDocument {
 	t.Helper()
 	oldDir := dataDirPath
 	dataDirPath = t.TempDir()
@@ -186,17 +186,17 @@ func TestMacroDocumentSavesThroughSymlinkAndKeepsMacroIncludeRules(t *testing.T)
 	}
 }
 
-func macroEditorFixture(t *testing.T) *legacyMacroEditor {
+func macroEditorFixture(t *testing.T) *sourceEditor {
 	t.Helper()
 	initFont()
-	oldEditors, oldPrompt, oldQuit := legacyMacroEditors, legacyMacroQuitPrompt, legacyMacroQuitRequested
+	oldEditors, oldPrompt, oldQuit := sourceEditors, sourceEditorQuitPrompt, sourceEditorQuitRequested
 	oldDir, oldSessions := dataDirPath, appSessions
 	oldWin, oldList := legacyMacroLibraryWin, legacyMacroLibraryList
 	oldW, oldH := eui.ScreenSize()
 	oldScale := eui.UIScale()
-	legacyMacroEditors = map[string]*legacyMacroEditor{}
-	legacyMacroQuitPrompt = nil
-	legacyMacroQuitRequested = false
+	sourceEditors = map[string]*sourceEditor{}
+	sourceEditorQuitPrompt = nil
+	sourceEditorQuitRequested = false
 	legacyMacroLibraryWin = nil
 	legacyMacroLibraryList = nil
 	dataDirPath = t.TempDir()
@@ -204,14 +204,14 @@ func macroEditorFixture(t *testing.T) *legacyMacroEditor {
 	eui.SetScreenSize(1920, 1080)
 	eui.SetUIScale(1)
 	t.Cleanup(func() {
-		if legacyMacroQuitPrompt != nil {
-			legacyMacroQuitPrompt.Close()
+		if sourceEditorQuitPrompt != nil {
+			sourceEditorQuitPrompt.Close()
 		}
-		for _, ed := range legacyMacroEditors {
+		for _, ed := range sourceEditors {
 			ed.discard = true
 			ed.win.Close()
 		}
-		legacyMacroEditors, legacyMacroQuitPrompt, legacyMacroQuitRequested = oldEditors, oldPrompt, oldQuit
+		sourceEditors, sourceEditorQuitPrompt, sourceEditorQuitRequested = oldEditors, oldPrompt, oldQuit
 		dataDirPath, appSessions = oldDir, oldSessions
 		legacyMacroLibraryWin, legacyMacroLibraryList = oldWin, oldList
 		eui.SetScreenSize(oldW, oldH)
@@ -231,7 +231,7 @@ func macroEditorFixture(t *testing.T) *legacyMacroEditor {
 	return ed
 }
 
-func editMacroForTest(ed *legacyMacroEditor, value string) {
+func editMacroForTest(ed *sourceEditor, value string) {
 	ed.input.Text = value
 	ed.input.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Item: ed.input, Text: value})
 }
@@ -277,7 +277,7 @@ func TestMacroEditorKeepsDraftAndConfirmsClose(t *testing.T) {
 	}
 	ed.win.Close()
 	clickMacroEditorButton(t, ed.confirm, "Save & Close")
-	if ed.win.IsOpen() || len(legacyMacroEditors) != 0 {
+	if ed.win.IsOpen() || len(sourceEditors) != 0 {
 		t.Fatal("saved editor remains open")
 	}
 	got, _ := os.ReadFile(ed.doc.path)
@@ -343,11 +343,11 @@ func TestMacroEditorQuitUsesCurrentDraftAndStopsOnSaveFailure(t *testing.T) {
 	ed := macroEditorFixture(t)
 	editMacroForTest(ed, ed.input.Text+"// first\n")
 	quit := false
-	if !confirmLegacyMacroEditorQuit(func() { quit = true }) {
+	if !confirmSourceEditorQuit(func() { quit = true }) {
 		t.Fatal("dirty quit was not guarded")
 	}
 	editMacroForTest(ed, ed.input.Text+"// edited behind popup\n")
-	clickMacroEditorButton(t, legacyMacroQuitPrompt, "Save All & Quit")
+	clickMacroEditorButton(t, sourceEditorQuitPrompt, "Save All & Quit")
 	got, _ := os.ReadFile(ed.doc.path)
 	if !quit || string(got) != ed.input.Text {
 		t.Fatal("quit did not save current draft")
@@ -357,8 +357,8 @@ func TestMacroEditorQuitUsesCurrentDraftAndStopsOnSaveFailure(t *testing.T) {
 	if err := os.WriteFile(ed.doc.path, []byte("// external\n"), 0640); err != nil {
 		t.Fatal(err)
 	}
-	confirmLegacyMacroEditorQuit(func() { quit = true })
-	clickMacroEditorButton(t, legacyMacroQuitPrompt, "Save All & Quit")
+	confirmSourceEditorQuit(func() { quit = true })
+	clickMacroEditorButton(t, sourceEditorQuitPrompt, "Save All & Quit")
 	if quit || !ed.dirty() {
 		t.Fatal("quit discarded failed save")
 	}

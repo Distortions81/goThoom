@@ -103,11 +103,16 @@
             <ol>
               <li>Use <strong>Open scripts folder</strong> and add a single <code>.go</code> file, a package folder, or a ZIP package.</li>
               <li>Scripts supplied with the client are labeled Included with goThoom. On startup or Refresh, missing included scripts are added and unchanged copies update automatically. Your edits and enable selections are preserved.</li>
-              <li>Press <strong>Refresh</strong> to rescan immediately. Enabled scripts normally reload when their files change.</li>
+              <li>Press <strong>Refresh</strong> to rescan the folder, or <strong>Reload</strong> to read a script's changes from disk.</li>
               <li>If a reload fails, inspect the script’s information panel and Console. The last working copy continues when possible.</li>
             </ol>
             <p>Scripts can add commands, hotkeys, shortcuts, notifications, configuration fields, and toolbar controls. They run locally but can issue commands as your character, so read unfamiliar code before enabling it. Use <strong>Actions → Saved Data</strong> to inspect or clear script-owned persistent data.</p>
             <p>For writing scripts, use the generated <code>README.md</code> and <code>gt2/API_REFERENCE.md</code> in the Scripts folder or read the <a href="https://github.com/Distortions81/goThoom/blob/main/source/script_library/README.md">online scripting guide</a>. The release page also provides a VS Code script template.</p>
+
+            <h3 id="edit-script-source">Edit a Go script in-game</h3>
+<p>Choose a script's <strong>Edit</strong> action to open its source in the same editor used for macros. <strong>New Script</strong> also opens the editor. It supports clipboard shortcuts, undo/redo, indentation, and scrollbars. Use the magnifier or Ctrl+F (Command+F on Mac) to search; Enter/Shift+Enter moves between matches, and F3/Shift+F3 also works while editing.</p>
+<p><strong>Check</strong> compiles the unsaved draft and runs Init in validation mode without activating it. <strong>Save</strong> (Ctrl+S or Command+S) writes work in progress without reloading. <strong>Save &amp; Reload</strong> checks, saves, and reloads the script in the selected session if it is running. Stopped scripts remain stopped. Other sessions keep their running version until reloaded.</p>
+<p>Loose Go files and folder package source files are editable; unpack ZIP packages first. Closing or quitting prompts for unsaved changes, and saving stops if the file changed externally. If Check requests additional permissions, save and review them under <strong>Info → Permissions</strong>.</p>
 
             <h3 id="first-go-script">Write a small local command</h3>
 <p>A script can respond to a local command without sending anything to the server. This is a useful first experiment because you can see whether the script loaded before adding game actions.</p>

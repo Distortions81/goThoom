@@ -717,6 +717,24 @@ func (win *windowData) clampToScreen() {
 	}
 }
 
+// containsPointer includes the same outside-border grab area that chooses the
+// resize cursor. mpos is in screen pixels.
+func (win *windowData) containsPointer(mpos point) bool {
+	if win.getWinRect().containsPoint(mpos) {
+		return true
+	}
+	return !win.Docked && win.getResizePart(mpos) != PART_NONE
+}
+
+func windowAtPointer(orderedWindows []*windowData, mpos point) *windowData {
+	for _, win := range orderedWindows {
+		if win.Open && win.containsPointer(mpos) {
+			return win
+		}
+	}
+	return nil
+}
+
 func (win *windowData) getWindowPart(mpos point, click bool) dragType {
 	s := win.scale()
 	mpos = point{X: mpos.X * s, Y: mpos.Y * s}

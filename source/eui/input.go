@@ -106,16 +106,7 @@ func Update() error {
 	click := pointerJustPressed()
 	midClick := middleClickMove && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 	if click || midClick {
-		downWin = nil
-		for _, win := range orderedWindows {
-			if !win.Open {
-				continue
-			}
-			if win.getWinRect().containsPoint(mpos) {
-				downWin = win
-				break
-			}
-		}
+		downWin = windowAtPointer(orderedWindows, mpos)
 	}
 	if click {
 		activeSearch = nil
@@ -214,6 +205,9 @@ func Update() error {
 		}
 
 		if part != PART_NONE {
+			// Resize handles own the same grab area for hover and clicks,
+			// including the tolerance outside the visible border.
+			handled = part >= PART_TOP && part <= PART_TOP_LEFT
 
 			if dragPart == PART_NONE && c == ebiten.CursorShapeDefault {
 				switch part {
@@ -340,7 +334,7 @@ func Update() error {
 		// event. The check includes clicks on dropdown menus which may
 		// have closed during handling. Also consider context menus so a
 		// right-click menu doesn't cause window activation behind it.
-		if handled || win.getWinRect().containsPoint(mpos) || dropdownOpenContains(win.Contents, mpos) || contextMenuContainsAnywhere(mpos) {
+		if handled || win.containsPointer(mpos) || dropdownOpenContains(win.Contents, mpos) || contextMenuContainsAnywhere(mpos) {
 			if click || midClick {
 				if activeWindow == prevActiveWindow {
 					if activeWindow != win || windows[len(windows)-1] != win {

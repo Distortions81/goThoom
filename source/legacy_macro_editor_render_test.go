@@ -27,7 +27,7 @@ func TestRenderMacroSourceEditor(t *testing.T) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	g := &macroSourceRenderGame{editor: ed, dir: dir}
+	g := &sourceEditorRenderGame{editor: ed, dir: dir, prefix: "macro"}
 	if err := ebiten.RunGame(g); err != nil {
 		t.Fatal(err)
 	}
@@ -36,28 +36,29 @@ func TestRenderMacroSourceEditor(t *testing.T) {
 	}
 }
 
-type macroSourceRenderGame struct {
-	editor *legacyMacroEditor
+type sourceEditorRenderGame struct {
+	editor *sourceEditor
 	dir    string
+	prefix string
 	done   bool
 	err    error
 }
 
-func (*macroSourceRenderGame) Layout(_, _ int) (int, int) { return 1920, 1080 }
-func (g *macroSourceRenderGame) Update() error {
+func (*sourceEditorRenderGame) Layout(_, _ int) (int, int) { return 1920, 1080 }
+func (g *sourceEditorRenderGame) Update() error {
 	if g.done {
 		return ebiten.Termination
 	}
 	return nil
 }
-func (g *macroSourceRenderGame) Draw(screen *ebiten.Image) {
+func (g *sourceEditorRenderGame) Draw(screen *ebiten.Image) {
 	if g.done {
 		return
 	}
 	g.done = true
 	g.err = g.render(screen)
 }
-func (g *macroSourceRenderGame) render(screen *ebiten.Image) error {
+func (g *sourceEditorRenderGame) render(screen *ebiten.Image) error {
 	for _, tc := range []struct{ scale, width, height float32 }{{1, 780, 540}, {2, 780, 500}, {2, 360, 400}} {
 		eui.SetUIScale(tc.scale)
 		ed := g.editor
@@ -94,7 +95,7 @@ func (g *macroSourceRenderGame) render(screen *ebiten.Image) error {
 		if ed.input.DrawRect.Y1 <= ed.input.DrawRect.Y0 || ed.input.DrawRect.Y1 > ed.status.DrawRect.Y0 {
 			return fmt.Errorf("editor overlaps status")
 		}
-		f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("macro-%gx-%g.png", tc.scale, tc.width)))
+		f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("%s-%gx-%g.png", g.prefix, tc.scale, tc.width)))
 		if err != nil {
 			return err
 		}

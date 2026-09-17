@@ -199,6 +199,10 @@ lists key names, aliases, and hardware limits.
 ### Go scripts
 
 Open **Actions → Scripts** to configure, validate, reload, or stop scripts.
+Use a script's **Edit** action for the in-game editor, with search, scrollbars,
+clipboard shortcuts, and undo/redo. **Check** validates the draft, **Save** keeps
+it on disk, and **Save & Reload** reloads that script in the selected session if
+it is running.
 On first enable, a permission review opens with requested access checked and
 unused capabilities greyed out. Choose **Grant** to accept the selected access
 or **Block all** to deny it and disable the script. Commands, key bindings,

@@ -439,7 +439,22 @@ func legacyMacroLibraryShowInfo(entry legacyMacroLibraryEntry) {
 		legacyMacroLibraryReport("read " + entry.Name + ": " + err.Error())
 		return
 	}
-	eui.ShowPopup("Macro Info: "+entry.Name, "", []eui.PopupButton{{Text: "Close"}}, legacyMacroLibraryInfoColumns(info))
+	columns := legacyMacroLibraryInfoColumns(info)
+	win := eui.ShowPopup("Macro Info: "+entry.Name, "", []eui.PopupButton{{Text: "Close"}}, columns)
+	win.AutoSize = false
+	win.Resizable = true
+	win.Closable = true
+	win.Size = eui.Point{X: 940, Y: 560}
+	win.OnResize = func() {
+		eui.LayoutWindowBody(win, win.Contents[0], columns)
+		columns.Scrollable = false // Each column keeps its own scrollbar.
+		width := columns.Size.X / 3
+		for index, lines := range [][]string{info.Metadata, info.Commands, info.Keybindings} {
+			legacyMacroLibraryLayoutInfoColumn(columns.Contents[index], lines, width, columns.Size.Y)
+		}
+		win.Refresh()
+	}
+	win.OnResize()
 }
 
 type legacyMacroLibraryInfo struct {
@@ -555,18 +570,26 @@ func legacyMacroLibraryInfoColumn(title string, lines []string, width, height fl
 	heading, _ := eui.NewText()
 	heading.Text = title
 	heading.FontSize = 12
-	heading.Size = eui.Point{X: width - eui.ScrollbarWidth(), Y: 24}
+	heading.Size = eui.Point{X: max(float32(1), width-eui.ScrollbarWidth()), Y: 24}
 	column.AddItem(heading)
+	content, _ := eui.NewText()
+	content.FontSize = 12
+	column.AddItem(content)
+	legacyMacroLibraryLayoutInfoColumn(column, lines, width, height)
+	return column
+}
+
+func legacyMacroLibraryLayoutInfoColumn(column *eui.ItemData, lines []string, width, height float32) {
+	column.Size = eui.Point{X: width, Y: height}
+	textWidth := max(float32(1), width-eui.ScrollbarWidth())
+	column.Contents[0].Size = eui.Point{X: textWidth, Y: 24}
 	if len(lines) == 0 {
 		lines = []string{"None"}
 	}
-	lines = legacyMacroLibraryWrapInfoLines(lines, width-eui.ScrollbarWidth())
-	content, _ := eui.NewText()
+	lines = legacyMacroLibraryWrapInfoLines(lines, textWidth)
+	content := column.Contents[1]
 	content.Text = strings.Join(lines, "\n")
-	content.FontSize = 12
-	content.Size = eui.Point{X: width - eui.ScrollbarWidth(), Y: float32(len(lines)) * 18}
-	column.AddItem(content)
-	return column
+	content.Size = eui.Point{X: textWidth, Y: float32(len(lines)) * 18}
 }
 
 func legacyMacroLibraryWrapInfoLines(lines []string, width float32) []string {

@@ -759,9 +759,7 @@ func openNewScriptWindow() {
 				return
 			}
 			rescanscripts()
-			if err := open.Run(path); err != nil {
-				consoleMessage("[script] open file: " + err.Error())
-			}
+			openScriptSourceEditor(normalizeScriptID(strings.TrimSuffix(filepath.Base(path), ".go")), path)
 			newScriptWin.Close()
 			newScriptWin = nil
 		}
@@ -827,7 +825,7 @@ func refreshscriptsWindow() {
 	}
 	savedScroll := scriptsList.Scroll
 	layoutScriptsWindow()
-	nameWidth := max(float32(160), scriptsList.Size.X-scriptsManagerInfoSize-2*scriptsManagerCheckSize-12-72-16)
+	nameWidth := max(float32(160), scriptsList.Size.X-scriptsManagerInfoSize-2*scriptsManagerCheckSize-12-108-16)
 	scriptsHeader.Contents = nil
 	scriptsHeader.AddItem(scriptListCell(nil, scriptsManagerInfoSize, 32, true))
 	for _, label := range []string{"Player", "All"} {
@@ -983,6 +981,15 @@ func refreshscriptsWindow() {
 			statusTxt.Size = eui.Point{X: nameWidth, Y: 18}
 			statusTxt.SetTooltip(status)
 			row.AddItem(eui.NewColumn(scriptListSpace(1, 6), nameTxt, statusTxt, scriptListSpace(1, 4)))
+			editBtn := eui.NewActionButton("Edit", func() { openScriptSourceEditor(owner, e.path) })
+			setMaterialIconOnly(editBtn, "edit", "Edit")
+			editBtn.Size = eui.Point{X: 28, Y: 28}
+			editBtn.SetTooltip("Edit this script in goThoom.")
+			if reason := scriptEditorUnavailable(owner, e.path); reason != "" {
+				editBtn.Disabled = true
+				editBtn.SetTooltip(reason)
+			}
+			row.AddItem(scriptListCell(editBtn, 36, scriptsManagerRowHeight, true))
 
 			if !e.invalid {
 				reloadBtn, rh := eui.NewButton()
@@ -1281,6 +1288,13 @@ func refreshscriptDetails() {
 		}
 		actions.AddItem(item)
 		return item
+	}
+	editReason := scriptEditorUnavailable(owner, path)
+	editButton := button("Edit", editReason != "", func() { openScriptSourceEditor(owner, path) })
+	if editReason != "" {
+		editButton.SetTooltip(editReason)
+	} else {
+		editButton.SetTooltip("Edit this script in goThoom.")
 	}
 	button("Open File", openPath == "", func() {
 		if err := open.Run(openPath); err != nil {
@@ -5006,7 +5020,7 @@ func confirmQuit() {
 		saveSettings()
 		exitApplication(0, "user confirmed Quit")
 	}
-	if confirmLegacyMacroEditorQuit(quit) {
+	if confirmSourceEditorQuit(quit) {
 		return
 	}
 	eui.ShowPopup(
@@ -5016,7 +5030,7 @@ func confirmQuit() {
 			{Text: "Cancel"},
 			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				// This popup is nonmodal; a draft may have changed since it opened.
-				if !confirmLegacyMacroEditorQuit(quit) {
+				if !confirmSourceEditorQuit(quit) {
 					quit()
 				}
 			}},

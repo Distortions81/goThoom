@@ -22,6 +22,74 @@ func setupWindowResizeTest(t *testing.T, scale float32, noScale bool) {
 	windows = nil
 }
 
+func TestWindowResizeGrabAreaOwnsPointer(t *testing.T) {
+	for _, scale := range []float32{1, 1.5, 2} {
+		for _, noScale := range []bool{false, true} {
+			t.Run(fmt.Sprintf("scale=%g/noScale=%t", scale, noScale), func(t *testing.T) {
+				setupWindowResizeTest(t, scale, noScale)
+				front, back := NewWindow(), NewWindow()
+				front.Open, front.Resizable, front.NoScroll, front.NoScale = true, true, true, noScale
+				front.Position, front.Size = point{100, 80}, point{200, 160}
+				back.Open, back.NoScale = true, noScale
+				back.Position, back.Size = point{}, point{600, 400}
+				ordered := []*windowData{front, back}
+				// Only the front window may cover the workspace divider below.
+				windows = []*windowData{front}
+				for _, tt := range []struct {
+					name string
+					pos  point
+					part dragType
+				}{
+					{"left", point{98, 160}, PART_LEFT},
+					{"right", point{302, 160}, PART_RIGHT},
+					{"top", point{200, 78}, PART_TOP},
+					{"bottom", point{200, 242}, PART_BOTTOM},
+					{"top left", point{88, 68}, PART_TOP_LEFT},
+					{"top right", point{312, 68}, PART_TOP_RIGHT},
+					{"bottom left", point{88, 252}, PART_BOTTOM_LEFT},
+					{"bottom right", point{312, 252}, PART_BOTTOM_RIGHT},
+				} {
+					t.Run(tt.name, func(t *testing.T) {
+						p := point{X: tt.pos.X * front.scale(), Y: tt.pos.Y * front.scale()}
+						if front.getWinRect().containsPoint(p) {
+							t.Fatal("fixture must exercise the grab area outside the window")
+						}
+						if got := front.getWindowPart(tt.pos, false); got != tt.part {
+							t.Fatalf("hover part = %v, want %v", got, tt.part)
+						}
+						if windowAtPointer(ordered, p) != front {
+							t.Fatal("resize cursor area sent the press to the window underneath")
+						}
+						if !tileDividerCoveredByStandaloneWindow(p) {
+							t.Fatal("resize cursor area did not block the workspace divider")
+						}
+						if windowAtPointer([]*windowData{back, front}, p) != back {
+							t.Fatal("covered resize handle intercepted the top window")
+						}
+					})
+				}
+				outside := point{X: 330 * front.scale(), Y: 270 * front.scale()}
+				if windowAtPointer(ordered, outside) != back {
+					t.Fatal("pointer outside the resize cursor area was intercepted")
+				}
+				corner := point{X: 312 * front.scale(), Y: 252 * front.scale()}
+				front.Resizable = false
+				if windowAtPointer(ordered, corner) != back {
+					t.Fatal("non-resizable window claimed an outside resize area")
+				}
+				front.Resizable, front.Docked = true, true
+				if windowAtPointer(ordered, corner) != back {
+					t.Fatal("docked window claimed an outside resize area")
+				}
+				front.Docked, front.Open = false, false
+				if windowAtPointer(ordered, corner) != back {
+					t.Fatal("closed window claimed an outside resize area")
+				}
+			})
+		}
+	}
+}
+
 func TestWindowResizeStopsAtScreenEdges(t *testing.T) {
 	for _, scale := range []float32{1, 1.5, 2} {
 		for _, noScale := range []bool{false, true} {
