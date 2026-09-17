@@ -34,6 +34,9 @@ func openScriptSourceEditor(owner, path string) *sourceEditor {
 	}
 	return openSourceEditor(doc, sourceEditorOptions{
 		kind:           "Script",
+		highlight:      highlightGoScript,
+		format:         formatGoScript,
+		formatPosition: remapGoFormattedPosition,
 		reloadTooltip:  "Save the shared script file and reload it in the selected session if it is running.",
 		checkedMessage: "Validation passed. The draft was checked without activating it.",
 		savedMessage:   "Saved. Use Save & Reload to apply this version to the selected session.",

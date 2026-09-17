@@ -33,10 +33,17 @@ Use **Edit** beside a script or in its information panel. **New Script** and
 the included examples also open the in-game editor. Loose `.go` files and the Go
 source file inside a package folder are editable. Unpack ZIP packages first.
 
-The editor supports selection, clipboard shortcuts, undo/redo, Tab/Shift+Tab
+The editor colors Go comments, strings, rune literals, keywords, and numbers.
+It supports selection, clipboard shortcuts, undo/redo, Tab/Shift+Tab
 indentation, and scrollbars. Search with the titlebar magnifier or Ctrl+F
 (Command+F on Mac). Enter/Shift+Enter moves between matches in search;
 F3/Shift+F3 also works while editing. Matches ignore case and wrap through the file.
+
+**Format** (Ctrl+Shift+I or Command+Shift+I) applies standard Go formatting,
+including indentation, spacing, and import order. Scripts also format when opened
+and saved. Opening changes only the draft until you save; Undo restores the
+previous text. If syntax is incomplete, formatting leaves the draft unchanged
+and Save still writes your work in progress.
 
 **Check** compiles the unsaved draft and runs `Init` in validation mode without
 activating its commands, timers, or stored changes. It uses the script's existing

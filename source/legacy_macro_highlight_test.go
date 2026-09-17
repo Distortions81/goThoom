@@ -10,30 +10,30 @@ import (
 
 func TestMacroHighlightSyntaxAndOffsets(t *testing.T) {
 	for _, background := range []eui.Color{eui.NewColor(20, 22, 24, 255), eui.NewColor(245, 245, 245, 255)} {
-		palette := macroHighlightPalette(background)
+		palette := sourceHighlightPalette(background)
 		for _, tt := range []struct {
 			name, source, fragment string
-			kind                   macroHighlightKind
+			kind                   sourceHighlightKind
 		}{
-			{"metadata", "// Name: Café\n", "// Name: Café", macroHighlightComment},
-			{"keyword", "\tSeT @count -12", "SeT", macroHighlightKeyword},
-			{"variable", "\"é\"\t@text.word[1]", "@text.word[1]", macroHighlightVariable},
-			{"number", "set @count -12", "-12", macroHighlightNumber},
-			{"invalid number", "set @count +-12", "+-12", macroHighlightPlain},
-			{"attribute", "$IGNORE_CASE", "$IGNORE_CASE", macroHighlightKeyword},
-			{"binding", "command-option-f6 \"/wave\\r\"", "command-option-f6", macroHighlightBinding},
-			{"replacement", "'pp' \"/ponder \"", "'pp'", macroHighlightString},
-			{"quoted slashes", "message \"https://example.test\" // end", "https://example.test", macroHighlightString},
-			{"trailing comment", "message \"é\\\"hi\" // fin", "// fin", macroHighlightComment},
-			{"unknown escape", "message \"hello\\n\"", "\\n", macroHighlightString},
-			{"block in string", "message \"a/* hidden */b\"", "/* hidden */", macroHighlightComment},
-			{"string after block", "message \"a/* hidden */b\"", "b\"", macroHighlightString},
-			{"split keyword", "se/*é*/t @count 1", "t", macroHighlightKeyword},
-			{"partial string", "set @name \"unfinished\\", "\"unfinished\\", macroHighlightString},
-			{"before partial string", "set @name \"unfinished", "@name", macroHighlightVariable},
-			{"partial block", "\"é\"\r\n  /* outer /* nested\nrest", "/* outer /* nested\nrest", macroHighlightComment},
-			{"after partial quote", "message \"unfinished\npause 5", "pause", macroHighlightKeyword},
-			{"unknown identifier", "call MyFunction", "MyFunction", macroHighlightPlain},
+			{"metadata", "// Name: Café\n", "// Name: Café", sourceHighlightComment},
+			{"keyword", "\tSeT @count -12", "SeT", sourceHighlightKeyword},
+			{"variable", "\"é\"\t@text.word[1]", "@text.word[1]", sourceHighlightVariable},
+			{"number", "set @count -12", "-12", sourceHighlightNumber},
+			{"invalid number", "set @count +-12", "+-12", sourceHighlightPlain},
+			{"attribute", "$IGNORE_CASE", "$IGNORE_CASE", sourceHighlightKeyword},
+			{"binding", "command-option-f6 \"/wave\\r\"", "command-option-f6", sourceHighlightBinding},
+			{"replacement", "'pp' \"/ponder \"", "'pp'", sourceHighlightString},
+			{"quoted slashes", "message \"https://example.test\" // end", "https://example.test", sourceHighlightString},
+			{"trailing comment", "message \"é\\\"hi\" // fin", "// fin", sourceHighlightComment},
+			{"unknown escape", "message \"hello\\n\"", "\\n", sourceHighlightString},
+			{"block in string", "message \"a/* hidden */b\"", "/* hidden */", sourceHighlightComment},
+			{"string after block", "message \"a/* hidden */b\"", "b\"", sourceHighlightString},
+			{"split keyword", "se/*é*/t @count 1", "t", sourceHighlightKeyword},
+			{"partial string", "set @name \"unfinished\\", "\"unfinished\\", sourceHighlightString},
+			{"before partial string", "set @name \"unfinished", "@name", sourceHighlightVariable},
+			{"partial block", "\"é\"\r\n  /* outer /* nested\nrest", "/* outer /* nested\nrest", sourceHighlightComment},
+			{"after partial quote", "message \"unfinished\npause 5", "pause", sourceHighlightKeyword},
+			{"unknown identifier", "call MyFunction", "MyFunction", sourceHighlightPlain},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				spans := highlightLegacyMacro(tt.source, background)

@@ -45,6 +45,7 @@ type sourceEditorOptions struct {
 	afterSave                                         func()
 	highlight                                         func(string, eui.Color) []eui.TextColorSpan
 	format                                            func(string) (string, error)
+	formatPosition                                    func(before, after string, position int, trailing bool) int
 	lint                                              func(string) []string
 }
 
@@ -270,10 +271,18 @@ func (ed *sourceEditor) format() bool {
 		return true
 	}
 	cursor, start, end := ed.input.CursorPos, ed.input.SelectStart, ed.input.SelectEnd
+	remap := func(position int, trailing bool) int {
+		if ed.options.formatPosition != nil {
+			return ed.options.formatPosition(before, value, position, trailing)
+		}
+		return remapFormattedPosition(before, value, position)
+	}
 	ed.input.ReplaceText(value)
-	ed.input.CursorPos = remapFormattedPosition(before, value, cursor)
-	ed.input.SelectStart = remapFormattedPosition(before, value, start)
-	ed.input.SelectEnd = remapFormattedPosition(before, value, end)
+	// Keep selection edges on their own side of newly inserted whitespace.
+	// A collapsed selection follows the caret, without selecting new spaces.
+	ed.input.CursorPos = remap(cursor, start == end || cursor != min(start, end))
+	ed.input.SelectStart = remap(start, start >= end)
+	ed.input.SelectEnd = remap(end, end >= start)
 	ed.setStatus("Formatted. Undo restores the previous draft.")
 	return true
 }

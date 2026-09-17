@@ -206,9 +206,12 @@ lists key names, aliases, and hardware limits.
 
 Open **Actions → Scripts** to configure, validate, reload, or stop scripts.
 Use a script's **Edit** action for the in-game editor, with search, scrollbars,
-clipboard shortcuts, and undo/redo. **Check** validates the draft, **Save** keeps
+clipboard shortcuts, and undo/redo. It colors Go comments, strings, rune literals,
+keywords, and numbers. **Check** validates the draft, **Save** keeps
 it on disk, and **Save & Reload** reloads that script in the selected session if
-it is running.
+it is running. **Format** applies standard Go formatting. Scripts format when
+opened and saved; opening keeps the changes in the draft until you save.
+Undo restores the previous draft.
 On first enable, a permission review opens with requested access checked and
 unused capabilities greyed out. Choose **Grant** to accept the selected access
 or **Block all** to deny it and disable the script. Commands, key bindings,

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const editorScriptSource = "package main\nconst scriptID = \"editor-test\"\nconst scriptName = \"Editor Test\"\nvar Version = \"one\"\nfunc Init() {}\n"
+const editorScriptSource = "package main\n\nconst scriptID = \"editor-test\"\nconst scriptName = \"Editor Test\"\n\nvar Version = \"one\"\n\nfunc Init() {}\n"
 
 func scriptSourceEditorFixture(t *testing.T, folder bool) *sourceEditor {
 	t.Helper()
