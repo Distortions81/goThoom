@@ -6,13 +6,11 @@ import (
 
 	"gothoom/eui"
 
-	ebiten "github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/pkg/browser"
 )
 
 var (
-	cursorPosition  = ebiten.CursorPosition
 	showContextMenu = eui.ShowContextMenu
 
 	chatTextWrapCache      textWindowWrapCache
@@ -99,35 +97,25 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 			return nil
 		},
 	}, wrapCache)
-	if input != nil && len(input.Contents) > 0 {
-		t := input.Contents[0]
-		if t.Text != "" && t.Focused {
-			showSpellSuggestions(t)
-		}
-	}
 }
 
 // showSpellSuggestions displays correction suggestions for misspelled words
-// when hovering over underlined text. Selecting a suggestion replaces the
+// when right-clicking underlined text. Selecting a suggestion replaces the
 // word and updates the input text.
-func showSpellSuggestions(t *eui.ItemData) {
+func showSpellSuggestions(t *eui.ItemData, mx, my int) bool {
 	if !gs.InputSpellcheck || t == nil || len(t.Underlines) == 0 || sc == nil {
-		return
+		return false
 	}
 	if t.Text == "" || t.ParentWindow == nil || !t.ParentWindow.IsOpen() {
-		return
+		return false
 	}
-	if eui.ContextMenusOpen() {
-		return
-	}
-	mx, my := cursorPosition()
 	x := float32(mx)
 	y := float32(my)
 	if x < t.DrawRect.X0 || x > t.DrawRect.X1 || y < t.DrawRect.Y0 || y > t.DrawRect.Y1 {
-		return
+		return false
 	}
 	if t.Face == nil {
-		return
+		return false
 	}
 	rs := []rune(t.Text)
 	metrics := t.Face.Metrics()
@@ -155,10 +143,11 @@ func showSpellSuggestions(t *eui.ItemData) {
 		if x >= left && x <= right && y >= top && y <= bottom {
 			sugg := suggestCorrections(strings.ToLower(word), 5)
 			if len(sugg) == 0 {
-				return
+				return false
 			}
+			before, inputBefore, session := t.Text, string(inputText), selectedAppSession()
 			menu := showContextMenu(sugg, x, y, func(i int) {
-				if i < 0 || i >= len(sugg) {
+				if i < 0 || i >= len(sugg) || t.Text != before || string(inputText) != inputBefore || selectedAppSession() != session {
 					return
 				}
 				replacement := sugg[i]
@@ -168,17 +157,17 @@ func showSpellSuggestions(t *eui.ItemData) {
 				scriptSetInputText(plain)
 				t.Text = newWrapped
 				t.Underlines = findMisspellings(newWrapped)
-				if t.ParentWindow != nil {
-					t.ParentWindow.Refresh()
-				}
+				spellDirty = true
+				updateMessageInputWindows()
 				eui.CloseContextMenus()
 			})
 			if menu != nil {
 				menu.DismissOnPointerLeave(eui.Rect{X0: left, Y0: top, X1: right, Y1: bottom})
 			}
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // searchTextWindow highlights rows in the list containing the query string and

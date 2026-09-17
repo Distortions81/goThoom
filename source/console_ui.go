@@ -127,6 +127,10 @@ func handleMessageInputContext(win *eui.WindowData, flow *eui.ItemData, mx, my i
 		return false
 	}
 	selectedMessageInput = flow
+	eui.CloseContextMenus()
+	if len(flow.Contents) > 0 && showSpellSuggestions(flow.Contents[0], mx, my) {
+		return true
+	}
 	// Prepare clipboard preview for Paste action.
 	var clip string
 	if b, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(b) > 0 {

@@ -1,0 +1,21 @@
+goThoom 61 changes since test60.
+
+Editors:
+- Create and edit legacy macros and Go scripts in the client, with syntax highlighting, search, clipboard shortcuts, undo/redo, and indentation controls.
+- Format drafts on opening or saving, or use Format at any time. Formatting preserves the selection and can be undone.
+- Check drafts before applying them, including advisory lint warnings for legacy macros. Save & Reload updates the selected session, and unsaved drafts are protected when closing an editor or quitting.
+- Syntax colors follow the active color theme or a saved custom palette. The editor's gear shortcut opens Settings → Text for Editor Colors and the shared Editor Text Size slider. Text size is saved across sessions and can also be adjusted with Ctrl+plus/minus or Ctrl+scroll.
+- Edit TTS pronunciation substitutions from Settings → TTS and apply them to future speech.
+- Edit color and style themes from Settings → Display. Click inline color swatches to open the color picker, preview transparency, and change colors with undo support. Save & Apply selects the edited theme.
+- Legacy macros retain MacRoman compatibility. Go scripts, notes, TTS substitutions, and theme/style files use Unicode (UTF-8).
+
+Personal notes:
+- Tools → Personal Notes stores global or player-specific notes with subjects, tags, and a plain-text body.
+- Filter notes by player and scope, search subjects and tags, and edit their details or text. Trashed notes remain recoverable in the user data folder.
+
+Interface:
+- Spelling corrections open only when right-clicking an underlined word and dismiss when the pointer moves away.
+- The main session tab's X disconnects and returns to login while keeping the tab open. The last remaining tab behaves the same way, including during login or reconnect attempts.
+- Single-button script toolbars omit a group label that repeats the button name.
+- Floating-window resize handles respond consistently at the edges and corners, including beside tiled-window dividers.
+- Editor toolbars wrap to fit narrow windows, and Text settings group font sizes in two columns.

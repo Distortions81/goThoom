@@ -1456,7 +1456,7 @@ func addTextSettings(chatSection, inputSection *eui.ItemData, columnWidth float3
 	spellcheck.Text = "Spellcheck"
 	spellcheck.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
 	spellcheck.Checked = gs.InputSpellcheck
-	spellcheck.SetTooltip("Underline misspelled words and offer corrections.")
+	spellcheck.SetTooltip("Underline misspelled words. Right-click a word for corrections.")
 	spellcheckEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()

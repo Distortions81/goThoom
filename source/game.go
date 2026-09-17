@@ -1568,10 +1568,6 @@ func (g *Game) Update() error {
 	updateMessageInputPresentation(inputFlow)
 	updateMessageInputPresentation(chatInputFlow)
 
-	if item := currentMessageInputItem(); item != nil {
-		showSpellSuggestions(item)
-	}
-
 	/* WASD / ARROWS */
 
 	var keyWalk bool

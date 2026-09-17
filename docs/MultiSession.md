@@ -14,8 +14,8 @@ new slots. Use **Edit Character** to move a character to another slot.
 Select a tab to make it active. Movement, keyboard input, chat, commands,
 hotkeys, toolbar actions, Inventory, Players, Scripts, Chat, and Console all
 target the active session. A music note appears at the left of a tab while that
-session has an active bard performance. Use the tab's **X** to close it and
-disconnect its active connection.
+session has an active bard performance. The main tab's **X** disconnects and
+returns it to login; other tabs close and disconnect.
 
 The default tab shortcuts are **Ctrl-1** through **Ctrl-9**, with **Ctrl-0** for
 the tenth open tab. Use **Ctrl-Tab** for the next tab and **Ctrl-Shift-Tab** for
@@ -29,9 +29,11 @@ sessions do not affect the shortcut number. Edit any of these bindings from
 The **+** button opens and selects the first available session slot. It is
 disabled when ten tabs are open.
 
-Each tab has an **X**. Closing a tab asks for confirmation and disconnects its
-connection. At least one tab must remain open. Open tabs and the active tab are
-restored on the next launch; connections still begin logged out.
+Each tab has an **X** and asks for confirmation. The main tab and the last
+remaining tab disconnect and stay open for login. Other tabs close and
+disconnect. Disconnecting also cancels a pending login or reconnect attempt.
+Open tabs and the active tab are restored on the next launch; connections
+still begin logged out.
 
 ## Background sessions
 

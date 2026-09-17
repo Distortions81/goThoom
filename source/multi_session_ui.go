@@ -137,28 +137,41 @@ func selectAdjacentSessionTab(direction int) bool {
 	return appSessions.selectSession(open[index])
 }
 
-func confirmCloseSessionTab(session *Session) {
+func keepSessionTabOpen(session *Session) bool {
+	return session.ID() == primarySessionID || appSessions.count() <= 1
+}
+
+func confirmCloseSessionTab(session *Session) *eui.WindowData {
 	if session == nil || appSessions == nil {
-		return
+		return nil
 	}
 	if session == moviePlaybackSession && movieWin != nil {
 		movieWin.Close()
-		return
+		return nil
 	}
 	name := session.characterName()
 	if name == "" {
 		name = fmt.Sprintf("Session %d", session.ID())
 	}
-	eui.ShowPopup(
-		"Close Session Tab",
-		fmt.Sprintf("Close %s? Any active connection will be disconnected.", name),
-		[]eui.PopupButton{
-			{Text: "Cancel"},
-			{Text: "Close", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+	title, action := "Close Session Tab", "Close"
+	message := fmt.Sprintf("Close %s? Any active connection will be disconnected.", name)
+	if keepSessionTabOpen(session) {
+		title, action = "Disconnect Session", "Disconnect"
+		message = fmt.Sprintf("Disconnect %s and return to login? The session tab will stay open.", name)
+	}
+	return eui.ShowPopup(title, message, []eui.PopupButton{
+		{Text: "Cancel"},
+		{Text: action, Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+			if current, ok := appSessions.session(session.ID()); !ok || current != session {
+				return
+			}
+			if keepSessionTabOpen(session) {
+				handleSessionDisconnect(session)
+			} else {
 				appSessions.closeSession(session.ID())
-			}},
-		},
-	)
+			}
+		}},
+	})
 }
 
 func refreshSessionTabs() {
@@ -253,9 +266,11 @@ func refreshSessionTabs() {
 		closeButton.NoSurface = true
 		closeButton.Size = eui.Point{X: actionWidth, Y: sessionTabBarHeight / scale}
 		closeButton.Position = eui.Point{X: tabPixelWidth - actionPixelWidth}
-		closeButton.Disabled = count <= 1
+		closeButton.Disabled = keepSessionTabOpen(session) && !session.connectionBusy()
 		if closeButton.Disabled {
-			closeButton.SetTooltip("At least one session tab must remain open.")
+			closeButton.SetTooltip("This session is already disconnected.")
+		} else if keepSessionTabOpen(session) {
+			closeButton.SetTooltip(fmt.Sprintf("Disconnect Session %d and keep its tab open.", session.ID()))
 		} else {
 			closeButton.SetTooltip(fmt.Sprintf("Close Session %d.", session.ID()))
 		}

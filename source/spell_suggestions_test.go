@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package main
 
 import (
@@ -8,48 +5,88 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/f1monkey/spellchecker"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gothoom/eui"
-
-	ebiten "github.com/hajimehoshi/ebiten/v2"
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-func TestHoverSpellSuggestionsMatchesContext(t *testing.T) {
-	win := eui.NewWindow()
-	win.MarkOpen()
-	txt, _ := eui.NewText()
-	txt.Text = "helo"
-	txt.Underlines = findMisspellings(txt.Text)
-	if len(txt.Underlines) == 0 {
-		t.Fatalf("expected misspelling to be underlined")
+func TestRightClickSpellSuggestions(t *testing.T) {
+	initFont()
+	oldSC, oldCache, oldDirty := sc, spellCache, spellDirty
+	oldEnabled, oldMenu := gs.InputSpellcheck, showContextMenu
+	oldInput, oldPos, oldActive := inputText, inputPos, inputActive
+	oldSelected := selectedMessageInput
+	oldConsole, oldChat := consoleWin, chatWin
+	consoleWin, chatWin = nil, nil
+	t.Cleanup(func() {
+		sc, spellCache, spellDirty = oldSC, oldCache, oldDirty
+		gs.InputSpellcheck, showContextMenu = oldEnabled, oldMenu
+		inputText, inputPos, inputActive = oldInput, oldPos, oldActive
+		selectedMessageInput = oldSelected
+		consoleWin, chatWin = oldConsole, oldChat
+		eui.CloseContextMenus()
+	})
+	var err error
+	sc, err = spellchecker.New("abcdefghijklmnopqrstuvwxyz'", spellchecker.WithMaxErrors(1))
+	if err != nil {
+		t.Fatal(err)
 	}
-	win.AddItem(txt)
-	txt.Focused = false
+	sc.Add("hello", "world")
+	spellCache = map[string]bool{}
+	gs.InputSpellcheck = true
+	inputText = []rune("helo world")
 
+	win := eui.NewWindow()
+	flow := eui.NewColumn()
+	txt := eui.NewLabel(string(inputText))
+	txt.Face = &text.GoTextFace{Source: eui.FontSource(), Size: 14}
+	txt.Underlines = findMisspellings(txt.Text)
+	flow.AddItem(txt)
+	win.AddItem(flow)
+	win.MarkOpen()
+	t.Cleanup(win.RemoveWindow)
 	metrics := txt.Face.Metrics()
 	lineHeight := float32(math.Ceil(metrics.HAscent + metrics.HDescent + 2))
 	w, _ := text.Measure(txt.Text, txt.Face, 0)
-	txt.DrawRect.X0 = 0
-	txt.DrawRect.Y0 = 0
-	txt.DrawRect.X1 = float32(w)
-	txt.DrawRect.Y1 = lineHeight
-
-	cx := float32(w) / 2
-	cy := lineHeight / 2
-	cursorPosition = func() (int, int) { return int(cx), int(cy) }
-	defer func() { cursorPosition = ebiten.CursorPosition }()
-
-	var got []string
-	showContextMenu = func(opts []string, x, y float32, onSelect func(int)) *eui.ItemData {
-		got = append([]string(nil), opts...)
-		return nil
+	txt.DrawRect = eui.Rect{X0: 20, Y0: 20, X1: 20 + float32(w), Y1: 20 + lineHeight}
+	var menu *eui.ItemData
+	showContextMenu = func(opts []string, x, y float32, selectOption func(int)) *eui.ItemData {
+		menu = eui.ShowContextMenu(opts, x, y, selectOption)
+		return menu
 	}
-	defer func() { showContextMenu = eui.ShowContextMenu }()
+	if !handleMessageInputContext(win, flow, 24, 24) || menu == nil {
+		t.Fatal("right-click did not open spelling suggestions")
+	}
+	if !reflect.DeepEqual(menu.Options, suggestCorrections("helo", 5)) {
+		t.Fatalf("unexpected suggestions: %v", menu.Options)
+	}
+	if string(inputText) != "helo world" {
+		t.Fatal("opening suggestions changed the draft")
+	}
+	choice := -1
+	for i, option := range menu.Options {
+		if option == "hello" {
+			choice = i
+		}
+	}
+	if choice < 0 {
+		t.Fatal("missing hello suggestion")
+	}
+	menu.OnSelect(choice)
+	if string(inputText) != "hello world" || txt.Text != "hello world" || eui.ContextMenusOpen() {
+		t.Fatal("selecting a correction did not replace the word and close the menu")
+	}
 
-	showSpellSuggestions(txt)
-
-	expected := suggestCorrections("helo", 5)
-	if !reflect.DeepEqual(got, expected) {
-		t.Fatalf("expected %v, got %v", expected, got)
+	txt.Text, inputText = "helo world", []rune("helo world")
+	txt.Underlines = findMisspellings(txt.Text)
+	handleMessageInputContext(win, flow, 24, 24)
+	inputText = []rune("new draft")
+	menu.OnSelect(choice)
+	if string(inputText) != "new draft" {
+		t.Fatal("old suggestions overwrote a newer draft")
+	}
+	gs.InputSpellcheck = false
+	if showSpellSuggestions(txt, 24, 24) {
+		t.Fatal("disabled spellcheck showed suggestions")
 	}
 }

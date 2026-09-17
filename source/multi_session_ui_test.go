@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"net"
 	"testing"
 	"time"
 
@@ -53,8 +54,26 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 		t.Fatalf("initial tab bar has %d items, want one tab and add", len(sessionTabBar.Contents))
 	}
 	if closeButton := sessionTabBar.Contents[0].Contents[2]; !closeButton.Disabled {
-		t.Fatal("the final tab's close button is enabled")
+		t.Fatal("the disconnected main tab's disconnect button is enabled")
 	}
+	primary, _ := appSessions.session(primarySessionID)
+	cancelled := false
+	generation, ok := primary.login.beginSupervisor(func() { cancelled = true })
+	if !ok {
+		t.Fatal("could not start test login")
+	}
+	t.Cleanup(func() { primary.login.finishSupervisor(generation) })
+	refreshSessionTabs()
+	if sessionTabBar.Contents[0].Contents[2].Disabled {
+		t.Fatal("the final tab cannot disconnect a pending login")
+	}
+	popup := confirmCloseSessionTab(primary)
+	clickMacroEditorButton(t, popup, "Disconnect")
+	if !cancelled || appSessions.count() != 1 || appSessions.selectedSession() != primary {
+		t.Fatal("disconnect did not cancel login while preserving the final tab")
+	}
+	primary.login.finishSupervisor(generation)
+	refreshSessionTabs()
 	if !sessionTabBar.Contents[0].Contents[0].SelectionIndicator {
 		t.Fatal("selected session tab is missing its highlight")
 	}
@@ -204,5 +223,54 @@ func TestSessionTabCyclingUsesOpenOrderAndWraps(t *testing.T) {
 	}
 	if !selectAdjacentSessionTab(-1) || appSessions.selectedID() != 4 {
 		t.Fatalf("backward wrap selected %d, want 4", appSessions.selectedID())
+	}
+}
+
+func TestSessionTabDisconnectKeepsMainAndLastTab(t *testing.T) {
+	initFont()
+	for _, scenario := range []string{"main", "main-with-other", "last-secondary"} {
+		t.Run(scenario, func(t *testing.T) {
+			oldSessions := appSessions
+			t.Cleanup(func() { appSessions = oldSessions })
+			primary := mustNewSession(primarySessionID)
+			other := mustNewSession(2)
+			appSessions = newSessionManager(primary)
+			target := primary
+			if scenario != "main" {
+				appSessions.slots[1], appSessions.selected = other, 2
+			}
+			if scenario == "last-secondary" {
+				appSessions.slots[0], target = nil, other
+			}
+			connect := func(session *Session) {
+				tcp, tcpPeer := net.Pipe()
+				udp, udpPeer := net.Pipe()
+				t.Cleanup(func() { session.transport.disconnect(); tcpPeer.Close(); udpPeer.Close() })
+				if _, ok := session.transport.attach(tcp, udp); !ok {
+					t.Fatal("attach test transport")
+				}
+			}
+			connect(target)
+			if scenario == "main-with-other" {
+				connect(other)
+			}
+			count, selected := appSessions.count(), appSessions.selectedID()
+			popup := confirmCloseSessionTab(target)
+			clickMacroEditorButton(t, popup, "Cancel")
+			if !target.transport.connected() {
+				t.Fatal("Cancel disconnected the session")
+			}
+			popup = confirmCloseSessionTab(target)
+			clickMacroEditorButton(t, popup, "Disconnect")
+			if target.transport.connected() || appSessions.count() != count || appSessions.selectedID() != selected {
+				t.Fatal("disconnect changed open tabs or selection")
+			}
+			if retained, ok := appSessions.session(target.ID()); !ok || retained != target {
+				t.Fatal("disconnect removed the session tab")
+			}
+			if scenario == "main-with-other" && !other.transport.connected() {
+				t.Fatal("disconnect affected another session")
+			}
+		})
 	}
 }

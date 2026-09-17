@@ -82,8 +82,9 @@ and verifies that a new folder is readable and writable before saving it.
 - **UI scale:** The base UI scale moves in 0.1 steps so window and control
   geometry remains stable. Retina and HiDPI display scaling is applied on top.
 - **Multiple sessions:** Each character connection has a tab above the one game
-  view. Use **+** to open another tab, up to ten. The tab's **X** closes it with
-  confirmation and disconnects that session.
+  view. Use **+** to open another tab, up to ten. The main tab's **X** disconnects
+  and returns it to login. Other tabs close with confirmation and disconnect
+  that session; the last remaining tab stays open.
   The selected tab owns rendering, input, shared panels, and audio while every
   other session stays connected and keeps processing updates. See the
   [multi-session guide](docs/MultiSession.md).

@@ -303,11 +303,17 @@ func buildScriptToolbarRows() []*eui.ItemData {
 	rows := make([]*eui.ItemData, 0, len(registrations))
 	for _, registration := range registrations {
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-		label, _ := eui.NewText()
-		label.Text = registration.label
-		label.FontSize = 11
-		label.Size = eui.Point{X: 72, Y: 32}
-		row.AddItem(label)
+		// A single text button can name the group itself.
+		duplicateLabel := len(registration.buttons) == 1 &&
+			registration.buttons[0].image == nil &&
+			registration.buttons[0].label == registration.label
+		if !duplicateLabel {
+			label, _ := eui.NewText()
+			label.Text = registration.label
+			label.FontSize = 11
+			label.Size = eui.Point{X: 72, Y: 32}
+			row.AddItem(label)
+		}
 		for _, registeredButton := range registration.buttons {
 			registeredButton := registeredButton
 			button, events := eui.NewButton()
