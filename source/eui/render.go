@@ -1503,74 +1503,31 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		}
 
 		//Text
-	} else if item.ItemType == ITEM_INPUT {
-
+	} else if item.ItemType == ITEM_INPUT || itemHandlesTextEditing(item) {
 		itemColor := item.Color
 		if itemColor == (Color{}) {
 			itemColor = style.Color
 		}
-		if item.Focused {
-			itemColor = style.ClickColor
-		} else if item.Hovered {
-			itemColor = style.HoverColor
-		}
-
-		captionColor := item.surfaceTextColor(style.TextColor, itemColor, item.Filled)
-
-		if item.Filled {
-			drawRoundRect(subImg, &roundRect{
-				Size:     maxSize,
-				Position: offset,
-				Fillet:   item.Fillet,
-				Filled:   true,
-				Color:    itemColor,
-			})
-		}
-
-		textSize := (item.FontSize * uiScale) + 2
-		face := itemFace(item, textSize)
-		metrics := face.Metrics()
-		lineHeight := math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap)
-		lineCount := strings.Count(item.Text, "\n") + 1
-		loo := text.LayoutOptions{
-			LineSpacing:    0,
-			PrimaryAlign:   text.AlignStart,
-			SecondaryAlign: text.AlignCenter,
-		}
-		startY := float64(offset.Y) + float64(maxSize.Y)/2 - lineHeight*float64(lineCount-1)/2
-		i := 0
-		for line := range strings.SplitSeq(item.Text, "\n") {
-			tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-			tdop.GeoM.Translate(
-				float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale),
-				startY+float64(i)*lineHeight,
-			)
-			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
-			top.ColorScale.ScaleWithColor(captionColor)
-			text.Draw(textTarget, line, face, top)
-			i++
-		}
-
-		if item.Focused {
-			runes := []rune(item.Text)
-			if focused := item.CursorPos; focused < 0 {
-				item.CursorPos = 0
-			} else if focused > len(runes) {
-				item.CursorPos = len(runes)
+		if !item.Multiline {
+			if item.Focused {
+				itemColor = style.ClickColor
+			} else if item.Hovered {
+				itemColor = style.HoverColor
 			}
-			prefix := string(runes[:item.CursorPos])
-			lineIdx := strings.Count(prefix, "\n")
-			lastLine := prefix[strings.LastIndexByte(prefix, '\n')+1:]
-			width, _ := text.Measure(lastLine, face, 0)
-			cx := offset.X + item.BorderPad + item.Padding + currentStyle.TextPadding*uiScale + float32(width)
-			cy := float32(startY + float64(lineIdx)*lineHeight)
-			topY := cy - float32(math.Ceil(metrics.HAscent))
-			bottomY := cy + float32(math.Ceil(metrics.HDescent))
-			strokeLine(subImg,
-				cx, topY,
-				cx, bottomY,
-				1, captionColor, false)
 		}
+		captionColor := item.surfaceTextColor(style.TextColor, itemColor, item.Filled)
+		if item.Filled {
+			drawRoundRect(subImg, &roundRect{Size: maxSize, Position: offset, Fillet: item.Fillet, Filled: true, Color: itemColor})
+		}
+		// Keep the selected range distinct even when focus uses ClickColor.
+		selectionColor := style.Color
+		if selectionColor == itemColor {
+			selectionColor = style.ClickColor
+		}
+		if item.Multiline && item.Focused {
+			strokeRect(subImg, offset.X, offset.Y, maxSize.X, maxSize.Y, max(1, uiScale), style.ClickColor, false)
+		}
+		item.drawEditableText(subImg, offset, maxSize, drawRect, captionColor, selectionColor)
 
 	} else if item.ItemType == ITEM_SLIDER {
 
@@ -2134,6 +2091,13 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 		}
 	}
 
+	item.textDrawOrigin = pointAdd(offset, base)
+	item.textDrawSize = maxSize
+	if item.Label != "" {
+		h := item.FontSize*uiScale + 2 + currentStyle.TextPadding*uiScale
+		item.textDrawOrigin.Y += h
+		item.textDrawSize.Y = max(0, item.textDrawSize.Y-h)
+	}
 	itemRect := rect{X0: offset.X, Y0: offset.Y, X1: offset.X + maxSize.X, Y1: offset.Y + maxSize.Y}
 	drawRect := intersectRect(itemRect, clip)
 	if drawRect.X1 <= drawRect.X0 || drawRect.Y1 <= drawRect.Y0 {

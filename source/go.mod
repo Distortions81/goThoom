@@ -10,6 +10,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/f1monkey/spellchecker v1.3.0
 	github.com/gen2brain/beeep v0.11.2
+	github.com/go-text/typesetting v0.3.5
 	github.com/google/gopacket v1.1.19
 	github.com/hajimehoshi/ebiten/v2 v2.10.2
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
@@ -39,7 +40,6 @@ require (
 	github.com/esiqveland/notify v0.14.0 // indirect
 	github.com/f1monkey/bitmap v1.4.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/jackmordaunt/icns/v3 v3.0.1 // indirect
 	github.com/jfreymuth/pulse v0.1.3 // indirect

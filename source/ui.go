@@ -5001,15 +5001,24 @@ func confirmResetWindows() {
 }
 
 func confirmQuit() {
+	quit := func() {
+		saveCharacters()
+		saveSettings()
+		exitApplication(0, "user confirmed Quit")
+	}
+	if confirmLegacyMacroEditorQuit(quit) {
+		return
+	}
 	eui.ShowPopup(
 		"Confirm Quit",
 		"Are you sure you would like to quit?",
 		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
-				saveCharacters()
-				saveSettings()
-				exitApplication(0, "user confirmed Quit")
+				// This popup is nonmodal; a draft may have changed since it opened.
+				if !confirmLegacyMacroEditorQuit(quit) {
+					quit()
+				}
 			}},
 		},
 	)

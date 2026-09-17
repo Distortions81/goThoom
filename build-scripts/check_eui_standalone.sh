@@ -16,6 +16,7 @@ export CGO_ENABLED=0
 go mod init gothoom
 go mod edit -go=1.27.1 \
   -require=github.com/hajimehoshi/ebiten/v2@v2.10.2 \
+  -require=github.com/go-text/typesetting@v0.3.5 \
   -require=golang.design/x/clipboard@v0.9.0 \
   -require=golang.org/x/image@v0.46.0 \
   -require=golang.org/x/time@v0.16.0

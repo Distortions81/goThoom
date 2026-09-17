@@ -93,5 +93,28 @@ func dropdownOptionImageSlot(item *itemData) float32 {
 // CloseContextMenus closes all open context menus.
 func CloseContextMenus() { contextMenus = contextMenus[:0] }
 
+// DismissOnPointerLeave makes a context menu close when the pointer leaves both
+// the menu and its source region, expressed in screen pixels. This lets hover
+// suggestions stay open while the user moves from their source into the menu.
+func (item *itemData) DismissOnPointerLeave(source Rect) {
+	item.hoverDismissRect = &source
+}
+
+func dismissContextMenusOutside(mpos point) {
+	kept := contextMenus[:0]
+	for _, menu := range contextMenus {
+		if menu != nil && menu.hoverDismissRect != nil {
+			bounds, _ := dropdownOpenRect(menu, point{X: menu.DrawRect.X0, Y: menu.DrawRect.Y0})
+			if !menu.hoverDismissRect.containsPoint(mpos) && !bounds.containsPoint(mpos) {
+				menu.Open = false
+				continue
+			}
+		}
+		kept = append(kept, menu)
+	}
+	clear(contextMenus[len(kept):])
+	contextMenus = kept
+}
+
 // ContextMenusOpen reports if any context menus are active.
 func ContextMenusOpen() bool { return len(contextMenus) > 0 }

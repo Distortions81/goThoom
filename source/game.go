@@ -1094,6 +1094,12 @@ func (g *Game) Update() error {
 		return errApplicationShutdown
 	default:
 	}
+	if legacyMacroQuitRequested {
+		return ebiten.Termination
+	}
+	if ebiten.IsWindowBeingClosed() && !confirmLegacyMacroEditorQuit(func() { legacyMacroQuitRequested = true }) {
+		return ebiten.Termination
+	}
 	if updateStartupLoading() {
 		return nil
 	}
@@ -1120,12 +1126,6 @@ func (g *Game) Update() error {
 		prepareClassicSplash()
 	}
 
-	for _, flow := range []*eui.ItemData{inputFlow, chatInputFlow} {
-		if item := messageInputItem(flow); item != nil {
-			eui.ClearFocus(item)
-			item.Focused = false
-		}
-	}
 	inputSession := selectedAppSession()
 	legacyMacroBeginInputFrame()
 	if inputSession != primarySession {
@@ -1135,9 +1135,13 @@ func (g *Game) Update() error {
 	legacyTriggerBeginInputFrame()
 	eui.SetKeyboardInputCaptured(bindingCaptureFrameActive())
 	paletteOpenAtFrameStart := commandPaletteWin != nil && commandPaletteWin.IsOpen()
+	editorFocusedAtFrameStart := multilineEditorFocused()
 	if !legacyTriggerRecordFrame {
 		eui.Update()
 	} // Captured clicks must not activate controls behind the recorder.
+	if !bindingCaptureFrameActive() {
+		updateLegacyMacroEditors()
+	}
 	inputSession = selectedAppSession()
 	bindMessageInputSession(inputSession)
 	inputSourceChanged := captureMessageInputFocus()
@@ -1192,7 +1196,7 @@ func (g *Game) Update() error {
 	updateSessionWorldHoverForPointer(inputSession, hx, hy, insideWorld, focused)
 	updateHotkeyRecording()
 	consumedScriptInput := InputEvent{}
-	if !paletteKeyboardActive {
+	if !paletteKeyboardActive && !editorFocusedAtFrameStart && !multilineEditorFocused() {
 		consumedScriptInput = checkHotkeys(inputSession)
 	}
 
@@ -1560,6 +1564,9 @@ func (g *Game) Update() error {
 	if changedInput {
 		updateMessageInputWindows()
 	}
+	// Keep the application-owned caret current even on frames without keys.
+	updateMessageInputPresentation(inputFlow)
+	updateMessageInputPresentation(chatInputFlow)
 
 	if item := currentMessageInputItem(); item != nil {
 		showSpellSuggestions(item)
@@ -4762,6 +4769,7 @@ func runGame(ctx context.Context) {
 
 	ebiten.SetScreenClearedEveryFrame(false)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetWindowClosingHandled(true)
 	// Ensure Update() TPS is synced with Draw FPS from the start.
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	w, h := ebiten.Monitor().Size()

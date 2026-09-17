@@ -1256,7 +1256,7 @@ func (item *itemData) GetTextPtr() *string {
 }
 
 func itemAcceptsTextEditing(item *itemData) bool {
-	return item != nil && (item.ItemType == ITEM_INPUT || (item.ItemType == ITEM_TEXT && item.EditableText))
+	return item != nil && !item.Disabled && (item.ItemType == ITEM_INPUT || (item.ItemType == ITEM_TEXT && item.EditableText))
 }
 
 func itemHandlesTextEditing(item *itemData) bool {

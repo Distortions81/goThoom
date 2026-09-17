@@ -294,6 +294,29 @@ func HasTextSelection() bool {
 	return selectedTextItem != nil && selectedTextItem.SelectedText() != ""
 }
 
+// FocusedTextInput returns the visible, enabled text control with keyboard
+// focus, or nil. Hosts can use this to reserve editing keys from game hotkeys.
+func FocusedTextInput() *ItemData {
+	if !itemAcceptsTextEditing(focusedItem) || focusedItem.isInvisible() ||
+		focusedItem.ParentWindow != nil && !focusedItem.ParentWindow.Open {
+		return nil
+	}
+	return focusedItem
+}
+
+// OpenSearch shows and focuses this window's titlebar search box.
+func (win *windowData) OpenSearch() {
+	if win == nil || !win.Open || !win.Searchable {
+		return
+	}
+	if focusedItem != nil {
+		ClearFocus(focusedItem)
+	}
+	win.searchOpen = true
+	activeSearch = win
+	win.markDirty()
+}
+
 // ClearFocus removes focus from the provided item if it is currently focused.
 func ClearFocus(it *ItemData) {
 	if focusedItem == it {
@@ -314,9 +337,15 @@ func Focus(it *ItemData) {
 		focusedItem.markDirty()
 	}
 	focusedItem = it
-	it.CursorPos = len([]rune(it.Text))
+	activeSearch = nil
 	it.Focused = true
-	it.markDirty()
+	if itemHandlesTextEditing(it) {
+		it.editor().group = ""
+		it.editMove(len([]rune(it.editText())), false)
+	} else {
+		it.CursorPos = len([]rune(it.Text))
+		it.markDirty()
+	}
 }
 
 // SetActiveSearchForTest sets the active search window for tests.

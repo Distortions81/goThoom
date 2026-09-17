@@ -23,8 +23,9 @@ func currentMessageInputItem() *eui.ItemData {
 }
 
 func captureMessageInputFocus() bool {
+	focused := eui.FocusedTextInput()
 	for _, flow := range []*eui.ItemData{inputFlow, chatInputFlow} {
-		if item := messageInputItem(flow); item != nil && item.Focused {
+		if item := messageInputItem(flow); item != nil && item == focused {
 			if item.ParentWindow != nil && !item.ParentWindow.IsOpen() {
 				continue
 			}
@@ -50,11 +51,18 @@ func messageInputText() string {
 
 func updateMessageInputPresentation(flow *eui.ItemData) {
 	if item := messageInputItem(flow); item != nil {
+		focused, cursor, prediction := item.Focused, item.CursorPos, item.Prediction
 		item.Focused = inputActive && item == currentMessageInputItem()
 		item.CursorPos = wrappedCursorPos(item.Text, inputPos)
 		item.Prediction = ""
 		if gs.InputAutocomplete && inputActive {
 			item.Prediction = currentInputPredictionSuffix(string(inputText), inputPos)
+		}
+		if item.Focused != focused || item.CursorPos != cursor || item.Prediction != prediction {
+			item.Dirty = true
+			if item.ParentWindow != nil {
+				item.ParentWindow.Dirty = true
+			}
 		}
 	}
 }

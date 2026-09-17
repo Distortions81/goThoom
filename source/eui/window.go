@@ -209,6 +209,7 @@ func NewInput() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Input
+	newItem.SelectableText = true
 	if newItem.TextPtr == nil {
 		newItem.TextPtr = &newItem.Text
 	} else {
@@ -218,6 +219,15 @@ func NewInput() (*itemData, *EventHandler) {
 	newItem.Handler = h
 	newItem.Theme = currentTheme
 	return &newItem, h
+}
+
+// NewTextArea creates a bounded, multiline text input with horizontal and
+// vertical scrolling. Text is not soft-wrapped. Set AcceptTab for code editing.
+func NewTextArea() (*itemData, *EventHandler) {
+	item, events := NewInput()
+	item.Multiline = true
+	item.Size = Point{X: 360, Y: 180}
+	return item, events
 }
 
 // Create a new slider from the default theme
@@ -415,6 +425,9 @@ func (target *windowData) Toggle() {
 }
 
 func (target *windowData) Close() {
+	if target.BeforeClose != nil && !target.BeforeClose() {
+		return
+	}
 	closeDropdowns(target.Contents)
 	target.Open = false
 	if target.OnClose != nil {

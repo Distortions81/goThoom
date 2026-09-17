@@ -180,9 +180,12 @@ script and macro selections.
 Open **Actions → Legacy Macros** to browse the macro library. Macros supplied
 with the client are labeled **Included with goThoom**. Missing included macros
 are added automatically, and unchanged copies update automatically. Your edits
-are preserved. Enable a macro globally or for a selected character. Use **Refresh List** after adding,
-removing, or renaming files, and **Reload Macros** after editing an enabled
-macro. Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable
+are preserved. Enable a macro globally or for a selected character. Use **Edit**
+to change its source in-game, **Save** to keep a draft on disk, or **Save & Reload**
+to check it, save it, and reload the selected session's enabled macros.
+Use **Refresh** after adding, removing, or renaming files, and **Reload Macros**
+after editing an enabled macro externally.
+Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable
 **Allow continuous macros** for classic macros that intentionally loop without
 pausing or producing output.
 

@@ -225,7 +225,8 @@ func TestChatWindowAfterCombinedMode(t *testing.T) {
 		combine.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: false, Item: combine})
 	}
 	messageInputItem(inputFlow).Focused = false
-	messageInputItem(chatInputFlow).Focused = true
+	eui.Focus(messageInputItem(chatInputFlow))
+	t.Cleanup(func() { eui.ClearFocus(messageInputItem(chatInputFlow)) })
 	selectedMessageInput = inputFlow
 	if !captureMessageInputFocus() || currentMessageInputItem() != messageInputItem(chatInputFlow) {
 		t.Fatal("clicking Chat did not move input ownership")

@@ -157,7 +157,7 @@ func showSpellSuggestions(t *eui.ItemData) {
 			if len(sugg) == 0 {
 				return
 			}
-			showContextMenu(sugg, x, y, func(i int) {
+			menu := showContextMenu(sugg, x, y, func(i int) {
 				if i < 0 || i >= len(sugg) {
 					return
 				}
@@ -173,6 +173,9 @@ func showSpellSuggestions(t *eui.ItemData) {
 				}
 				eui.CloseContextMenus()
 			})
+			if menu != nil {
+				menu.DismissOnPointerLeave(eui.Rect{X0: left, Y0: top, X1: right, Y1: bottom})
+			}
 			return
 		}
 	}

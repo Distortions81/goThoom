@@ -46,6 +46,27 @@ as your character.
 
 ## Write a simple macro
 
+Use **Actions -> Legacy Macros -> Edit** to edit an existing macro in-game.
+The editor supports selection, clipboard shortcuts, undo/redo, and Tab/Shift+Tab
+indentation. **Check** checks the draft and its includes without running macros;
+diagnostics show source locations, with full details in Console.
+
+Drag the scrollbars to move through long files or long lines. Use the titlebar
+magnifier or Ctrl+F (Command+F on Mac) to search. Matches ignore case and wrap
+through the file. Enter finds the next match; Shift+Enter finds the previous
+match. F3 and Shift+F3 also work while editing. Escape closes search.
+
+**Save** (Ctrl+S, or Command+S on Mac) writes the file without reloading it, so
+you can save work in progress. **Save & Reload** first checks the draft, then
+saves it and reloads the selected session's enabled macros. Saving does not
+enable a disabled macro. File edits apply to every character using that file;
+other sessions pick up those edits when their macros reload.
+
+Closing the editor or quitting asks what to do with unsaved changes. If another
+editor changed the file, saving stops: copy your draft before closing and
+reopening the file. Existing UTF-8 or MacRoman encoding and line-ending style
+are retained. A MacRoman file cannot save characters outside that encoding.
+
 Create a UTF-8 text file ending in `.mac` or `.txt` inside `Macros/Library`. This example
 adds `hi` as a typed shortcut and binds Ctrl-H:
 

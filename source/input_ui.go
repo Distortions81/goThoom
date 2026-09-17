@@ -181,6 +181,11 @@ func typingInUI() bool {
 	return false
 }
 
+func multilineEditorFocused() bool {
+	item := eui.FocusedTextInput()
+	return item != nil && item.Multiline && !item.ExternalTextEditing
+}
+
 func typingInItems(items []*eui.ItemData, exclude ...*eui.ItemData) bool {
 	for _, it := range items {
 		if it == nil {

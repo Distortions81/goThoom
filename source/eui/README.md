@@ -81,6 +81,61 @@ Call UI APIs on the game/UI thread. The current library has one global UI
 context; independent contexts and concurrent UI mutations are not supported.
 `Close` hides ordinary windows so they can reopen; call `RemoveWindow` to retire
 them. Temporary popup and color picker windows remove themselves automatically.
+Set `BeforeClose` to a callback returning false to keep a window open while
+resolving unsaved changes. `OnClose` runs only when closing is allowed.
+
+## Editing text
+
+`NewInput` provides single-line editing. `NewTextArea` provides a bounded,
+multiline viewport with horizontal and vertical scrolling:
+
+```go
+editor, events := eui.NewTextArea()
+editor.Size = eui.Point{X: 480, Y: 260}
+editor.Text = "First line\nSecond line"
+editor.AcceptTab = true // Optional: Tab indents; Ctrl+Tab still moves focus.
+events.Handle = func(event eui.UIEvent) {
+    if event.Type == eui.EventInputChanged {
+        draft = editor.Text
+    }
+}
+win.AddItem(editor)
+```
+
+Both controls support click placement, a blinking caret, drag selection,
+Shift-click, double-click word selection, and triple-click line selection.
+Typing and pasting replace the selection. Arrow keys, Home/End, word movement,
+Backspace/Delete, and Shift selection work with held-key repeat. Movement and
+deletion keep combined accents and emoji together. Up/Down preserve the desired
+horizontal position across short lines; Page Up/Down move through multiline text.
+
+Use Ctrl+A/X/C/V/Z on Windows and Linux, or Command on macOS, for select all,
+cut, copy, paste, and undo. Shift+Ctrl/Command+Z and Ctrl+Y redo. Mac Option moves
+or deletes by word, and Command+Left/Right moves to the line boundaries.
+Command+Up/Down and Ctrl+Home/End move to the document boundaries.
+Password inputs mask their text and do not copy, cut, or retain undo history.
+
+Single-line inputs leave Enter available for the window's default button.
+Multiline inputs insert newlines. Tab normally changes focus; with `AcceptTab`,
+it inserts a tab or indents selected lines, and Shift+Tab removes indentation.
+Tabs display at four-column stops. Wheel scrolling moves multiline text
+vertically; Shift+wheel moves horizontally. Caret movement and selection dragging
+scroll text into view. Multiline controls show vertical and horizontal scrollbars
+when needed; drag a thumb or click its track to page. Lines remain unwrapped.
+
+Use `editor.FindText(query, start, backward)` to select and reveal a literal,
+case-insensitive match, wrapping through the document. `start` is a rune offset.
+It leaves keyboard focus in the search box. A searchable window opens its search
+box with its magnifier or Ctrl/Command+F. Connect `OnSearch` for query changes and
+`OnSearchNext` for Enter/Shift+Enter in search or F3/Shift+F3 while editing.
+
+`EventInputChanged` and `TextPtr` receive user edits, including undo/redo.
+Assigning a different `Text` value directly starts a fresh undo history.
+Undo history is bounded to 100 snapshots and 2 MiB per undo/redo stack.
+`ExternalTextEditing` reserves keyboard changes for the application, which is
+useful for chat input with completion and history. The standalone example includes
+both ordinary and multiline inputs. File saving, syntax highlighting, soft
+wrapping, and IME composition UI are outside this control's current scope.
 
 ## Fonts and themes
 
@@ -106,7 +161,7 @@ Linux run the command with `xvfb-run -a`.
 
 To publish a separate repository, copy this directory, the shared
 `internal/inputkeys` package, and the root MIT `LICENSE`. Create `go.mod` with
-the chosen repository module path, and update the import prefixes in `input.go`,
-`potato.go`, and `examples/basic/main.go`. Run `go mod tidy`, tests,
+the chosen repository module path, and update the `gothoom/` import prefixes
+throughout the copied packages. Run `go mod tidy`, tests,
 and the example. The extraction script records the currently tested dependency
 versions. No separate repository, branch, tag, or release is created here.

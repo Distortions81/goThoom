@@ -50,7 +50,7 @@ var (
 func Update() error {
 	updateNow = time.Now()
 	for _, it := range []*itemData{focusedItem, activeItem, hoveredItem, dragFlow} {
-		if it != nil && it.isInvisible() {
+		if it != nil && (it.isInvisible() || it.ParentWindow != nil && !it.ParentWindow.Open) {
 			it.clearHiddenState()
 		}
 	}
@@ -69,6 +69,17 @@ func Update() error {
 	}
 	_ = altPressed
 	mods := inputkeys.Current()
+	if activeSearch != nil && !activeSearch.Open {
+		activeSearch = nil
+	}
+	if !keyboardInputCaptured && activeWindow != nil && activeWindow.Open {
+		if mods.Shortcut() && inpututil.IsKeyJustPressed(ebiten.KeyF) {
+			activeWindow.OpenSearch()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyF3) && activeWindow.OnSearchNext != nil {
+			activeWindow.OnSearchNext(shiftPressed)
+		}
+	}
 
 	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) && shiftPressed {
 		_ = DumpTree()
@@ -79,6 +90,7 @@ func Update() error {
 
 	mx, my := PointerPosition()
 	mpos := point{X: float32(mx), Y: float32(my)}
+	dismissContextMenusOutside(mpos)
 	if prevHovered != nil && prevHovered.ItemType == ITEM_DROPDOWN {
 		r, _ := dropdownOpenRect(prevHovered, point{X: prevHovered.DrawRect.X0, Y: prevHovered.DrawRect.Y0})
 		if !prevHovered.Open || !r.containsPoint(mpos) {
@@ -106,7 +118,11 @@ func Update() error {
 		}
 	}
 	if click {
-		clearTextSelection()
+		activeSearch = nil
+		scrollbarClick := selectedTextItem != nil && selectedTextItem.editScrollbarAt(mpos) != PART_NONE
+		if !scrollbarClick && (!shiftPressed || selectedTextItem == nil || !selectedTextItem.DrawRect.containsPoint(mpos)) {
+			clearTextSelection()
+		}
 		if !dropdownOpenContainsAnywhere(mpos) {
 			closeAllDropdowns()
 		}
@@ -116,6 +132,7 @@ func Update() error {
 		}
 		if focusedItem != nil {
 			focusedItem.Focused = false
+			focusedItem.markDirty()
 		}
 		focusedItem = nil
 	}
@@ -132,6 +149,9 @@ func Update() error {
 	if !pointerPressed() && !midPressed {
 		if activeItem != nil {
 			activeItem.emitSliderReleased()
+			if activeItem.textEdit != nil {
+				activeItem.textEdit.scrollDrag = PART_NONE
+			}
 		}
 		if selectedTextItem != nil && selectedTextItem.selecting {
 			selectedTextItem.selecting = false
@@ -230,9 +250,8 @@ func Update() error {
 					if win.searchOpen {
 						win.closeSearch()
 					} else {
-						win.searchOpen = true
 						win.SearchText = ""
-						activeSearch = win
+						win.OpenSearch()
 						if win.OnSearch != nil {
 							win.OnSearch("")
 						}
@@ -296,7 +315,7 @@ func Update() error {
 					win.closeSearch()
 					handled = true
 				} else if win.searchBoxRect().containsPoint(mpos) {
-					activeSearch = win
+					win.OpenSearch()
 					handled = true
 				}
 			}
@@ -333,14 +352,21 @@ func Update() error {
 		}
 	}
 
-	if selectedTextItem != nil && selectedTextItem.selecting && pointerPressed() {
-		idx := selectedTextItem.cursorIndexAt(mpos)
-		if idx != selectedTextItem.SelectEnd {
-			selectedTextItem.SelectEnd = idx
-			if itemAcceptsTextEditing(selectedTextItem) {
-				selectedTextItem.CursorPos = idx
+	if activeItem != nil && activeItem.textEdit != nil && pointerPressed() && !click {
+		activeItem.dragEditScrollbar(mpos)
+	}
+	if selectedTextItem != nil && selectedTextItem.selecting && pointerPressed() && !click {
+		if itemHandlesTextEditing(selectedTextItem) {
+			selectedTextItem.dragEditableText(mpos)
+		} else {
+			idx := selectedTextItem.cursorIndexAt(mpos)
+			if idx != selectedTextItem.SelectEnd {
+				selectedTextItem.SelectEnd = idx
+				if itemAcceptsTextEditing(selectedTextItem) {
+					selectedTextItem.CursorPos = idx
+				}
+				selectedTextItem.markDirty()
 			}
-			selectedTextItem.markDirty()
 		}
 	}
 
@@ -350,6 +376,9 @@ func Update() error {
 		}
 	}
 
+	if hoveredItem != nil && !hoveredItem.Disabled && hoveredItem.editScrollbarAt(mpos) == PART_NONE && (itemAcceptsTextEditing(hoveredItem) || hoveredItem.SelectableText) && c == ebiten.CursorShapeDefault {
+		c = ebiten.CursorShapeText
+	}
 	if cursorShape != c {
 		ebiten.SetCursorShape(c)
 		cursorShape = c
@@ -367,169 +396,12 @@ func Update() error {
 		focusedItem = nil
 	}
 
-	if focusedItem != nil && !keyboardInputCaptured && itemHandlesTextEditing(focusedItem) {
-		for _, r := range chars {
-			if r >= 32 && r != 127 && r != '\r' && r != '\n' {
-				if focusedItem.HideText {
-					dispRunes := []rune(focusedItem.Text)
-					secRunes := []rune(focusedItem.SecretText)
-					pos := focusedItem.CursorPos
-					dispRunes = append(dispRunes[:pos], append([]rune("*"), dispRunes[pos:]...)...)
-					secRunes = append(secRunes[:pos], append([]rune(string(r)), secRunes[pos:]...)...)
-					focusedItem.Text = string(dispRunes)
-					focusedItem.SecretText = string(secRunes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.SecretText
-					}
-				} else {
-					runes := []rune(focusedItem.Text)
-					pos := focusedItem.CursorPos
-					runes = append(runes[:pos], append([]rune(string(r)), runes[pos:]...)...)
-					focusedItem.Text = string(runes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.Text
-					}
-				}
-				focusedItem.CursorPos++
-				focusedItem.markDirty()
-				if focusedItem.Handler != nil {
-					focusedItem.Handler.Emit(UIEvent{Item: focusedItem, Type: EventInputChanged, Text: focusedItem.Text})
-				}
-			}
-		}
-
-		if mods.Shortcut() && inpututil.IsKeyJustPressed(ebiten.KeyV) {
-			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
-				runes := []rune(string(txt))
-				pos := focusedItem.CursorPos
-				if focusedItem.HideText {
-					dispRunes := []rune(focusedItem.Text)
-					secRunes := []rune(focusedItem.SecretText)
-					dispInsert := []rune(strings.Repeat("*", len(runes)))
-					dispRunes = append(dispRunes[:pos], append(dispInsert, dispRunes[pos:]...)...)
-					secRunes = append(secRunes[:pos], append(runes, secRunes[pos:]...)...)
-					focusedItem.Text = string(dispRunes)
-					focusedItem.SecretText = string(secRunes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.SecretText
-					}
-				} else {
-					tRunes := []rune(focusedItem.Text)
-					tRunes = append(tRunes[:pos], append(runes, tRunes[pos:]...)...)
-					focusedItem.Text = string(tRunes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.Text
-					}
-				}
-				focusedItem.CursorPos += len(runes)
-				focusedItem.markDirty()
-				if focusedItem.Handler != nil {
-					focusedItem.Handler.Emit(UIEvent{Item: focusedItem, Type: EventInputChanged, Text: focusedItem.Text})
-				}
-			}
-		}
-		if mods.Shortcut() && !HasTextSelection() && inpututil.IsKeyJustPressed(ebiten.KeyC) {
-			text := focusedItem.Text
-			if focusedItem.HideText {
-				text = focusedItem.SecretText
-			}
-			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(text))
-		}
-
-		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-			pos := focusedItem.CursorPos
-			runes := []rune(focusedItem.Text)
-			if pos > 0 && len(runes) > 0 {
-				if focusedItem.HideText {
-					secRunes := []rune(focusedItem.SecretText)
-					secRunes = append(secRunes[:pos-1], secRunes[pos:]...)
-					focusedItem.SecretText = string(secRunes)
-					dispRunes := append(runes[:pos-1], runes[pos:]...)
-					focusedItem.Text = string(dispRunes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.SecretText
-					}
-				} else {
-					runes = append(runes[:pos-1], runes[pos:]...)
-					focusedItem.Text = string(runes)
-					if focusedItem.TextPtr != nil {
-						*focusedItem.TextPtr = focusedItem.Text
-					}
-				}
-				focusedItem.CursorPos--
-				focusedItem.markDirty()
-				if focusedItem.Handler != nil {
-					focusedItem.Handler.Emit(UIEvent{Item: focusedItem, Type: EventInputChanged, Text: focusedItem.Text})
-				}
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
-			if focusedItem.CursorPos > 0 {
-				focusedItem.CursorPos--
-				focusedItem.markDirty()
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
-			if focusedItem.CursorPos < len([]rune(focusedItem.Text)) {
-				focusedItem.CursorPos++
-				focusedItem.markDirty()
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
-			runes := []rune(focusedItem.Text)
-			pos := focusedItem.CursorPos
-			lineStart := pos
-			for lineStart > 0 && runes[lineStart-1] != '\n' {
-				lineStart--
-			}
-			if lineStart > 0 {
-				col := pos - lineStart
-				prevEnd := lineStart - 1
-				prevStart := prevEnd
-				for prevStart > 0 && runes[prevStart-1] != '\n' {
-					prevStart--
-				}
-				prevLen := prevEnd - prevStart
-				newPos := prevStart + col
-				if col > prevLen {
-					newPos = prevStart + prevLen
-				}
-				focusedItem.CursorPos = newPos
-				focusedItem.markDirty()
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
-			runes := []rune(focusedItem.Text)
-			pos := focusedItem.CursorPos
-			lineStart := pos
-			for lineStart > 0 && runes[lineStart-1] != '\n' {
-				lineStart--
-			}
-			lineEnd := pos
-			for lineEnd < len(runes) && runes[lineEnd] != '\n' {
-				lineEnd++
-			}
-			if lineEnd < len(runes) {
-				col := pos - lineStart
-				nextStart := lineEnd + 1
-				nextEnd := nextStart
-				for nextEnd < len(runes) && runes[nextEnd] != '\n' {
-					nextEnd++
-				}
-				nextLen := nextEnd - nextStart
-				newPos := nextStart + col
-				if col > nextLen {
-					newPos = nextStart + nextLen
-				}
-				focusedItem.CursorPos = newPos
-				focusedItem.markDirty()
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			focusedItem.Focused = false
-			focusedItem.markDirty()
-			focusedItem = nil
-		}
+	textKeyboardHandled := false
+	if focusedItem != nil && activeSearch == nil && !keyboardInputCaptured && itemHandlesTextEditing(focusedItem) {
+		textKeyboardHandled = focusedItem.updateTextEditing(chars, mods, shiftPressed)
+	}
+	if focusedItem != nil && itemHandlesTextEditing(focusedItem) {
+		focusedItem.updateCaretBlink(updateNow)
 	}
 
 	if keyboardInputCaptured {
@@ -558,12 +430,12 @@ func Update() error {
 			}
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			activeSearch.searchOpen = false
-			activeSearch.markDirty()
-			activeSearch = nil
+			activeSearch.closeSearch()
+		} else if (inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter)) && activeSearch.OnSearchNext != nil {
+			activeSearch.OnSearchNext(shiftPressed)
 		}
 	} else {
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
+		if !textKeyboardHandled && (inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter)) {
 			if activeWindow != nil && activeWindow.Open && activeWindow.DefaultButton != nil {
 				btn := activeWindow.DefaultButton
 				if !btn.Disabled && !btn.isInvisible() {
@@ -577,7 +449,7 @@ func Update() error {
 			}
 		}
 
-		if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		if !textKeyboardHandled && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 			if activeWindow != nil && activeWindow.Open {
 				var inputs []*itemData
 				collectInputs(activeWindow.Contents, &inputs)
@@ -608,9 +480,7 @@ func Update() error {
 						focusedItem.markDirty()
 					}
 					focusedItem = inputs[next]
-					focusedItem.CursorPos = len([]rune(focusedItem.Text))
-					focusedItem.Focused = true
-					focusedItem.markDirty()
+					Focus(focusedItem)
 				}
 			}
 		}
@@ -629,6 +499,9 @@ func Update() error {
 			}
 			if win.getMainRect().containsPoint(mpos) || dropdownOpenContains(win.Contents, mpos) {
 				if scrollDropdown(win.Contents, mpos, wheelDelta) {
+					break
+				}
+				if scrollEditable(win.Contents, mpos, wheelDelta) {
 					break
 				}
 				if scrollFlow(win.Contents, mpos, wheelDelta) {
@@ -824,6 +697,16 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 	if click {
 		activeItem = item
 		item.Clicked = updateNow
+		if itemHandlesTextEditing(item) {
+			if part := item.editScrollbarAt(mpos); part != PART_NONE {
+				item.pressEditScrollbar(mpos, part)
+				item.Focused, focusedItem = true, item
+				activeSearch = nil
+				return true
+			}
+			item.clickEditableText(mpos, ShiftPressed)
+			return true
+		}
 		if (item.ItemType == ITEM_TEXT || item.ItemType == ITEM_INPUT) && item.SelectableText {
 			idx := item.cursorIndexAt(mpos)
 			item.SelectStart = idx
@@ -1003,7 +886,7 @@ func (item *itemData) urlAtChar(index int) string {
 
 // SelectedText returns the currently selected text range for this item.
 func (item *itemData) SelectedText() string {
-	if item == nil || item.SelectStart == item.SelectEnd {
+	if item == nil || item.HideText || item.SelectStart == item.SelectEnd {
 		return ""
 	}
 	runes := []rune(item.Text)
@@ -1035,41 +918,31 @@ func clearTextSelection() {
 }
 
 func (item *itemData) cursorIndexAt(mpos point) int {
-	textSize := (item.FontSize * uiScale) + 2
-	face := itemFace(item, textSize)
+	if item.ItemType == ITEM_INPUT || itemHandlesTextEditing(item) {
+		return item.editCursorAt(mpos)
+	}
+	face := itemFace(item, item.FontSize*uiScale+2)
 	lines := strings.Split(item.Text, "\n")
-	metrics := face.Metrics()
-	lineHeight := float32(math.Ceil(metrics.HAscent + metrics.HDescent + 2))
-	x := mpos.X - item.DrawRect.X0
-	y := mpos.Y - item.DrawRect.Y0
-	if x < 0 {
-		x = 0
+	lineHeight := (item.FontSize*uiScale + 2) * 1.2
+	origin := item.textDrawOrigin
+	if item.textDrawSize.X <= 0 {
+		origin = point{X: item.DrawRect.X0, Y: item.DrawRect.Y0}
 	}
-	if y < 0 {
-		y = 0
-	}
-	line := int(y / lineHeight)
-	if line < 0 {
-		line = 0
-	}
-	if line >= len(lines) {
-		line = len(lines) - 1
-	}
+	line := max(0, min(int(math.Floor(float64((mpos.Y-origin.Y)/lineHeight))), len(lines)-1))
 	pos := 0
 	for i := 0; i < line; i++ {
-		pos += len([]rune(lines[i]))
-		pos++
+		pos += len([]rune(lines[i])) + 1
 	}
 	runes := []rune(lines[line])
-	advance := float32(0)
-	for i, r := range runes {
-		w, _ := text.Measure(string(r), face, 0)
-		if x < advance+float32(w)/2 {
-			return pos + i
+	best, distance := 0, math.Inf(1)
+	for _, stop := range graphemeStops(lines[line]) {
+		x := text.AdvanceAt(lines[line], len(string(runes[:stop])), face)
+		d := math.Abs(float64(mpos.X-origin.X) - x)
+		if d < distance {
+			best, distance = stop, d
 		}
-		advance += float32(w)
 	}
-	return pos + len(runes)
+	return pos + best
 }
 
 func uncheckRadioGroup(parent *itemData, group string, except *itemData) {
@@ -1725,7 +1598,7 @@ func collectInputs(items []*itemData, inputs *[]*itemData) {
 		if it.Invisible {
 			continue
 		}
-		if it.ItemType == ITEM_INPUT && !it.Disabled && !it.Invisible {
+		if itemHandlesTextEditing(it) {
 			*inputs = append(*inputs, it)
 		}
 		if it.ItemType == ITEM_FLOW {

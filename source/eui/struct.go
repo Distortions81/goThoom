@@ -133,6 +133,10 @@ type windowData struct {
 	// either by user action or programmatically. The callback runs before the
 	// window is removed from the active list.
 	OnClose func()
+	// BeforeClose may veto closing by returning false, for example while an
+	// application asks what to do with unsaved edits. OnClose runs only after
+	// this callback allows the close.
+	BeforeClose func() bool
 
 	// OnOpen is an optional callback invoked when a closed window is opened.
 	// It runs before the first Refresh so clients can rebuild deferred content
@@ -150,6 +154,9 @@ type windowData struct {
 	// OnSearch is an optional callback invoked on every change of the search
 	// text when the search box is active.
 	OnSearch func(string)
+	// OnSearchNext advances a search result on Enter (backward on Shift+Enter)
+	// in the search box, or F3/Shift+F3 in the active window.
+	OnSearchNext func(backward bool)
 
 	// Opacity controls the overall window opacity when composited to the
 	// screen. Range [0,1], where 1 is fully opaque. Defaults to 1.
@@ -281,7 +288,15 @@ type itemData struct {
 	EditableText   bool
 	// ExternalTextEditing keeps pointer focus, cursor placement, and selection
 	// in EUI while leaving keyboard mutations to the embedding application.
-	ExternalTextEditing    bool
+	ExternalTextEditing bool
+	// Multiline allows Enter to insert a newline. AcceptTab inserts tabs instead
+	// of moving focus; Shift+Tab removes indentation from selected lines.
+	Multiline              bool
+	AcceptTab              bool
+	textEdit               *textEditState
+	hoverDismissRect       *rect
+	textDrawOrigin         point
+	textDrawSize           point
 	SelectStart, SelectEnd int
 	selecting              bool
 	// OnURLClick is called when a HTTP(S) URL in a text item is clicked.

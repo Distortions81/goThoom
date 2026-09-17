@@ -33,3 +33,24 @@ func TestMarkOpenCallsOnOpenOnlyForClosedWindow(t *testing.T) {
 		t.Fatalf("OnOpen calls after reopening = %d, want 2", calls)
 	}
 }
+
+func TestBeforeClosePreservesWindowUntilAllowed(t *testing.T) {
+	oldWindows, oldActive := windows, activeWindow
+	t.Cleanup(func() { windows, activeWindow = oldWindows, oldActive })
+	windows = nil
+	win := NewWindow()
+	win.AddWindow(false)
+	win.MarkOpen()
+	allow, closed := false, 0
+	win.BeforeClose = func() bool { return allow }
+	win.OnClose = func() { closed++ }
+	win.Close()
+	if !win.Open || activeWindow != win || closed != 0 {
+		t.Fatal("vetoed close changed window state")
+	}
+	allow = true
+	win.Close()
+	if win.Open || activeWindow == win || closed != 1 {
+		t.Fatal("allowed close did not complete")
+	}
+}

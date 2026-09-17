@@ -214,15 +214,13 @@ func refreshLegacyMacroLibraryWindow() {
 		setMaterialButtonIcon(editButton, "edit")
 		editButton.Size = eui.Point{X: 44, Y: 24}
 		editButton.Disabled = isWASM
-		editButton.SetTooltip("Open this macro file.")
+		editButton.SetTooltip("Edit this macro in goThoom.")
 		if isWASM {
 			editButton.SetTooltip("Embedded library is read-only.")
 		}
 		editEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick && !editButton.Disabled {
-				if err := open.Run(entry.Path); err != nil {
-					legacyMacroLibraryReport(fmt.Sprintf("edit %s: %v", entry.Name, err))
-				}
+				openLegacyMacroEditor(entry)
 			}
 		}
 		row.AddItem(editButton)

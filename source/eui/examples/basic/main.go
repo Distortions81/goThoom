@@ -34,7 +34,17 @@ func main() {
 		label.Text = "Color selected"
 		win.Refresh()
 	})
-	win.AddItem(eui.NewColumn(label, button, swatch))
+	input, _ := eui.NewInput()
+	input.Label = "Name"
+	input.Text = "Select and replace this text"
+	input.Size.X = 440
+	area, _ := eui.NewTextArea()
+	area.Label = "Text editing"
+	area.Size = eui.Point{X: 440, Y: 220}
+	area.AcceptTab = true
+	area.Text = "// Try selecting, indenting, and undoing.\nfunc greet() {\n\tprint(\"Hello!\")\n}\n"
+	win.AddItem(eui.NewColumn(label, input, area,
+		eui.NewLabel("Ctrl/Command+Z: undo. Ctrl+Tab: leave the editor."), button, swatch))
 	win.MarkOpen()
 	ebiten.SetWindowSize(800, 600)
 	ebiten.SetWindowTitle("EUI basic example")
