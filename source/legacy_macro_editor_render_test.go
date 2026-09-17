@@ -18,6 +18,14 @@ func TestRenderMacroSourceEditor(t *testing.T) {
 		t.Skip("set GOTHOOM_RENDER_MACRO_SOURCE_EDITOR to a capture directory")
 	}
 	ed := macroEditorFixture(t)
+	if theme := os.Getenv("GOTHOOM_MACRO_EDITOR_THEME"); theme != "" {
+		original := eui.CurrentThemeName()
+		t.Cleanup(func() { _ = eui.LoadTheme(original) })
+		if err := eui.LoadTheme(theme); err != nil {
+			t.Fatal(err)
+		}
+		updateSourceEditors()
+	}
 	editMacroForTest(ed, "// Name: Hello\n// Say hello with a typed command.\n\n\"/hello\"\n{\n\t\"/think Hello, \" @text \"!\\r\"\n}\n\ncontrol-h \"/think Hello!\\r\"\n")
 	editMacroForTest(ed, ed.input.Text+"// "+strings.Repeat("Long macro comment. ", 12)+"\n"+strings.Repeat("// Another line\n", 50))
 	ed.input.CursorPos, ed.input.SelectStart, ed.input.SelectEnd = 0, 0, 0

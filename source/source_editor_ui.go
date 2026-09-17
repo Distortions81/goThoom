@@ -28,6 +28,7 @@ type sourceEditor struct {
 	discard             bool
 	message             string
 	scale               float32
+	highlightBackground eui.Color
 }
 
 var sourceEditorFont *text.GoTextFaceSource
@@ -41,6 +42,7 @@ type sourceEditorOptions struct {
 	check                                           func(string) error
 	reload                                          func() (string, error)
 	afterSave                                       func()
+	highlight                                       func(string, eui.Color) []eui.TextColorSpan
 }
 
 func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceEditor {
@@ -71,6 +73,12 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	ed.input = input
 	input.Text, input.AcceptTab = doc.savedText, true
 	input.FontSize = 14
+	if options.highlight != nil {
+		ed.highlightBackground = input.Color
+		input.SetTextHighlighter(func(value string) []eui.TextColorSpan {
+			return options.highlight(value, input.Color)
+		})
+	}
 	win.Searchable = true
 	win.OnSearch = func(query string) { ed.find(query, false, false) }
 	win.OnSearchNext = func(backward bool) { ed.find(win.SearchText, true, backward) }
@@ -265,6 +273,10 @@ func (ed *sourceEditor) beforeClose() bool {
 
 func updateSourceEditors() {
 	for _, ed := range sourceEditors {
+		if ed.options.highlight != nil && ed.highlightBackground != ed.input.Color {
+			ed.highlightBackground = ed.input.Color
+			ed.input.RefreshTextHighlighting()
+		}
 		if ed.scale != eui.UIScale() {
 			ed.layout()
 		}

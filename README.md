@@ -183,6 +183,7 @@ are added automatically, and unchanged copies update automatically. Your edits
 are preserved. Enable a macro globally or for a selected character. Use **Edit**
 to change its source in-game, **Save** to keep a draft on disk, or **Save & Reload**
 to check it, save it, and reload the selected session's enabled macros.
+The editor colors comments, strings, keywords, numbers, variables, and keybindings.
 Use **Refresh** after adding, removing, or renaming files, and **Reload Macros**
 after editing an enabled macro externally.
 Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable

@@ -17,6 +17,7 @@ func openLegacyMacroEditor(entry legacyMacroLibraryEntry) *sourceEditor {
 	}
 	return openSourceEditor(doc, sourceEditorOptions{
 		kind:           "Macro",
+		highlight:      highlightLegacyMacro,
 		description:    "Edits apply to every character using this file. Save & Reload also reloads the selected session's enabled macros.",
 		checkedMessage: "No macro syntax errors found.",
 		savedMessage:   "Saved. Use Save & Reload to apply it to this session's enabled macros.",
