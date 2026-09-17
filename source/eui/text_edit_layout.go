@@ -222,6 +222,7 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		origin.Y += max(0, (viewport.Y1-viewport.Y0-layout.lineHeight)/2)
 	}
 	start, end := item.editSelection()
+	highlights := item.textHighlights()
 	for i, line := range layout.lines {
 		y := origin.Y + float32(i)*layout.lineHeight
 		if y+layout.lineHeight <= clip.Y0 || y >= clip.Y1 {
@@ -231,7 +232,11 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		op.Filter = ebiten.FilterNearest
 		op.GeoM.Translate(float64(origin.X), float64(y))
 		op.ColorScale.ScaleWithColor(caption)
-		text.Draw(target, line.display, layout.face, op)
+		if len(highlights) == 0 {
+			text.Draw(target, line.display, layout.face, op)
+		} else {
+			item.drawHighlightedEditLine(target, line, layout.face, point{X: origin.X, Y: y}, highlights, caption)
+		}
 		a, b := max(start, line.start), min(end, line.start+line.length)
 		if start != end && (a < b || start <= line.start+line.length && end > line.start+line.length) {
 			x0 := line.advance(a-line.start, layout.face)

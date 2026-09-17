@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-text/typesetting/segmenter"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 type textEditSnapshot struct {
@@ -36,6 +37,11 @@ type textEditState struct {
 	scrollDrag         dragType
 	scrollGrab         float32
 	layout             *editTextLayout
+	highlightText      string
+	highlightsValid    bool
+	highlights         []TextColorSpan
+	highlightGlyphs    []text.LazyGlyph
+	highlightDraws     []editGlyphDraw
 }
 
 func (item *itemData) editText() string {

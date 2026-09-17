@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -51,6 +52,9 @@ func (g *textEditingRenderGame) Draw(screen *ebiten.Image) {
 	g.err = g.render(screen)
 }
 func (g *textEditingRenderGame) render(screen *ebiten.Image) error {
+	if err := checkTextHighlightRendering(); err != nil {
+		return err
+	}
 	updateNow = time.Now()
 	screen.Fill(color.RGBA{R: 24, G: 28, B: 36, A: 255})
 	for i, scale := range []float32{1, 1.5, 2} {
@@ -66,6 +70,14 @@ func (g *textEditingRenderGame) render(screen *ebiten.Image) error {
 		input.drawItem(nil, point{X: 15, Y: baseY}, point{}, rect{X1: 840, Y1: 640}, screen, &dropdowns)
 		area, _ := NewTextArea()
 		area.Text = "func greet() {\n\tprint(\"Hello!\")\n\n\t// Another line\n}\n"
+		area.SetTextHighlighter(func(value string) []TextColorSpan {
+			quoted, comment := strings.Index(value, "\"Hello!\""), strings.Index(value, "//")
+			return []TextColorSpan{
+				{0, 4, NewColor(120, 190, 255, 255)},
+				{quoted, quoted + len("\"Hello!\""), NewColor(235, 190, 130, 255)},
+				{comment, comment + len("// Another line"), NewColor(145, 200, 145, 255)},
+			}
+		})
 		area.Size = point{X: 400 / scale, Y: 185 / scale}
 		area.Focused = true
 		area.editMove(0, false)

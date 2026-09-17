@@ -134,8 +134,32 @@ Assigning a different `Text` value directly starts a fresh undo history.
 Undo history is bounded to 100 snapshots and 2 MiB per undo/redo stack.
 `ExternalTextEditing` reserves keyboard changes for the application, which is
 useful for chat input with completion and history. The standalone example includes
-both ordinary and multiline inputs. File saving, syntax highlighting, soft
+both ordinary and multiline inputs. File saving, language tokenization, soft
 wrapping, and IME composition UI are outside this control's current scope.
+
+Optional foreground highlighting uses the same text layout as plain editing:
+
+```go
+editor.SetTextHighlighter(func(source string) []eui.TextColorSpan {
+    // Return language-specific colors for the current source.
+    // Start/End are rune offsets, not UTF-8 bytes or expanded tab columns.
+    return colorRanges(source)
+})
+```
+
+EUI copies and caches these ranges until the text changes, including undo/redo
+and direct `Text` assignments. The callback runs synchronously during drawing;
+keep it fast and do not modify the control from it. Use opaque colors with good
+contrast against the editor background. Uncovered text keeps its normal color;
+selection and disabled text keep their normal readable foregrounds. Password
+controls do not invoke the callback. Coloring does not change text, caret
+positions, or undo history, and color emoji retain their own colors.
+
+Ranges use an exclusive end, may span lines, and are clamped to the document.
+Empty ranges are ignored. Earlier-starting ranges win overlaps, with input order
+breaking ties. A shaped glyph or ligature takes the color of its starting rune.
+Call `RefreshTextHighlighting()` when a palette or other callback input changes.
+Call `SetTextHighlighter(nil)` to restore plain text.
 
 ## Fonts and themes
 

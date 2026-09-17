@@ -294,6 +294,7 @@ type itemData struct {
 	Multiline              bool
 	AcceptTab              bool
 	textEdit               *textEditState
+	textHighlighter        TextHighlighter
 	hoverDismissRect       *rect
 	textDrawOrigin         point
 	textDrawSize           point
