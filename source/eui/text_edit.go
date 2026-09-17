@@ -202,6 +202,49 @@ func (item *itemData) editInsert(value, group string) {
 	item.editReplace(start, end, value, group)
 }
 
+// ReplaceText replaces an editor's document as one undoable edit. Cursor and
+// selection offsets are retained, clamped to the new document. The caller may
+// remap them afterward when applying a transformation such as formatting.
+// Unlike assigning Text directly, this preserves the existing undo history.
+func (item *itemData) ReplaceText(value string) {
+	if item.Disabled || item.HideText || !itemAcceptsTextEditing(item) {
+		return
+	}
+	before := item.editSnapshot()
+	item.editReplace(0, len([]rune(item.editText())), value, "")
+	n := len([]rune(item.editText()))
+	item.CursorPos = max(0, min(before.cursor, n))
+	item.SelectStart = max(0, min(before.anchor, n))
+	item.SelectEnd = max(0, min(before.end, n))
+	item.resetCaret()
+}
+
+// CanUndo reports whether Undo can restore an earlier editor state.
+func (item *itemData) CanUndo() bool {
+	return !item.Disabled && !item.HideText && itemAcceptsTextEditing(item) && len(item.editor().undo) > 0
+}
+
+// CanRedo reports whether Redo can restore an undone editor state.
+func (item *itemData) CanRedo() bool {
+	return !item.Disabled && !item.HideText && itemAcceptsTextEditing(item) && len(item.editor().redo) > 0
+}
+
+// Undo restores the previous text, caret, and selection and emits InputChanged.
+// It is a no-op when CanUndo is false.
+func (item *itemData) Undo() {
+	if item.CanUndo() {
+		item.editUndo(false)
+	}
+}
+
+// Redo restores the next text, caret, and selection and emits InputChanged.
+// It is a no-op when CanRedo is false.
+func (item *itemData) Redo() {
+	if item.CanRedo() {
+		item.editUndo(true)
+	}
+}
+
 func (item *itemData) editUndo(redo bool) {
 	s := item.editor()
 	if item.HideText {

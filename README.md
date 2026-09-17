@@ -177,13 +177,18 @@ script and macro selections.
 
 ### Legacy macros
 
-Open **Actions → Legacy Macros** to browse the macro library. Macros supplied
+Open **Actions → Legacy Macros** to browse the macro library.
+Use **New Macro** to name a new file and open it in the editor; enable it with
+**Global** or **Player** when ready. Macros supplied
 with the client are labeled **Included with goThoom**. Missing included macros
 are added automatically, and unchanged copies update automatically. Your edits
 are preserved. Enable a macro globally or for a selected character. Use **Edit**
 to change its source in-game, **Save** to keep a draft on disk, or **Save & Reload**
 to check it, save it, and reload the selected session's enabled macros.
 The editor colors comments, strings, keywords, numbers, variables, and keybindings.
+**Check** also reports lint warnings. **Format** tidies indentation and trailing
+whitespace. Macros format automatically when opened and saved, when syntax
+allows it; opening keeps formatting in the draft until you save.
 Use **Refresh** after adding, removing, or renaming files, and **Reload Macros**
 after editing an enabled macro externally.
 Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable

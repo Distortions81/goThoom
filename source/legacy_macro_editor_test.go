@@ -57,6 +57,35 @@ func TestMacroEditorSearchSelectsMatchesWithoutChangingDraft(t *testing.T) {
 	}
 }
 
+func TestMacroEditorToolbarHistory(t *testing.T) {
+	ed := macroEditorFixture(t)
+	if ed.root.Contents[0] != ed.toolbar || ed.root.Contents[1] != ed.input {
+		t.Fatal("toolbar does not sit directly above the editor")
+	}
+	if !ed.undoButton.Disabled || !ed.redoButton.Disabled {
+		t.Fatal("new editor has enabled history actions")
+	}
+	before := ed.input.Text
+	ed.input.ReplaceText(before + "f2 \"/wave\\r\"\n")
+	after := ed.input.Text
+	if ed.undoButton.Disabled || !ed.redoButton.Disabled {
+		t.Fatal("typing did not enable Undo")
+	}
+	clickMacroEditorButton(t, ed.win, "Undo")
+	if ed.input.Text != before || ed.dirty() || !ed.undoButton.Disabled || ed.redoButton.Disabled || !ed.input.Focused {
+		t.Fatal("toolbar Undo did not restore the saved draft and focus")
+	}
+	clickMacroEditorButton(t, ed.win, "Redo")
+	if ed.input.Text != after || !ed.dirty() || ed.undoButton.Disabled || !ed.redoButton.Disabled || !ed.input.Focused {
+		t.Fatal("toolbar Redo did not restore the edit and focus")
+	}
+	clickMacroEditorButton(t, ed.win, "Undo")
+	ed.input.ReplaceText(before + "f3 \"/look\\r\"\n")
+	if !ed.redoButton.Disabled {
+		t.Fatal("new edit retained stale Redo button")
+	}
+}
+
 func TestMacroDocumentPreservesEncodingAndNewlines(t *testing.T) {
 	for _, newline := range []string{"\n", "\r\n", "\r"} {
 		for _, encoding := range []string{"utf8", "bom", "macroman"} {

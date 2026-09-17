@@ -73,6 +73,16 @@ func makeLegacyMacroLibraryWindow() {
 	legacyMacroLibraryButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryButtons)
 
+	newButton := eui.NewActionButton("New Macro", func() { openNewLegacyMacroWindow() })
+	setMaterialButtonIcon(newButton, "add")
+	newButton.Size = eui.Point{X: 112, Y: 24}
+	newButton.Disabled = isWASM
+	newButton.SetTooltip("Create a macro file and open it in the editor.")
+	if isWASM {
+		newButton.SetTooltip("Embedded library is read-only.")
+	}
+	legacyMacroLibraryButtons.AddItem(newButton)
+
 	refreshButton, refreshEvents := eui.NewButton()
 	refreshButton.Text = "Refresh"
 	setMaterialButtonIcon(refreshButton, "refresh")

@@ -17,18 +17,19 @@ import (
 )
 
 type sourceEditor struct {
-	options             sourceEditorOptions
-	doc                 *sourceDocument
-	win                 *eui.WindowData
-	root, input, status *eui.ItemData
-	saveButton          *eui.ItemData
-	footer              *eui.ItemData
-	actions             []*eui.ItemData
-	confirm             *eui.WindowData
-	discard             bool
-	message             string
-	scale               float32
-	highlightBackground eui.Color
+	options                sourceEditorOptions
+	doc                    *sourceDocument
+	win                    *eui.WindowData
+	root, input, status    *eui.ItemData
+	saveButton             *eui.ItemData
+	undoButton, redoButton *eui.ItemData
+	toolbar                *eui.ItemData
+	actions                []*eui.ItemData
+	confirm                *eui.WindowData
+	discard                bool
+	message                string
+	scale                  float32
+	highlightBackground    eui.Color
 }
 
 var sourceEditorFont *text.GoTextFaceSource
@@ -38,11 +39,13 @@ var sourceEditorQuitPrompt *eui.WindowData
 var sourceEditorQuitRequested bool
 
 type sourceEditorOptions struct {
-	kind, description, checkedMessage, savedMessage string
-	check                                           func(string) error
-	reload                                          func() (string, error)
-	afterSave                                       func()
-	highlight                                       func(string, eui.Color) []eui.TextColorSpan
+	kind, reloadTooltip, checkedMessage, savedMessage string
+	check                                             func(string) error
+	reload                                            func() (string, error)
+	afterSave                                         func()
+	highlight                                         func(string, eui.Color) []eui.TextColorSpan
+	format                                            func(string) (string, error)
+	lint                                              func(string) []string
 }
 
 func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceEditor {
@@ -65,10 +68,8 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	win.Closable, win.Movable, win.Resizable, win.NoScroll = true, true, true, true
 	win.Size = eui.Point{X: 780, Y: 540}
 	win.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	intro := eui.NewLabel(ed.options.description)
-	intro.Size = eui.Point{X: 740, Y: 42}
-	intro.ConstrainToSize = true
-	ed.root.AddItem(intro)
+	ed.toolbar = eui.NewColumn()
+	ed.root.AddItem(ed.toolbar)
 	input, events := eui.NewTextArea()
 	ed.input = input
 	input.Text, input.AcceptTab = doc.savedText, true
@@ -92,20 +93,30 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	ed.status.Size = eui.Point{X: 740, Y: 48}
 	ed.status.ConstrainToSize = true
 	ed.root.AddItem(ed.status)
-	buttons := eui.NewColumn()
-	ed.footer = buttons
 	addButton := func(label string, action func()) *eui.ItemData {
 		button := eui.NewActionButton(label, action)
-		button.Size = eui.Point{X: 100, Y: 28}
+		button.Size = eui.Point{X: 64, Y: 24}
+		button.FontSize = 11
 		ed.actions = append(ed.actions, button)
 		return button
 	}
-	addButton("Check", func() { ed.check() })
+	ed.undoButton = addButton("Undo", func() { input.Undo(); ed.focus(); ed.refreshStatus() })
+	setMaterialButtonIcon(ed.undoButton, "undo")
+	ed.undoButton.SetTooltip(inputkeys.ShortcutLabel() + "+Z undoes the last edit, including formatting.")
+	ed.redoButton = addButton("Redo", func() { input.Redo(); ed.focus(); ed.refreshStatus() })
+	setMaterialButtonIcon(ed.redoButton, "redo")
+	ed.redoButton.SetTooltip(inputkeys.ShortcutLabel() + "+Shift+Z redoes the last undone edit.")
+	checkButton := addButton("Check", func() { ed.check() })
+	if options.lint != nil {
+		checkButton.SetTooltip("Check syntax and lint warnings. Full diagnostics appear in Console.")
+	}
+	if options.format != nil {
+		addButton("Format", func() { ed.format(); ed.focus() }).SetTooltip(inputkeys.ShortcutLabel() + "+Shift+I formats the draft. Saving also formats it.")
+	}
 	ed.saveButton = addButton("Save", func() { ed.save(false) })
 	ed.saveButton.SetTooltip(inputkeys.ShortcutLabel() + "+S saves this file.")
-	addButton("Save & Reload", func() { ed.save(true) }).Size.X = 144
+	addButton("Save & Reload", func() { ed.save(true) }).SetTooltip(options.reloadTooltip)
 	addButton("Close", win.Close)
-	ed.root.AddItem(buttons)
 	win.AddItem(ed.root)
 	win.OnResize = ed.layout
 	win.BeforeClose = ed.beforeClose
@@ -119,6 +130,9 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 		win.RemoveWindow()
 	}
 	sourceEditors[doc.path] = ed
+	if options.format != nil {
+		ed.format()
+	}
 	win.AddWindow(false)
 	win.MarkOpen()
 	ed.layout()
@@ -146,7 +160,7 @@ func (ed *sourceEditor) layout() {
 	used := float32(0)
 	for _, button := range ed.actions {
 		width := button.GetSize().X/ed.scale + button.Position.X
-		if used > 0 && used+width > ed.root.Size.X-ed.footer.Position.X {
+		if used > 0 && used+width > ed.root.Size.X-ed.toolbar.Position.X {
 			rows = append(rows, row)
 			row, used = eui.NewRow(), 0
 		}
@@ -154,13 +168,8 @@ func (ed *sourceEditor) layout() {
 		used += width
 	}
 	rows = append(rows, row)
-	ed.footer.SetItems(rows)
-	ed.footer.Size.Y = 0
-	intro := ed.root.Contents[0]
-	face := &text.GoTextFace{Source: eui.FontSource(), Size: float64(intro.FontSize*ed.scale + 2)}
-	_, lines := eui.WrapText(ed.options.description, face, float64(intro.Size.X*ed.scale))
-	intro.Text = strings.Join(lines, "\n")
-	intro.Size.Y = float32(len(lines)) * 18
+	ed.toolbar.SetItems(rows)
+	ed.toolbar.Size.Y = 0
 	eui.LayoutWindowBody(ed.win, ed.root, ed.input)
 	ed.refreshStatus()
 	ed.win.Refresh()
@@ -188,6 +197,7 @@ func (ed *sourceEditor) find(query string, next, backward bool) {
 }
 
 func (ed *sourceEditor) refreshStatus() {
+	ed.refreshHistoryButtons()
 	dirty := ed.dirty()
 	ed.win.Title = "Edit " + ed.options.kind + " — " + filepath.Base(ed.doc.path)
 	if dirty {
@@ -213,6 +223,17 @@ func (ed *sourceEditor) refreshStatus() {
 	ed.win.Dirty = true
 }
 
+func (ed *sourceEditor) refreshHistoryButtons() {
+	update := func(button *eui.ItemData, enabled bool) {
+		if button != nil && button.Disabled == enabled {
+			button.Disabled = !enabled
+			button.Dirty, ed.win.Dirty = true, true
+		}
+	}
+	update(ed.undoButton, ed.input.CanUndo())
+	update(ed.redoButton, ed.input.CanRedo())
+}
+
 func (ed *sourceEditor) setStatus(message string) { ed.message = message; ed.refreshStatus() }
 
 func (ed *sourceEditor) check() bool {
@@ -222,12 +243,73 @@ func (ed *sourceEditor) check() bool {
 		return false
 	}
 	ed.setStatus(ed.options.checkedMessage)
+	if ed.options.lint != nil {
+		warnings := ed.options.lint(ed.input.Text)
+		for _, warning := range warnings {
+			consoleMessage("[editor] lint: " + warning)
+		}
+		if len(warnings) > 0 {
+			ed.setStatus(fmt.Sprintf("No syntax errors; %d lint warning(s). %s. Details are in Console.", len(warnings), warnings[0]))
+		}
+	}
 	return true
+}
+
+func (ed *sourceEditor) format() bool {
+	if ed.options.format == nil {
+		return true
+	}
+	before := ed.input.Text
+	value, err := ed.options.format(before)
+	if err != nil {
+		ed.setStatus("Not formatted: " + err.Error())
+		return false
+	}
+	if value == before {
+		ed.setStatus("Already formatted.")
+		return true
+	}
+	cursor, start, end := ed.input.CursorPos, ed.input.SelectStart, ed.input.SelectEnd
+	ed.input.ReplaceText(value)
+	ed.input.CursorPos = remapFormattedPosition(before, value, cursor)
+	ed.input.SelectStart = remapFormattedPosition(before, value, start)
+	ed.input.SelectEnd = remapFormattedPosition(before, value, end)
+	ed.setStatus("Formatted. Undo restores the previous draft.")
+	return true
+}
+
+// Formatting changes only indentation and trailing whitespace, not line order.
+func remapFormattedPosition(before, after string, position int) int {
+	old := []rune(before)
+	position = max(0, min(position, len(old)))
+	line := strings.Count(string(old[:position]), "\n")
+	oldLines, newLines := strings.Split(before, "\n"), strings.Split(after, "\n")
+	if line >= len(newLines) {
+		return len([]rune(after))
+	}
+	offset, oldOffset := 0, 0
+	for i := 0; i < line; i++ {
+		offset += len([]rune(newLines[i])) + 1
+		oldOffset += len([]rune(oldLines[i])) + 1
+	}
+	oldIndent := len([]rune(oldLines[line])) - len([]rune(strings.TrimLeft(oldLines[line], " \t")))
+	newIndent := len([]rune(newLines[line])) - len([]rune(strings.TrimLeft(newLines[line], " \t")))
+	column := position - oldOffset
+	if column >= oldIndent {
+		column += newIndent - oldIndent
+	} else {
+		column = min(column, newIndent)
+	}
+	return offset + max(0, min(column, len([]rune(newLines[line]))))
 }
 
 func (ed *sourceEditor) save(reload bool) bool {
 	if reload && !ed.check() {
 		return false
+	}
+	formatMessage := ""
+	if !ed.format() {
+		formatMessage = " Saved without formatting: " + strings.TrimPrefix(ed.message, "Not formatted: ")
 	}
 	if err := ed.doc.save(ed.input.Text); err != nil {
 		ed.setStatus("Not saved: " + err.Error())
@@ -246,7 +328,7 @@ func (ed *sourceEditor) save(reload bool) bool {
 	if ed.options.afterSave != nil {
 		ed.options.afterSave()
 	}
-	ed.setStatus(message)
+	ed.setStatus(message + formatMessage)
 	return true
 }
 
@@ -273,6 +355,7 @@ func (ed *sourceEditor) beforeClose() bool {
 
 func updateSourceEditors() {
 	for _, ed := range sourceEditors {
+		ed.refreshHistoryButtons()
 		if ed.options.highlight != nil && ed.highlightBackground != ed.input.Color {
 			ed.highlightBackground = ed.input.Color
 			ed.input.RefreshTextHighlighting()
@@ -282,6 +365,9 @@ func updateSourceEditors() {
 		}
 		if ed.win.IsOpen() && ed.input.Focused && inputkeys.Current().Shortcut() && inpututil.IsKeyJustPressed(ebiten.KeyS) {
 			ed.save(false)
+		}
+		if ed.win.IsOpen() && ed.input.Focused && inputkeys.Current().Shortcut() && eui.ShiftPressed && inpututil.IsKeyJustPressed(ebiten.KeyI) && ed.options.format != nil {
+			ed.format()
 		}
 	}
 }

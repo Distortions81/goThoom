@@ -131,6 +131,12 @@ box with its magnifier or Ctrl/Command+F. Connect `OnSearch` for query changes a
 
 `EventInputChanged` and `TextPtr` receive user edits, including undo/redo.
 Assigning a different `Text` value directly starts a fresh undo history.
+Use `ReplaceText(value)` to apply a document transformation as one undoable edit
+instead. It retains cursor/selection offsets (clamped to the new length); callers
+may remap these offsets to keep them attached to the same content.
+Toolbar controls can call `Undo()` and `Redo()` and use `CanUndo()` / `CanRedo()`
+for their enabled state. These use the same history as keyboard shortcuts and
+emit `EventInputChanged` when they restore a document state.
 Undo history is bounded to 100 snapshots and 2 MiB per undo/redo stack.
 `ExternalTextEditing` reserves keyboard changes for the application, which is
 useful for chat input with completion and history. The standalone example includes

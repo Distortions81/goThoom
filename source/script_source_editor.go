@@ -34,7 +34,7 @@ func openScriptSourceEditor(owner, path string) *sourceEditor {
 	}
 	return openSourceEditor(doc, sourceEditorOptions{
 		kind:           "Script",
-		description:    "Edits apply to every character using this file. Save & Reload reloads this script in the selected session if it is running.",
+		reloadTooltip:  "Save the shared script file and reload it in the selected session if it is running.",
 		checkedMessage: "Validation passed. The draft was checked without activating it.",
 		savedMessage:   "Saved. Use Save & Reload to apply this version to the selected session.",
 		check:          func(value string) error { return checkScriptEditorDraft(owner, doc.path, value) },

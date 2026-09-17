@@ -67,6 +67,7 @@ func (g *sourceEditorRenderGame) Draw(screen *ebiten.Image) {
 	g.err = g.render(screen)
 }
 func (g *sourceEditorRenderGame) render(screen *ebiten.Image) error {
+	loadMaterialIcons()
 	for _, tc := range []struct{ scale, width, height float32 }{{1, 780, 540}, {2, 780, 500}, {2, 360, 400}} {
 		eui.SetUIScale(tc.scale)
 		ed := g.editor
@@ -76,8 +77,8 @@ func (g *sourceEditorRenderGame) render(screen *ebiten.Image) error {
 		if tc.width < 500 {
 			wantRows = 2
 		}
-		if len(ed.footer.Contents) != wantRows {
-			return fmt.Errorf("footer rows %d, want %d at width %g", len(ed.footer.Contents), wantRows, tc.width)
+		if len(ed.toolbar.Contents) != wantRows {
+			return fmt.Errorf("toolbar rows %d, want %d at width %g", len(ed.toolbar.Contents), wantRows, tc.width)
 		}
 		screen.Clear()
 		eui.Draw(screen)
@@ -102,6 +103,11 @@ func (g *sourceEditorRenderGame) render(screen *ebiten.Image) error {
 		}
 		if ed.input.DrawRect.Y1 <= ed.input.DrawRect.Y0 || ed.input.DrawRect.Y1 > ed.status.DrawRect.Y0 {
 			return fmt.Errorf("editor overlaps status")
+		}
+		for _, button := range ed.actions {
+			if button.DrawRect.Y1 > ed.input.DrawRect.Y0 || button.DrawRect.Y0 < pos.Y+ed.win.GetTitleSize() {
+				return fmt.Errorf("%s is outside the top toolbar", button.Text)
+			}
 		}
 		f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("%s-%gx-%g.png", g.prefix, tc.scale, tc.width)))
 		if err != nil {

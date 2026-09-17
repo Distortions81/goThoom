@@ -56,6 +56,81 @@ func TestTextEditingSelectionReplacementAndHistory(t *testing.T) {
 	}
 }
 
+func TestTextEditingReplaceTextIsOneUndoableEdit(t *testing.T) {
+	item := editingFixture(t, "before", true)
+	item.editSelect(6, 6)
+	item.editInsert("!", "typing")
+	item.editSelect(1, 4)
+	before := item.editSnapshot()
+	events := 0
+	item.Handler.Handle = func(event UIEvent) {
+		if event.Type == EventInputChanged {
+			events++
+		}
+	}
+	item.ReplaceText("after\ntext")
+	if item.Text != "after\ntext" || item.CursorPos != 4 || item.SelectStart != 1 || events != 1 {
+		t.Fatalf("replacement lost editing state: %+v events=%d", item.editSnapshot(), events)
+	}
+	item.editUndo(false)
+	if item.editSnapshot() != before {
+		t.Fatal("undo did not restore original text and selection")
+	}
+	item.editUndo(false)
+	if item.Text != "before" {
+		t.Fatal("replacement discarded earlier typing history")
+	}
+	item.editUndo(true)
+	item.editUndo(true)
+	if item.Text != "after\ntext" {
+		t.Fatal("redo did not restore replacement")
+	}
+	item.ReplaceText("after\ntext")
+	item.editUndo(false)
+	if item.Text != "before!" {
+		t.Fatal("no-op replacement added an undo step")
+	}
+}
+
+func TestTextEditingPublicHistoryActions(t *testing.T) {
+	item := editingFixture(t, "start", true)
+	if item.CanUndo() || item.CanRedo() {
+		t.Fatal("new document has history")
+	}
+	item.ReplaceText("edited")
+	if !item.CanUndo() || item.CanRedo() {
+		t.Fatal("edit did not update history availability")
+	}
+	item.Disabled = true
+	item.Undo()
+	if item.Text != "edited" || item.CanUndo() || item.CanRedo() {
+		t.Fatal("disabled editor allowed history changes")
+	}
+	item.Disabled = false
+	item.Undo()
+	if item.Text != "start" || item.CanUndo() || !item.CanRedo() {
+		t.Fatal("public Undo failed")
+	}
+	item.Redo()
+	if item.Text != "edited" || !item.CanUndo() || item.CanRedo() {
+		t.Fatal("public Redo failed")
+	}
+	item.Undo()
+	item.ReplaceText("different")
+	if item.CanRedo() {
+		t.Fatal("new edit retained stale redo")
+	}
+	item.Text = "new document"
+	if item.CanUndo() || item.CanRedo() {
+		t.Fatal("external assignment retained history for old document")
+	}
+	item.Undo()
+	item.Redo()
+	if item.Text != "new document" {
+		t.Fatal("empty history changed document")
+	}
+}
+
 func TestTextEditingGroupsTypingAndBreaksOnMovement(t *testing.T) {
 	item := editingFixture(t, "", false)
 	item.editInsert("a", "typing")

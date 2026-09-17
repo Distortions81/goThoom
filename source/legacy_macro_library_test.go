@@ -629,6 +629,10 @@ func TestLegacyMacroLibraryUsesSingleListLayout(t *testing.T) {
 	eui.SetUIScale(2)
 	makeLegacyMacroLibraryWindow()
 
+	if button := legacyMacroLibraryButtons.Contents[0]; button.Text != "New Macro" || button.Disabled {
+		t.Fatalf("missing New Macro action: %+v", button)
+	}
+
 	if legacyMacroLibraryWin == nil || legacyMacroLibraryWin.AutoSize || !legacyMacroLibraryWin.Resizable || !legacyMacroLibraryWin.NoScroll || legacyMacroLibraryWin.OnResize == nil {
 		t.Fatalf("macro window sizing = auto %v, resizable %v, no-scroll %v", legacyMacroLibraryWin.AutoSize, legacyMacroLibraryWin.Resizable, legacyMacroLibraryWin.NoScroll)
 	}
