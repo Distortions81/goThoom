@@ -21,6 +21,35 @@ func bardInstrumentIndex(name string) int {
 	}
 	return -1
 }
+
+// Only name text is accepted here; file metadata can never inject commands.
+func bardWithOptions(partners []string) (string, error) {
+	if len(partners) > 2 {
+		return "", fmt.Errorf("Clan Lord supports up to two other performers per ensemble.")
+	}
+	var result strings.Builder
+	seen := make(map[string]bool)
+	for _, partner := range partners {
+		var name strings.Builder
+		for _, c := range strings.TrimSpace(partner) {
+			switch {
+			case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z':
+				name.WriteRune(c)
+			case c == ' ', c == '\'', c == '-':
+				// Clan Lord names in commands omit spaces and punctuation.
+			default:
+				return "", fmt.Errorf("Enter performer names separated by commas, without commands.")
+			}
+		}
+		key := strings.ToLower(name.String())
+		if key == "" || len(key) > 32 || seen[key] {
+			return "", fmt.Errorf("Enter distinct performer names or unique name prefixes.")
+		}
+		seen[key] = true
+		result.WriteString("/with " + name.String() + " ")
+	}
+	return result.String(), nil
+}
 func bardOwnedInstrument(session *Session, index int) (InventoryItem, bool) {
 	if session != nil {
 		for _, item := range session.inventory.snapshot() {
@@ -63,15 +92,25 @@ type bardPerformance struct {
 	submitted  bool
 	duration   time.Duration
 	finishAt   time.Time
+	ensemble   bool
 }
 
 func startBardPerformance(session *Session, value string, index int) (*bardPerformance, error) {
+	return startBardEnsemblePerformance(session, value, index, nil)
+}
+
+func startBardEnsemblePerformance(session *Session, value string, index int, partners []string) (*bardPerformance, error) {
 	if session == nil || !session.transport.connected() {
 		return nil, fmt.Errorf("Connect a character to perform.")
 	}
-	if index < 0 || index >= len(instruments) {
-		return nil, fmt.Errorf("Choose an instrument.")
+	score, err := parseBardScore(value, index)
+	if err != nil {
+		return nil, err
 	}
+	if len(score.Parts) != 1 {
+		return nil, fmt.Errorf("Choose one part to perform in-game.")
+	}
+	value, index = score.Parts[0].Text, score.Parts[0].Instrument
 	item, ok := bardOwnedInstrument(session, index)
 	if !ok {
 		return nil, fmt.Errorf("Take %s out of its case and into inventory before playing.", classicInstrumentNames[index])
@@ -81,11 +120,11 @@ func startBardPerformance(session *Session, value string, index int) (*bardPerfo
 	if err != nil {
 		return nil, err
 	}
-	commands, err := bardTuneCommands(value)
+	commands, err := bardEnsembleCommands(value, partners)
 	if err != nil {
 		return nil, err
 	}
-	p := &bardPerformance{session: session, generation: generation, instrument: item, commands: commands, deadline: time.Now().Add(10 * time.Second)}
+	p := &bardPerformance{session: session, generation: generation, instrument: item, commands: commands, deadline: time.Now().Add(10 * time.Second), ensemble: len(partners) > 0}
 	for _, n := range notes {
 		if end := n.Start + n.Duration; end > p.duration {
 			p.duration = end
@@ -130,7 +169,9 @@ func (p *bardPerformance) update(now time.Time) error {
 		return fmt.Errorf("Performance ended: character disconnected.")
 	}
 	if p.submitted {
-		if p.finishAt.IsZero() && p.tickets[len(p.tickets)-1].Status().State == scriptapi.CommandSent {
+		// Ensemble playback waits for remote performers after our commands are
+		// sent. Keep Stop available instead of guessing when that playback ends.
+		if !p.ensemble && p.finishAt.IsZero() && p.tickets[len(p.tickets)-1].Status().State == scriptapi.CommandSent {
 			p.finishAt = now.Add(p.duration + time.Second)
 		}
 		return nil
@@ -170,7 +211,21 @@ func (p *bardPreview) stop() {
 	}
 }
 func startBardPreview(value string, index int, finished func(error)) (*bardPreview, error) {
-	notes, err := validateBardTune(value, index)
+	score, err := parseBardScore(value, index)
+	if err != nil {
+		return nil, err
+	}
+	return startBardScorePreview(score, -1, finished)
+}
+
+func startBardScorePreview(score bardScore, selected int, finished func(error)) (*bardPreview, error) {
+	if selected >= 0 {
+		if selected >= len(score.Parts) {
+			return nil, fmt.Errorf("Choose a part.")
+		}
+		score.Parts = score.Parts[selected : selected+1]
+	}
+	parts, err := validateBardScore(score)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +238,7 @@ func startBardPreview(value string, index int, finished func(error)) (*bardPrevi
 	}
 	p := &bardPreview{who: -int(bardPreviewSequence.Add(1))}
 	go func() {
-		err := playMusicGroupWithSettingsAtFrameIf(ctx, []musicPart{{program: instruments[index].program, notes: notes}}, []int{p.who}, nil, nil, settings, 0, func() bool { return !p.stopped.Load() })
+		err := playMusicGroupWithSettingsAtFrameIf(ctx, parts, []int{p.who}, nil, nil, settings, 0, func() bool { return !p.stopped.Load() })
 		dispatchMainThread(func() {
 			if !p.stopped.Load() && finished != nil {
 				finished(err)

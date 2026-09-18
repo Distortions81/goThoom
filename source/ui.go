@@ -464,7 +464,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			return
 		}
 		r := ev.Item.DrawRect
-		eui.ShowContextMenuWithIcons([]string{"Stats", "Palette", "Help", "Snap", "Stream", "Personal Notes", "Bard"}, materialMenuIcons(
+		eui.ShowContextMenuWithIcons([]string{"Stats", "Palette", "Help", "Snap", "Stream", "Personal Notes", "Bard Tools"}, materialMenuIcons(
 			"query_stats", "palette", "help", "photo_camera", "live_tv", "edit", "music_note",
 		), r.X0, r.Y1, func(i int) {
 			switch i {

@@ -18,6 +18,8 @@ const bardMaxFileSize = 256 * 1024
 type bardTune struct {
 	Path, Name string
 	Instrument int
+	Score      bardScore
+	Err        error
 }
 
 func bardTunesDir() string { return filepath.Join(dataDirPath, "Tunes") }
@@ -37,13 +39,33 @@ func listBardTunes() ([]bardTune, error) {
 			continue
 		}
 		tune := bardTune{Path: filepath.Join(bardTunesDir(), entry.Name()), Name: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), Instrument: defaultInstrument}
-		tune.Instrument = bardSavedInstrument(tune.Path)
+		tune.Instrument = bardLegacyInstrument(tune.Path)
+		value, readErr := readBardTune(tune.Path)
+		tune.Err = readErr
+		if readErr == nil {
+			tune.Score, tune.Err = parseBardScore(value, tune.Instrument)
+			if tune.Score.Title != "" {
+				tune.Name = tune.Score.Title
+			}
+			if len(tune.Score.Parts) > 0 {
+				tune.Instrument = tune.Score.Parts[0].Instrument
+			}
+		}
 		tunes = append(tunes, tune)
 	}
 	sort.Slice(tunes, func(i, j int) bool { return strings.ToLower(tunes[i].Name) < strings.ToLower(tunes[j].Name) })
 	return tunes, nil
 }
 func bardSavedInstrument(path string) int {
+	index := bardLegacyInstrument(path)
+	if value, err := readBardTune(path); err == nil {
+		if score, err := parseBardScore(value, index); err == nil {
+			return score.Parts[0].Instrument
+		}
+	}
+	return index
+}
+func bardLegacyInstrument(path string) int {
 	data, err := os.ReadFile(path + ".json")
 	if err == nil {
 		var meta struct{ Instrument int }
@@ -54,13 +76,43 @@ func bardSavedInstrument(path string) int {
 	return defaultInstrument
 }
 func saveBardInstrument(tune bardTune, index int) error {
-	if index < 0 || index >= len(instruments) {
-		return fmt.Errorf("Choose an instrument.")
+	return saveBardPartInstrument(tune, 0, index)
+}
+func saveBardPartInstrument(tune bardTune, part, index int) error {
+	doc, err := loadSourceDocument(tune.Path, false)
+	if err != nil {
+		return err
 	}
-	data, _ := json.MarshalIndent(struct {
-		Instrument int `json:"instrument"`
-	}{index}, "", "  ")
-	return legacyMacroAtomicWriteFile(tune.Path+".json", append(data, '\n'), 0644)
+	ed := sourceEditors[doc.path]
+	if ed != nil && ed.dirty() {
+		return fmt.Errorf("Save or close this tune's draft before changing its instrument.")
+	}
+	if part >= 0 && part < len(tune.Score.Parts) {
+		current, err := parseBardScore(doc.savedText, bardLegacyInstrument(tune.Path))
+		if err != nil {
+			return err
+		}
+		part, err = bardSelectedPart(current, tune.Score.Parts[part].Name)
+		if err != nil {
+			return err
+		}
+	}
+	value, err := bardScoreInstrumentText(doc.savedText, bardLegacyInstrument(tune.Path), part, index)
+	if err != nil {
+		return err
+	}
+	// A clean open editor must still detect an external edit before saving.
+	if ed != nil {
+		doc = ed.doc
+	}
+	if err := doc.save(value); err != nil {
+		return err
+	}
+	if ed != nil {
+		ed.input.ReplaceText(value)
+		ed.setStatus("")
+	}
+	return nil
 }
 func createBardTune(name, value string) (bardTune, error) {
 	name = strings.TrimSpace(name)
@@ -132,6 +184,17 @@ func readBardTune(path string) (string, error) {
 // space between parts. Comments are local, so Unicode prose never enters a
 // legacy server command. Whitespace between musical tokens is preserved.
 func bardTuneTokens(value string) ([]string, error) {
+	score, err := parseBardScore(value, defaultInstrument)
+	if err != nil {
+		return nil, err
+	}
+	if len(score.Parts) != 1 {
+		return nil, fmt.Errorf("Choose one part to perform in-game.")
+	}
+	return bardNoteTokens(score.Parts[0].Text)
+}
+
+func bardNoteTokens(value string) ([]string, error) {
 	if !utf8.ValidString(value) || len(value) > bardMaxFileSize {
 		return nil, fmt.Errorf("Tunes must be UTF-8 text, up to 256 KiB.")
 	}
@@ -248,7 +311,15 @@ func bardTuneTokens(value string) ([]string, error) {
 	return tokens, nil
 }
 func validateBardTune(value string, inst int) ([]Note, error) {
-	tokens, err := bardTuneTokens(value)
+	score, err := parseBardScore(value, inst)
+	if err != nil {
+		return nil, err
+	}
+	if len(score.Parts) != 1 {
+		return nil, fmt.Errorf("Choose one part to perform in-game.")
+	}
+	inst = score.Parts[0].Instrument
+	tokens, err := bardNoteTokens(score.Parts[0].Text)
 	if err != nil {
 		return nil, err
 	}
@@ -265,17 +336,26 @@ func validateBardTune(value string, inst int) ([]Note, error) {
 	return notes, nil
 }
 func bardTuneCommands(value string) ([]string, error) {
+	return bardEnsembleCommands(value, nil)
+}
+func bardEnsembleCommands(value string, partners []string) ([]string, error) {
 	tokens, err := bardTuneTokens(value)
 	if err != nil {
 		return nil, err
 	}
+	with, err := bardWithOptions(partners)
+	if err != nil {
+		return nil, err
+	}
+	// Reserve room for every /with option even on buffered /part commands.
+	limit := 511 - len("/use /part ") - len(with)
 	var parts []string
 	part := ""
 	for _, token := range tokens {
-		if len(token) > 500 {
+		if len(token) > limit {
 			return nil, fmt.Errorf("A tune token is too long for a game command.")
 		}
-		if len(part)+len(token) > 500 {
+		if len(part)+len(token) > limit {
 			if strings.TrimSpace(part) != "" {
 				parts = append(parts, strings.TrimSpace(part))
 			}
@@ -290,14 +370,14 @@ func bardTuneCommands(value string) ([]string, error) {
 		return nil, fmt.Errorf("Enter a tune first.")
 	}
 	if len(parts) > 5 {
-		return nil, fmt.Errorf("This tune needs %d parts; Clan Lord supports up to five. Shorten it with loops.", len(parts))
+		return nil, fmt.Errorf("This music needs %d command segments; Clan Lord supports up to five. Shorten it with loops.", len(parts))
 	}
 	for i := range parts {
 		prefix := "/use /part "
 		if i == len(parts)-1 {
 			prefix = "/use "
 		}
-		parts[i] = prefix + parts[i]
+		parts[i] = prefix + with + parts[i]
 	}
 	return parts, nil
 }
@@ -309,6 +389,11 @@ func highlightBardTune(value string, colors eui.SyntaxColors) []eui.TextColorSpa
 		c := text[i]
 		color := colors.Keywords
 		switch {
+		case c == ';':
+			for i+1 < len(text) && text[i+1] != '\n' && text[i+1] != '\r' {
+				i++
+			}
+			color = colors.Comments
 		case c == '<':
 			depth := 1
 			for i+1 < len(text) && depth > 0 {

@@ -501,6 +501,12 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 		}
 		item.editInsert("\n", "")
 	case ebiten.KeyTab:
+		if !shift && !mods.Control && !mods.Meta && !mods.Alt {
+			if suffix := item.textCompletion(); suffix != "" {
+				item.editInsert(suffix, "")
+				return true
+			}
+		}
 		if !item.Multiline || !item.AcceptTab || mods.Control || mods.Meta {
 			return false
 		}
@@ -509,4 +515,16 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 		return false
 	}
 	return true
+}
+
+func (item *itemData) textCompletion() string {
+	if item.CompleteText == nil || item.Multiline || item.HideText || !item.Focused || item.Disabled ||
+		item.SelectStart != item.SelectEnd || item.CursorPos != len([]rune(item.editText())) {
+		return ""
+	}
+	suffix := item.CompleteText(item.editText())
+	if strings.ContainsAny(suffix, "\r\n\t") {
+		return ""
+	}
+	return suffix
 }

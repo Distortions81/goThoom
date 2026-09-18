@@ -36,6 +36,7 @@ func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
 	if err = saveBardInstrument(tune, 17); err != nil {
 		t.Fatal(err)
 	}
+	value = ";@instrument: Pine Flute\n" + value
 	tunes, err := listBardTunes()
 	if err != nil || len(tunes) != 1 || tunes[0].Instrument != 17 {
 		t.Fatalf("library: %+v %v", tunes, err)
@@ -60,8 +61,9 @@ func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
 	}
 	p.instrument.Selected = 2
 	p.instrument.Handler.Handle(eui.UIEvent{Type: eui.EventDropdownSelected})
+	value = strings.Replace(value, ";@instrument: Pine Flute", ";@instrument: Starbuck Harp", 1)
 	if ed.input.Text != value || ed.dirty() {
-		t.Fatal("instrument change modified draft")
+		t.Fatal("instrument change did not update the clean editor")
 	}
 	editMacroForTest(ed, value+"C4\n")
 	if !ed.save(false) {
@@ -85,6 +87,97 @@ func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
 		t.Fatal("accepted MacRoman tune")
 	}
 }
+func TestBardDeleteTuneConfirmation(t *testing.T) {
+	for _, withPreference := range []bool{false, true} {
+		t.Run(map[bool]string{false: "no preference", true: "saved preference"}[withPreference], func(t *testing.T) {
+			bardFixture(t)
+			tune, err := createBardTune("Café", "cdef")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if withPreference {
+				if err := os.WriteFile(tune.Path+".json", []byte(`{"instrument":17}`), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			other, err := createBardTune("Keep me", "gab")
+			if err != nil {
+				t.Fatal(err)
+			}
+			showBardWindow()
+			p := bardWindow
+			p.selected = tune.Path
+			p.refreshSelection()
+			p.editTune()
+			path, _ := filepath.Abs(tune.Path)
+			ed := sourceEditors[path]
+			editMacroForTest(ed, "cdefgab")
+			popup := p.confirmDeleteTune(tune)
+			if text, err := readBardTune(tune.Path); err != nil || text != "cdef" {
+				t.Fatalf("tune changed before confirmation: %q, %v", text, err)
+			}
+			clickMacroEditorButton(t, popup, "Cancel")
+			if _, err := os.Stat(tune.Path); err != nil || !ed.win.IsOpen() || !ed.dirty() {
+				t.Fatal("cancel changed the tune or draft", err)
+			}
+			popup = p.confirmDeleteTune(tune)
+			// The prompt must keep targeting its own tune if selection changes.
+			p.selected = other.Path
+			clickMacroEditorButton(t, popup, "Delete")
+			for _, path := range []string{tune.Path, tune.Path + ".json"} {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("deleted file remains: %s: %v", path, err)
+				}
+			}
+			if sourceEditors[path] != nil || ed.win.IsOpen() {
+				t.Fatal("deleted tune editor remains open")
+			}
+			if len(p.tunes) != 1 || p.tunes[0].Path != other.Path || p.selected != other.Path || p.statusProblem {
+				t.Fatal("deletion did not preserve the other tune and selection")
+			}
+			popup = p.confirmDeleteTune(other)
+			clickMacroEditorButton(t, popup, "Delete")
+			if len(p.tunes) != 0 || p.selected != "" || !p.edit.Disabled || !p.previewButton.Disabled {
+				t.Fatal("deleting the selected tune did not clear selection")
+			}
+		})
+	}
+}
+
+func TestBardDeleteTuneFailure(t *testing.T) {
+	bardFixture(t)
+	tune, err := createBardTune("Keep me", "cdef")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tune.Path+".json", []byte(`{"instrument":17}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	showBardWindow()
+	p := bardWindow
+	p.selected = tune.Path
+	p.editTune()
+	path, _ := filepath.Abs(tune.Path)
+	ed := sourceEditors[path]
+	// A nonempty directory at the file path makes deletion fail on all platforms.
+	if err := os.Remove(tune.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(tune.Path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tune.Path, "keep"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	clickMacroEditorButton(t, p.confirmDeleteTune(tune), "Delete")
+	if p.status.Invisible || !ed.win.IsOpen() || p.selected != tune.Path {
+		t.Fatal("failed deletion did not report the error and preserve the editor")
+	}
+	if bardSavedInstrument(tune.Path) != 17 {
+		t.Fatal("failed deletion removed the instrument preference")
+	}
+}
+
 func TestBardValidationAndMultipartPreservesMusic(t *testing.T) {
 	for _, value := range []string{"@120 (c#4d.e_f2|1g|2a)2", "[ceg]4C4D4", "<月> c<comment>#4d", "[ceg]$p8[ceg]$C"} {
 		if _, err := validateBardTune(value, 7); err != nil {
@@ -253,17 +346,59 @@ func TestRenderBardTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	createBardTune("Moonlight at the docks", "@90 c4e4g8")
-	selectedAppSession().inventory.add(321, -1, "Pine Flute", false)
+	duet, err := createBardTune("Moonlight duet", bardDuetFixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := bardConnectedSession(t)
+	appSessions = newSessionManager(session)
+	session.setCharacterName("Flutist")
+	session.inventory.add(321, -1, "Pine Flute", false)
+	session.players.players["Blue"] = &Player{Name: "Blue"}
 	showBardWindow()
 	p := bardWindow
 	p.selected = tune.Path
 	p.refreshSelection()
 	p.refreshList()
+	p.selected = duet.Path
+	p.selectedPart = ""
+	p.refreshSelection()
 	p.editTune()
-	path, _ := filepath.Abs(tune.Path)
+	path, _ := filepath.Abs(duet.Path)
 	ed := sourceEditors[path]
-	ed.win.Open = false
-	game := &notesEditorRenderGame{dir: dir, scenes: []notesEditorScene{{"bard", p.win, 640, 520, p.refreshList}, {"bard-narrow", p.win, 400, 520, p.refreshList}, {"tune-editor", ed.win, 780, 540, ed.layout}}}
+	ed.check()
+	p.partners.Text = "Blue"
+	p.play()
+	confirmation := p.playConfirm
+	if confirmation == nil {
+		t.Fatalf("no confirmation: %s", p.status.Text)
+	}
+	confirmation.Open = false
+	bardVisiblePlayersFixture(t, session)
+	p.showPartnerPicker()
+	partnerPicker := p.partnerPicker
+	partnerPicker.Open = false
+	for _, editor := range sourceEditors {
+		editor.win.Open = false
+	}
+	selectTune := func(path string) func() {
+		return func() {
+			p.selected, p.selectedPart = path, ""
+			p.refreshSelection()
+			p.refreshList()
+			p.partners.Text = "Bl"
+			eui.Focus(p.partners)
+		}
+	}
+	game := &notesEditorRenderGame{dir: dir, scenes: []notesEditorScene{
+		{"bard", p.win, 640, 520, selectTune(tune.Path)},
+		{"bard-narrow", p.win, 400, 520, selectTune(tune.Path)},
+		{"bard-ensemble", p.win, 640, 520, selectTune(duet.Path)},
+		{"bard-ensemble-narrow", p.win, 400, 520, selectTune(duet.Path)},
+		{"bard-confirm", confirmation, 0, 0, nil},
+		{"bard-partners", partnerPicker, 420, 360, partnerPicker.OnResize},
+		{"tune-editor", ed.win, 780, 540, ed.layout},
+	}}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

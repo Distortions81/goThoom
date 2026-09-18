@@ -931,6 +931,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		style = disabledStyle(style)
 	}
 
+	borderWidth := float32(0)
 	if item.Filled || item.Outlined {
 		col := flowFillColor(item, style)
 		if item.Filled {
@@ -941,11 +942,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			if b <= 0 {
 				b = 1 * uiScale
 			}
-			oc := item.OutlineColor
-			if oc == (Color{}) && style != nil {
-				oc = style.OutlineColor
-			}
-			strokeRect(subImg, offset.X, offset.Y, size.X, size.Y, b, oc, true)
+			borderWidth = min(b, min(size.X, size.Y)/2)
 		}
 	}
 
@@ -953,6 +950,13 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	drawOffset := pointSub(offset, item.Scroll)
 	// Children should not draw or accept input under this flow's scrollbar.
 	childClip := drawRect
+	if borderWidth > 0 {
+		// Keep scrolling rows and their hit areas inside the frame.
+		childClip = intersectRect(childClip, rect{
+			X0: itemRect.X0 + borderWidth, Y0: itemRect.Y0 + borderWidth,
+			X1: itemRect.X1 - borderWidth, Y1: itemRect.Y1 - borderWidth,
+		})
+	}
 	var contentSize point
 	if item.Scrollable {
 		contentSize = item.contentBounds()
@@ -1155,6 +1159,14 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			sbW := currentStyle.BorderPad.Slider * 2
 			drawFilledRect(subImg, drawRect.X0+pos, drawRect.Y1-sbW, barW, sbW, col.ToRGBA(), false)
 		}
+	}
+
+	if borderWidth > 0 {
+		oc := item.OutlineColor
+		if oc == (Color{}) && style != nil {
+			oc = style.OutlineColor
+		}
+		drawInsideRectBorder(subImg, offset.X, offset.Y, size.X, size.Y, borderWidth, oc)
 	}
 
 	if DebugMode {

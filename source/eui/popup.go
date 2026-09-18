@@ -97,6 +97,9 @@ func ShowPopup(title, message string, buttons []PopupButton, extras ...*ItemData
 		if b.HoverColor != nil {
 			btn.HoverColor = *b.HoverColor
 		}
+		if b.Color != nil || b.HoverColor != nil {
+			btn.SetButtonColors(btn.Color, btn.HoverColor)
+		}
 		action := b.Action
 		ev.Handle = func(ev UIEvent) {
 			if ev.Type == EventClick {

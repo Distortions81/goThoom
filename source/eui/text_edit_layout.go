@@ -258,6 +258,16 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 			}
 		}
 	}
+	if suffix := item.textCompletion(); suffix != "" {
+		line, x := layout.caret(item.CursorPos)
+		op := &text.DrawOptions{}
+		op.Filter = ebiten.FilterNearest
+		op.GeoM.Translate(float64(origin.X+x), float64(origin.Y+float32(line)*layout.lineHeight))
+		ghost := caption
+		ghost.A /= 2
+		op.ColorScale.ScaleWithColor(ghost)
+		text.Draw(target, suffix, layout.face, op)
+	}
 	if item.Focused && state.caretOn && start == end {
 		line, x := layout.caret(item.CursorPos)
 		y := origin.Y + float32(line)*layout.lineHeight

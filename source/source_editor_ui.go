@@ -21,6 +21,7 @@ type sourceEditor struct {
 	doc                    *sourceDocument
 	win                    *eui.WindowData
 	root, input, status    *eui.ItemData
+	statusFrame            *eui.ItemData
 	saveButton             *eui.ItemData
 	undoButton, redoButton *eui.ItemData
 	toolbar                *eui.ItemData
@@ -48,6 +49,7 @@ type sourceEditorOptions struct {
 	format                   func(string) (string, error)
 	formatPosition           func(before, after string, position int, trailing bool) int
 	colorSwatches            bool
+	persistentStatus         bool
 	lint                     func(string) []string
 }
 
@@ -100,7 +102,12 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	ed.status.Size = eui.Point{X: 740, Y: 48}
 	ed.status.ConstrainToSize = true
 	ed.status.Invisible = true
-	ed.root.AddItem(ed.status)
+	if options.persistentStatus {
+		ed.statusFrame, ed.status = newStatusBar(740)
+		ed.root.AddItem(ed.statusFrame)
+	} else {
+		ed.root.AddItem(ed.status)
+	}
 	addButton := func(label string, action func()) *eui.ItemData {
 		button := eui.NewActionButton(label, action)
 		button.Size = eui.Point{X: 64, Y: 24}
@@ -240,6 +247,18 @@ func (ed *sourceEditor) refreshStatus() {
 	ed.saveButton.Disabled = !dirty
 	ed.saveButton.Dirty = true
 	message := ed.message
+	if ed.statusFrame != nil {
+		if message == "" {
+			message = "Ready. Check validates every part."
+			if dirty {
+				message = "Unsaved changes. Check validates the current draft."
+			}
+		}
+		problem := strings.HasPrefix(message, "Check failed:") || strings.HasPrefix(message, "Not saved:")
+		setStatusBar(ed.statusFrame, ed.status, message, message == "Check passed.", problem)
+		ed.win.Dirty = true
+		return
+	}
 	visible := message != ""
 	visibilityChanged := ed.status.Invisible == visible
 	ed.status.Invisible = !visible
@@ -280,7 +299,7 @@ func (ed *sourceEditor) check() bool {
 		ed.setStatus("Check failed: " + err.Error())
 		return false
 	}
-	ed.setStatus("")
+	ed.setStatus("Check passed.")
 	if ed.options.lint != nil {
 		warnings := ed.options.lint(ed.input.Text)
 		for _, warning := range warnings {

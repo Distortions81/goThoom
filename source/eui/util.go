@@ -31,6 +31,12 @@ func (item *itemData) themeStyle() *itemData {
 
 	switch item.ItemType {
 	case ITEM_BUTTON:
+		if item.buttonColors != nil {
+			style := th.Button
+			style.Color = item.buttonColors.normal
+			style.HoverColor, style.ClickColor = item.buttonColors.hover, item.buttonColors.hover
+			return &style
+		}
 		return &th.Button
 	case ITEM_TEXT:
 		return &th.Text

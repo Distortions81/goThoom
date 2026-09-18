@@ -269,6 +269,7 @@ type itemData struct {
 	// Zero preserves the legacy single-color disabled appearance.
 	DisabledTextColor Color
 	ForceTextColor    bool
+	buttonColors      *buttonColorOverride
 
 	Action        func()
 	OnColorChange func(Color)
@@ -283,9 +284,13 @@ type itemData struct {
 	// Prediction is rendered after the primary caption in the disabled text
 	// color. It is display-only and is not included in selection or cursor positions.
 	Prediction string
-	SecretText string
-	HideText   bool
-	CursorPos  int
+	// CompleteText returns an optional suffix for a single-line input. The
+	// suffix is shown at the end of an unselected draft and accepted with Tab.
+	// It never runs for passwords or multiline editors.
+	CompleteText func(string) string
+	SecretText   string
+	HideText     bool
+	CursorPos    int
 	// SelectableText allows text to be drag-selected and copied. EditableText is
 	// required separately for ITEM_TEXT values that accept keyboard changes.
 	SelectableText bool

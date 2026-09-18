@@ -194,10 +194,12 @@ macros accept MacRoman files.
 
 ## Bard tunes
 
-Open **Tools → Bard** to create, import, and edit UTF-8 tune files in `Tunes/`.
-Each tune remembers its instrument. **Preview** plays locally; **Play in Game**
-equips a carried instrument and performs the saved tune, splitting long songs
-automatically. The editor also previews unsaved drafts and checks notation.
+Open **Tools → Bard Tools** to create, import, and edit UTF-8 tune files in `Tunes/`.
+Tunes can include song details, tags, and named parts for different instruments.
+Preview an ensemble together or listen to one part. **Play in Game** equips a
+carried instrument and performs your selected part, splitting long songs
+automatically; **Play with** coordinates duos and trios with other performers.
+The editor also previews unsaved drafts and checks every part's notation.
 See the [bard guide](docs/Bard.md) for notation and performance controls.
 
 ## Macros and scripts
