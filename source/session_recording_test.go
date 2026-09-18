@@ -91,8 +91,8 @@ func TestConcurrentSessionRecordingsUseIndependentFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse %s: %v", filepath.Base(path), err)
 		}
-		if len(movieFrames) != frames {
-			t.Fatalf("%s frames = %d, want %d", filepath.Base(path), len(movieFrames), frames)
+		if len(movieFrames) != frames+3 {
+			t.Fatalf("%s frames = %d, want %d", filepath.Base(path), len(movieFrames), frames+3)
 		}
 	}
 }

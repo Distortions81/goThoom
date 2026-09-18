@@ -32,6 +32,16 @@ type NightInfo struct {
 	redshift        float64
 	startOfTwilight int
 	generation      uint64
+	shadow          shadowCasterState
+}
+
+// Classic keeps these renderer values across NightInfo resets. Before the
+// first update its OpenGL shadow length is one, rather than the noon estimate.
+type shadowCasterState struct {
+	azimuth     int
+	level       int
+	length      float64
+	initialized bool
 }
 
 type nightRenderState struct {
@@ -40,10 +50,13 @@ type nightRenderState struct {
 	flags                              uint
 	redshift                           float64
 	generation                         uint64
+	shadow                             shadowCasterState
 }
 
 // resetNightState discards time-of-day information owned by the current live
-// session or movie. A subsequent source must establish its own lighting state.
+// session or movie, using the classic client's daylight defaults until the
+// new source supplies its first timekeeper update.
+// The shadow caster retains its last values, as it does in classic.
 func resetNightState() {
 	primarySession.night.reset()
 }
@@ -53,14 +66,16 @@ func (n *NightInfo) reset() {
 		return
 	}
 	n.mu.Lock()
+	if !n.shadow.initialized {
+		n.shadow = shadowCasterState{azimuth: 90, level: 50, length: 1, initialized: true}
+	}
 	n.BaseLevel = 0
-	n.Azimuth = 0
+	n.Azimuth = 90
 	n.Cloudy = false
 	n.Flags = 0
-	n.Level = 0
-	n.Shadows = 0
-	n.oldAzimuth = 0
-	n.redshift = 0
+	n.calcCurLevel()
+	n.oldAzimuth = n.Azimuth
+	n.redshift = 1
 	n.startOfTwilight = 0
 	n.generation++
 	n.mu.Unlock()
@@ -75,6 +90,7 @@ func (n *NightInfo) snapshot() nightRenderState {
 		baseLevel: n.BaseLevel, azimuth: n.Azimuth, cloudy: n.Cloudy,
 		flags: n.Flags, level: n.Level, shadows: n.Shadows,
 		redshift: n.redshift, generation: n.generation,
+		shadow: n.shadow,
 	}
 	n.mu.Unlock()
 	return state
@@ -174,11 +190,23 @@ func (n *NightInfo) SetFlags(f uint) {
 
 func (n *NightInfo) setFlags(f uint, frame int) {
 	n.mu.Lock()
-	n.Flags = f
-	n.calcCurLevel()
+	if n.Flags != f {
+		n.Flags = f
+		n.calcCurLevel()
+		n.updateShadowCaster()
+	}
 	n.calcRedshift(frame)
 	n.generation++
 	n.mu.Unlock()
+}
+
+// Called at the same points as classic's SetShadows: a changed area flag or a
+// timekeeper message, including one that repeats the current sun angle.
+func (n *NightInfo) updateShadowCaster() {
+	n.shadow = shadowCasterState{
+		azimuth: n.Azimuth, level: n.Shadows,
+		length: uprightShadowLength(n.Azimuth), initialized: true,
+	}
 }
 
 // currentNightLevel computes the effective night percentage (0..100) after
@@ -255,6 +283,7 @@ func parseNightCommandForSession(session *Session, s string) bool {
 		night.Azimuth = sa
 		night.Cloudy = cloudy
 		night.calcCurLevel()
+		night.updateShadowCaster()
 		night.calcRedshift(frame)
 		night.generation++
 		night.mu.Unlock()
@@ -272,6 +301,7 @@ func parseNightCommandForSession(session *Session, s string) bool {
 		night.Level = nightLevel
 		night.Shadows = shadowLevel
 		night.Azimuth = sunAngle
+		night.updateShadowCaster()
 		night.calcRedshift(frame)
 		night.generation++
 		night.mu.Unlock()
@@ -282,6 +312,7 @@ func parseNightCommandForSession(session *Session, s string) bool {
 		night.BaseLevel = nightLevel
 		night.Level = nightLevel
 		night.calcCurLevel()
+		night.updateShadowCaster()
 		night.calcRedshift(frame)
 		night.generation++
 		night.mu.Unlock()

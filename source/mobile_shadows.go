@@ -12,21 +12,21 @@ import (
 )
 
 const (
-	poseLie                = 41
-	shadowDropOffset       = 5.0
-	minimumShadowSunHeight = 7.0
-	nominalNoonSunHeight   = 55.0
-	minimumShadowContrast  = 0.70
-	normalShadowOpacity    = 0.75
-	detailedCoreOpacity    = 0.75
-	contactShadowOpacity   = 0.55
-	contactShadowWidth     = 0.78
-	contactShadowHeight    = 0.24
-	contactShadowTexSize   = 64
-	lyingShadowOffset      = 2.0
+	poseLie                 = 41
+	shadowDropOffset        = 5.0
+	minimumShadowSunHeight  = 7.0
+	nominalNoonSunHeight    = 55.0
+	minimumShadowContrast   = 0.70
+	normalShadowOpacity     = 0.75
+	detailedCoreOpacity     = 0.75
+	contactShadowOpacity    = 0.55
+	contactShadowWidth      = 0.78
+	contactShadowHeight     = 0.24
+	contactShadowTexSize    = 64
+	lyingShadowOffset       = 2.0
 	uprightShadowBaseMargin = 2.0
-	mobileSunShadeScale    = 0.65
-	maximumMobileSunShade  = 0.75
+	mobileSunShadeScale     = 0.65
+	maximumMobileSunShade   = 0.75
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -210,6 +210,15 @@ func newCharacterShadowProjection(azimuth int) characterShadowProjection {
 	}
 }
 
+func characterShadowProjectionForNight(night nightRenderState) characterShadowProjection {
+	if !night.shadow.initialized {
+		return newCharacterShadowProjection(night.azimuth)
+	}
+	projection := newCharacterShadowProjection(night.shadow.azimuth)
+	projection.length = night.shadow.length
+	return projection
+}
+
 func currentCharacterShadowState() (float32, int, bool) {
 	alpha, azimuth, kind := currentCharacterShadowRenderState()
 	return alpha, azimuth, kind != characterShadowNone
@@ -225,6 +234,10 @@ func currentCharacterShadowRenderStateForNight(night nightRenderState) (float32,
 	}
 	level := night.shadows
 	azimuth := night.azimuth
+	if night.shadow.initialized {
+		level = night.shadow.level
+		azimuth = night.shadow.azimuth
+	}
 	cloudy := night.cloudy
 	flags := night.flags
 	if cloudy || flags&kLightNoShadows != 0 {
@@ -265,7 +278,7 @@ func drawMobileShadowsForViewportNight(viewport *viewportRenderState, screen *eb
 	if kind != characterShadowDirectional || clImages == nil {
 		return
 	}
-	projection := newCharacterShadowProjection(azimuth)
+	projection := characterShadowProjectionForNight(night)
 	shadeMobiles := gs.MobilesReceiveSunShadows && mobileShade != nil
 	if shadeMobiles {
 		frameMobileSunShadowCasters = frameMobileSunShadowCasters[:0]

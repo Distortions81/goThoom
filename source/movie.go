@@ -111,6 +111,7 @@ func parseMovieData(data []byte, clVersion int) ([]movieFrame, error) {
 	logDebug("movie version %d.%d headerLen %d", version, revision, headerLen)
 
 	resetDrawState()
+	resetNightState()
 
 	pos := headerLen
 	sign := []byte{0xde, 0xad, 0xbe, 0xef}

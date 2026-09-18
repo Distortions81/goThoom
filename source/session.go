@@ -67,6 +67,8 @@ func newSession(id SessionID) (*Session, error) {
 	if !id.Valid() {
 		return nil, fmt.Errorf("invalid session ID %d", id)
 	}
+	night := &NightInfo{}
+	night.reset()
 	return &Session{
 		id:             id,
 		inventory:      newInventoryState(),
@@ -74,7 +76,7 @@ func newSession(id SessionID) (*Session, error) {
 		frames:         newFrameState(),
 		timing:         newNetworkTimingState(),
 		draw:           newSessionDrawState(),
-		night:          &NightInfo{},
+		night:          night,
 		events:         newSessionEventState(),
 		players:        newSessionPlayerState(),
 		music:          newSessionMusicState(),

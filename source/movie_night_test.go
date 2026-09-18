@@ -137,7 +137,131 @@ func TestResetNightStateDiscardsSessionTime(t *testing.T) {
 	})
 	resetNightState()
 
-	if got := captureMovieNightState(); got != (movieNightState{}) {
-		t.Fatalf("night state after reset = %+v, want zero state", got)
+	want := movieNightState{azimuth: 90, shadows: 50, oldAzimuth: 90, redshift: 1, shadow: shadowCasterState{azimuth: 90, level: 50, length: 1, initialized: true}}
+	if got := captureMovieNightState(); got != want {
+		t.Fatalf("night state after reset = %+v, want classic daylight %+v", got, want)
+	}
+}
+
+func TestNewSessionStartsWithClassicDaylight(t *testing.T) {
+	session := mustNewSession(2)
+	want := movieNightState{azimuth: 90, shadows: 50, oldAzimuth: 90, redshift: 1, shadow: shadowCasterState{azimuth: 90, level: 50, length: 1, initialized: true}}
+	if got := captureMovieNightStateForSession(session); got != want {
+		t.Fatalf("new session lighting = %+v, want %+v", got, want)
+	}
+}
+
+func TestMovieInitialLightingSurvivesSessionAndRewind(t *testing.T) {
+	initFont()
+	originalNight := captureMovieNightState()
+	originalVersion, originalRevision := movieVersion, movieRevision
+	originalMode, originalPlaying := movieMode, playingMovie
+	originalRate, originalPaused := currentMovieMusicTempoRate(), movieMusicPaused.Load()
+	t.Cleanup(func() {
+		restoreMovieNightState(originalNight)
+		movieVersion, movieRevision = originalVersion, originalRevision
+		movieMode, playingMovie = originalMode, originalPlaying
+		setMovieMusicTempoRate(originalRate)
+		movieMusicPaused.Store(originalPaused)
+		resetDrawState()
+	})
+
+	for _, tc := range []struct {
+		name           string
+		command        string
+		fixture        string
+		previousShadow shadowCasterState
+		want           movieNightState
+	}{
+		{
+			name: "no initial sun update",
+			want: movieNightState{azimuth: 90, shadows: 50, oldAzimuth: 90, redshift: 1, shadow: shadowCasterState{azimuth: 90, level: 50, length: 1, initialized: true}},
+		},
+		{
+			name:    "lore1 before its first sun update",
+			fixture: "lore1.clMov",
+			want:    movieNightState{azimuth: 90, shadows: 50, oldAzimuth: 90, redshift: 1, shadow: shadowCasterState{azimuth: 90, level: 50, length: 1, initialized: true}},
+		},
+		{
+			name:           "lore1 retains the previous shadow caster",
+			fixture:        "lore1.clMov",
+			previousShadow: shadowCasterState{azimuth: 30, level: 40, length: uprightShadowLength(30), initialized: true},
+			want:           movieNightState{azimuth: 90, shadows: 50, oldAzimuth: 90, redshift: 1, shadow: shadowCasterState{azimuth: 30, level: 40, length: uprightShadowLength(30), initialized: true}},
+		},
+		{
+			name:    "recorded initial sun update",
+			command: "/nt 20 /sa 35 /cl 1",
+			want:    movieNightState{baseLevel: 20, level: 20, azimuth: 35, cloudy: true, shadows: 25, oldAzimuth: 35, redshift: 1, shadow: shadowCasterState{azimuth: 35, level: 25, length: uprightShadowLength(35), initialized: true}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Logical time resets; a fresh renderer starts at the classic default.
+			restoreMovieNightState(movieNightState{baseLevel: 80, azimuth: 175, cloudy: true, flags: kLightNoShadows, shadow: tc.previousShadow})
+			data := make([]byte, 24)
+			binary.BigEndian.PutUint32(data, movieSignature)
+			binary.BigEndian.PutUint16(data[4:], uint16(clVersion))
+			binary.BigEndian.PutUint16(data[6:], 24)
+			if tc.command != "" {
+				frame := make([]byte, 12)
+				binary.BigEndian.PutUint32(frame, movieSignature)
+				binary.BigEndian.PutUint16(frame[10:], flagGameState)
+				payload := append([]byte(tc.command), 0)
+				data = append(data, frame...)
+				data = append(data, gameStateBlock(0, 0, 0, len(payload), len(payload), len(payload), payload)...)
+			}
+			if tc.fixture != "" {
+				data = readMovieFixture(t, tc.fixture)
+			}
+			frames, err := parseMovieData(data, clVersion)
+			if err != nil {
+				t.Fatal(err)
+			}
+			session := mustNewSession(2)
+			p := newMoviePlayer(session, frames, movieRecordedUPS, nil)
+			t.Cleanup(p.ticker.Stop)
+			if got := captureMovieNightStateForSession(session); got != tc.want {
+				t.Fatalf("movie startup lighting = %+v, want %+v", got, tc.want)
+			}
+			parseNightCommandForSession(session, "/nt 0 /sa 150 /cl 0")
+			p.seek(0)
+			if got := captureMovieNightStateForSession(session); got != tc.want {
+				t.Fatalf("rewound movie lighting = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestClassicShadowCasterUpdates(t *testing.T) {
+	session := mustNewSession(2)
+	night := session.night
+	night.setFlags(0, 1)
+	if got := characterShadowProjectionForNight(night.snapshot()); got.length != 1 {
+		t.Fatalf("fresh classic shadow length = %v, want 1", got.length)
+	}
+	parseNightCommandForSession(session, "/nt 10 /sa 30 /cl 0")
+	previous := night.snapshot().shadow
+	previousProjection := characterShadowProjectionForNight(night.snapshot())
+	night.reset()
+	night.setFlags(0, 2)
+	if got := night.snapshot(); got.azimuth != 90 || got.shadow != previous {
+		t.Fatalf("reset with unchanged flags did not preserve caster: %+v", got)
+	}
+	if got := characterShadowProjectionForNight(night.snapshot()); got != previousProjection {
+		t.Fatalf("reset changed rendered projection: %+v, want %+v", got, previousProjection)
+	}
+	night.setFlags(kLightAdjust25Pct, 3)
+	if got := night.snapshot().shadow; got.azimuth != 90 || got.length != uprightShadowLength(90) || got.level != 50 {
+		t.Fatalf("changed flags did not refresh caster: %+v", got)
+	}
+	// Even an update repeating the logical default must replace a stale caster.
+	parseNightCommandForSession(session, "/nt 0 /sa 150 /cl 0")
+	night.reset()
+	parseNightCommandForSession(session, "/nt 0 /sa 90 /cl 0")
+	if got := night.snapshot().shadow; got.azimuth != 90 || got.length != uprightShadowLength(90) {
+		t.Fatalf("timekeeper did not refresh caster: %+v", got)
+	}
+	other := mustNewSession(3)
+	if got := other.night.snapshot().shadow; got.azimuth != 90 || got.length != 1 {
+		t.Fatalf("new live session inherited another session's caster: %+v", got)
 	}
 }

@@ -199,14 +199,16 @@ func TestStateSnapshotRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseMovie: %v", err)
 	}
-	if len(frames) != 1 {
-		t.Fatalf("frames = %d, want 1", len(frames))
+	if len(frames) != 4 {
+		t.Fatalf("frames = %d, want 3 state blocks and 1 draw", len(frames))
 	}
-	if got := frames[0].flags; got != flagGameState|flagMobileData|flagPictureTable {
-		t.Fatalf("snapshot flags = %#x", got)
+	for i, flag := range []uint16{flagGameState, flagMobileData, flagPictureTable} {
+		if frames[i].flags != flag || len(frames[i].data) != 0 {
+			t.Fatalf("state block %d = %+v", i, frames[i])
+		}
 	}
-	if !bytes.Equal(frames[0].data, frame) {
-		t.Fatalf("frame payload changed: %v", frames[0].data)
+	if !bytes.Equal(frames[3].data, frame) || frames[3].flags != 0 {
+		t.Fatalf("frame payload changed: %+v", frames[3])
 	}
 
 	primarySession.draw.mu.Lock()
@@ -254,8 +256,24 @@ func TestNightSnapshotRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseMovie: %v", err)
 	}
-	if len(frames) != 1 || frames[0].flags&flagGameState == 0 {
+	if len(frames) != 4 || frames[0].flags != flagGameState {
 		t.Fatalf("night snapshot frame = %+v", frames)
+	}
+	// Classic ReadGameState restores this state machine verbatim. kStateData
+	// with current == expected makes ExtractStateData apply the saved record
+	// before reading any bytes from the next packet.
+	block := frames[0].preData
+	payload := block[24:]
+	if mode := binary.BigEndian.Uint32(block[8:12]); mode != 2 {
+		t.Fatalf("classic saved state mode = %d, want kStateData (2)", mode)
+	}
+	for _, offset := range []int{12, 16, 20} {
+		if size := binary.BigEndian.Uint32(block[offset:]); int(size) != len(payload) {
+			t.Fatalf("saved state size at %d = %d, want %d", offset, size, len(payload))
+		}
+	}
+	if wantPayload := []byte("/nt 72 /sa 135 /cl 1\x00\x00\x00\x00"); !bytes.Equal(payload, wantPayload) {
+		t.Fatalf("classic pending state record = %q, want %q", payload, wantPayload)
 	}
 	got := captureMovieNightState()
 	if got.baseLevel != want.baseLevel || got.azimuth != want.azimuth || got.cloudy != want.cloudy {
@@ -329,7 +347,7 @@ func TestCloseFlushesSnapshotWithoutAnotherFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseMovie: %v", err)
 	}
-	if len(frames) != 1 || len(frames[0].data) != 0 {
+	if len(frames) != 3 || len(frames[0].data) != 0 {
 		t.Fatalf("snapshot-only frames: %+v", frames)
 	}
 	primarySession.draw.mu.Lock()

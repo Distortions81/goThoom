@@ -418,6 +418,8 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 }
 
 func TestMoviePlaybackUsesTemporarySessionTab(t *testing.T) {
+	originalNight := captureMovieNightState()
+	t.Cleanup(func() { restoreMovieNightState(originalNight) })
 	originalSessions, originalViewports := appSessions, appViewports
 	originalGameWin := gameWin
 	originalMovieSession, originalPrevious := moviePlaybackSession, moviePreviousSession
@@ -465,7 +467,12 @@ func TestMoviePlaybackUsesTemporarySessionTab(t *testing.T) {
 	}
 
 	movieID := movie.ID()
+	parseNightCommandForSession(movie, "/nt 10 /sa 30 /cl 0")
+	lastShadow := movie.night.snapshot().shadow
 	endMoviePlaybackSession(movie)
+	if got := primarySession.night.snapshot().shadow; got != lastShadow {
+		t.Fatalf("closing movie discarded classic caster history: %+v, want %+v", got, lastShadow)
+	}
 	if _, open := appSessions.session(movieID); open {
 		t.Fatal("movie session tab remained open after playback")
 	}

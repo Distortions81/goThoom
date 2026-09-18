@@ -47,6 +47,13 @@ func endMoviePlaybackSession(session *Session) {
 	if session == nil || moviePlaybackSession != session || appSessions == nil {
 		return
 	}
+	// Retain classic's renderer history when the temporary playback tab closes.
+	// Keep live sessions independent; the primary session owns movie bootstrap.
+	shadow := session.night.snapshot().shadow
+	primarySession.night.mu.Lock()
+	primarySession.night.shadow = shadow
+	primarySession.night.generation++
+	primarySession.night.mu.Unlock()
 	wasSelected := appSessions.selectedID() == session.ID()
 	previous := moviePreviousSession
 	moviePlaybackSession = nil
@@ -107,6 +114,7 @@ type movieNightState struct {
 	oldAzimuth      int
 	redshift        float64
 	startOfTwilight int
+	shadow          shadowCasterState
 }
 
 func captureMovieNightState() movieNightState {
@@ -130,6 +138,7 @@ func captureMovieNightStateForSession(session *Session) movieNightState {
 		oldAzimuth:      night.oldAzimuth,
 		redshift:        night.redshift,
 		startOfTwilight: night.startOfTwilight,
+		shadow:          night.shadow,
 	}
 }
 
@@ -152,6 +161,7 @@ func restoreMovieNightStateForSession(session *Session, n movieNightState) {
 	night.oldAzimuth = n.oldAzimuth
 	night.redshift = n.redshift
 	night.startOfTwilight = n.startOfTwilight
+	night.shadow = n.shadow
 	night.generation++
 	night.mu.Unlock()
 }
@@ -234,6 +244,9 @@ func seedMoviePlaybackSession(session *Session) {
 	session.draw.frame = 0
 	prepareSessionRenderCacheLocked(session)
 	session.draw.mu.Unlock()
+	// Header lighting belongs to the movie just as its picture/mobile tables do.
+	// Preserve it in the playback session and its frame-zero checkpoint.
+	restoreMovieNightStateForSession(session, captureMovieNightState())
 }
 
 func markMovieMusicSourceInactive(id SessionID) {

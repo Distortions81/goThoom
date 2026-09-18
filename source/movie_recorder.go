@@ -34,8 +34,9 @@ type movieRecorder struct {
 	// should be written immediately before the next frame payload. These
 	// bytes are not counted in the frame Size field; the parser consumes
 	// them based on Flags before reading Size bytes of payload.
-	preData  []byte
-	preFlags uint16
+	preData       []byte
+	preFlags      uint16
+	initialBlocks []movieFrame
 }
 
 const macEpochDelta = 2082844800
@@ -113,6 +114,9 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 func (m *movieRecorder) writeFrameLocked(data []byte, flags uint16) error {
 	if m.f == nil {
 		return os.ErrClosed
+	}
+	if err := m.flushInitialBlocksLocked(); err != nil {
+		return err
 	}
 	// Merge any pending pre-frame blocks and flags into this frame.
 	mergedFlags := flags | m.preFlags
@@ -253,15 +257,37 @@ func (m *movieRecorder) AddStateSnapshot(s drawState, version uint16, night movi
 	if night.cloudy {
 		cloudy = 1
 	}
-	payload := []byte(fmt.Sprintf("/nt %d /sa %d /cl %d\x00", night.baseLevel, night.azimuth, cloudy))
-	m.addBlockLocked(gameStateBlock(0, 0, 0, len(payload), len(payload), len(payload), payload), flagGameState)
-	m.addBlockLocked(encodeMobileTableSnapshot(s, version), flagMobileData)
-	m.addBlockLocked(encodePictureTableSnapshot(s.pictures), flagPictureTable)
+	// A complete pending state record makes classic apply the saved lighting
+	// before consuming the next draw packet's state stream (kStateData = 2).
+	// After info text, include empty bubble, sound, and inventory sections.
+	payload := []byte(fmt.Sprintf("/nt %d /sa %d /cl %d\x00\x00\x00\x00", night.baseLevel, night.azimuth, cloudy))
+	// Classic consumes one saved-state block per pseudo-frame, then reads the
+	// next frame header. Combining these flags with a draw payload is not valid.
+	m.initialBlocks = append(m.initialBlocks,
+		movieFrame{preData: gameStateBlock(0, 0, 2, len(payload), len(payload), len(payload), payload), flags: flagGameState},
+		movieFrame{preData: encodeMobileTableSnapshot(s, version), flags: flagMobileData},
+		movieFrame{preData: encodePictureTableSnapshot(s.pictures), flags: flagPictureTable},
+	)
 }
 
 func (m *movieRecorder) WriteBlock(data []byte, flag uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.writeBlockLocked(data, flag)
+}
+
+func (m *movieRecorder) flushInitialBlocksLocked() error {
+	for len(m.initialBlocks) > 0 {
+		block := m.initialBlocks[0]
+		if err := m.writeBlockLocked(block.preData, block.flags); err != nil {
+			return err
+		}
+		m.initialBlocks = m.initialBlocks[1:]
+	}
+	return nil
+}
+
+func (m *movieRecorder) writeBlockLocked(data []byte, flag uint16) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -295,6 +321,11 @@ func (m *movieRecorder) Close() error {
 	}
 	// Preserve a start-state snapshot even when recording is stopped before
 	// another network frame arrives.
+	if err := m.flushInitialBlocksLocked(); err != nil {
+		m.f.Close()
+		m.f = nil
+		return err
+	}
 	if len(m.preData) > 0 {
 		if err := m.writeFrameLocked(nil, 0); err != nil {
 			m.f.Close()
