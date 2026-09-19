@@ -83,16 +83,17 @@ func queueBardCommands(session *Session, commands []string) []CommandTicket {
 }
 
 type bardPerformance struct {
-	session    *Session
-	generation uint64
-	instrument InventoryItem
-	commands   []string
-	tickets    []CommandTicket
-	deadline   time.Time
-	submitted  bool
-	duration   time.Duration
-	finishAt   time.Time
-	ensemble   bool
+	session     *Session
+	generation  uint64
+	instrument  InventoryItem
+	commands    []string
+	tickets     []CommandTicket
+	deadline    time.Time
+	submitted   bool
+	duration    time.Duration
+	finishAt    time.Time
+	ensemble    bool
+	preparation *bardCaseOperation
 }
 
 func startBardPerformance(session *Session, value string, index int) (*bardPerformance, error) {
@@ -112,8 +113,8 @@ func startBardEnsemblePerformance(session *Session, value string, index int, par
 	}
 	value, index = score.Parts[0].Text, score.Parts[0].Instrument
 	item, ok := bardOwnedInstrument(session, index)
-	if !ok {
-		return nil, fmt.Errorf("Take %s out of its case and into inventory before playing.", classicInstrumentNames[index])
+	if !ok && !bardCanPrepareInstrument(session, index) {
+		return nil, fmt.Errorf("Carry %s or an instrument case to perform.", classicInstrumentNames[index])
 	}
 	generation := bardConnectionGeneration(session)
 	notes, err := validateBardTune(value, index)
@@ -130,6 +131,13 @@ func startBardEnsemblePerformance(session *Session, value string, index int, par
 			p.duration = end
 		}
 	}
+	if !ok {
+		p.preparation, err = startBardCaseOperation(session, index)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	}
 	p.tickets = p.queue([]string{formatEquipCommand(item.ID, item.IDIndex)})
 	if len(p.tickets) == 0 {
 		return nil, fmt.Errorf("The connection changed; try again.")
@@ -138,13 +146,7 @@ func startBardEnsemblePerformance(session *Session, value string, index int, par
 }
 
 func (p *bardPerformance) queue(commands []string) []CommandTicket {
-	transport := p.session.transport
-	transport.mu.RLock()
-	defer transport.mu.RUnlock()
-	if transport.generation != p.generation || transport.status != sessionConnected || transport.tcp == nil {
-		return nil
-	}
-	return queueBardCommands(p.session, commands)
+	return queueBardSessionCommands(p.session, p.generation, commands)
 }
 
 func (p *bardPerformance) current() bool {
@@ -154,6 +156,7 @@ func (p *bardPerformance) stop() {
 	if p == nil {
 		return
 	}
+	p.preparation.cancel()
 	for _, ticket := range p.tickets {
 		ticket.Cancel()
 	}
@@ -163,10 +166,31 @@ func (p *bardPerformance) stop() {
 }
 func (p *bardPerformance) update(now time.Time) error {
 	if !p.current() {
+		p.preparation.cancel()
 		for _, ticket := range p.tickets {
 			ticket.Cancel()
 		}
 		return fmt.Errorf("Performance ended: character disconnected.")
+	}
+	if p.preparation != nil {
+		if err := p.preparation.update(now); err != nil {
+			p.stop()
+			return err
+		}
+		if !p.preparation.done {
+			return nil
+		}
+		item, ok := bardOwnedInstrument(p.session, p.preparation.target)
+		if !ok {
+			p.stop()
+			return fmt.Errorf("The requested instrument is no longer in inventory.")
+		}
+		p.instrument, p.preparation = item, nil
+		p.tickets = p.queue([]string{formatEquipCommand(item.ID, item.IDIndex)})
+		if len(p.tickets) == 0 {
+			return fmt.Errorf("The connection changed; try again.")
+		}
+		p.deadline = now.Add(10 * time.Second)
 	}
 	if p.submitted {
 		// Ensemble playback waits for remote performers after our commands are

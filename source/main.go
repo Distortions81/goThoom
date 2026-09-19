@@ -192,6 +192,9 @@ func main() {
 	if err != nil {
 		log.Printf("initialize user data: %v", err)
 	}
+	if err := installBundledBardTunes(); err != nil {
+		log.Printf("install included tunes: %v", err)
+	}
 	if *instrumentAuditionOutput != "" {
 		outputBase := instrumentAuditionOutputBase(*instrumentAuditionOutput)
 		if err := exportInstrumentAudition(outputBase, *instrumentAuditionSoundFont); err != nil {

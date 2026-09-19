@@ -2226,6 +2226,9 @@ stateRecordLoop:
 								msg = fmt.Sprintf("%v thinks, %v", bubbleName, txt)
 							}
 							if !skipRender {
+								if target == thinkToYou && code == kBubbleCodeKnown {
+									queueBardPartMessage(session, bubbleName, txt)
+								}
 								session.publishThink(msg)
 							}
 						} else if typ&kBubbleNotCommon != 0 {

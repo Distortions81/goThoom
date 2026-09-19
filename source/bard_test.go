@@ -17,13 +17,14 @@ import (
 func bardFixture(t *testing.T) {
 	t.Helper()
 	macroEditorFixture(t)
-	old := bardWindow
+	old, oldPanels := bardWindow, bardPanels
 	bardWindow = nil
+	bardPanels = make(map[*Session]*bardPanel)
 	t.Cleanup(func() {
 		if bardWindow != nil {
 			bardWindow.win.Close()
 		}
-		bardWindow = old
+		bardWindow, bardPanels = old, oldPanels
 	})
 }
 func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
@@ -36,7 +37,7 @@ func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
 	if err = saveBardInstrument(tune, 17); err != nil {
 		t.Fatal(err)
 	}
-	value = ";@instrument: Pine Flute\n" + value
+	value = "<@instrument: Pine Flute>\n" + value
 	tunes, err := listBardTunes()
 	if err != nil || len(tunes) != 1 || tunes[0].Instrument != 17 {
 		t.Fatalf("library: %+v %v", tunes, err)
@@ -61,7 +62,7 @@ func TestBardLibraryUnicodeEditorAndPreference(t *testing.T) {
 	}
 	p.instrument.Selected = 2
 	p.instrument.Handler.Handle(eui.UIEvent{Type: eui.EventDropdownSelected})
-	value = strings.Replace(value, ";@instrument: Pine Flute", ";@instrument: Starbuck Harp", 1)
+	value = strings.Replace(value, "<@instrument: Pine Flute>", "<@instrument: Starbuck Harp>", 1)
 	if ed.input.Text != value || ed.dirty() {
 		t.Fatal("instrument change did not update the clean editor")
 	}
@@ -378,6 +379,9 @@ func TestRenderBardTool(t *testing.T) {
 	p.showPartnerPicker()
 	partnerPicker := p.partnerPicker
 	partnerPicker.Open = false
+	p.showEnsembleWindow()
+	ensembleWindow := p.sharing.win
+	ensembleWindow.Open = false
 	for _, editor := range sourceEditors {
 		editor.win.Open = false
 	}
@@ -397,8 +401,19 @@ func TestRenderBardTool(t *testing.T) {
 		{"bard-ensemble-narrow", p.win, 400, 520, selectTune(duet.Path)},
 		{"bard-confirm", confirmation, 0, 0, nil},
 		{"bard-partners", partnerPicker, 420, 360, partnerPicker.OnResize},
+		{"bard-duet-trio", ensembleWindow, 520, 500, ensembleWindow.OnResize},
+		{"bard-duet-trio-narrow", ensembleWindow, 360, 500, ensembleWindow.OnResize},
 		{"tune-editor", ed.win, 780, 540, ed.layout},
 	}}
+	if os.Getenv("GOTHOOM_RENDER_ENSEMBLE_ONLY") != "" {
+		var scenes []notesEditorScene
+		for _, scene := range game.scenes {
+			if strings.HasPrefix(scene.name, "bard-duet-trio") {
+				scenes = append(scenes, scene)
+			}
+		}
+		game.scenes = scenes
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

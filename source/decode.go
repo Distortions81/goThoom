@@ -332,6 +332,12 @@ func decodeSessionBubble(session *Session, data []byte) (verb, text, name, lang 
 		return "", "", "", lang, code, bubbleType, thinkNone
 	}
 	raw := data[p:]
+	// Tag stripping compacts raw in place. Preserve private/clan/group routing
+	// tags until the thought sender and target have been decoded.
+	var thoughtRaw []byte
+	if bubbleType == kBubbleThought {
+		thoughtRaw = append([]byte(nil), raw...)
+	}
 	msgData := stripBEPPTags(raw)
 	if i := bytes.IndexByte(msgData, 0); i >= 0 {
 		msgData = msgData[:i]
@@ -378,7 +384,7 @@ func decodeSessionBubble(session *Session, data []byte) (verb, text, name, lang 
 		}
 	case kBubbleThought:
 		verb = "thinks"
-		name, target, text = parseThinkText(raw, text)
+		name, target, text = parseThinkText(thoughtRaw, text)
 	case kBubbleRealAction:
 		verb = bubbleVerbVerbatim
 	case kBubbleMonster:

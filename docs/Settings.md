@@ -301,6 +301,15 @@ session.
 
 ## Session-only controls not written to JSON
 
+### Bard part receiving
+
+**Bard → Duet / Trio → Receive parts from partners** defaults off. It accepts
+private music parts only from full names in **Play with**, saving and selecting
+them without starting playback. Each session has its own partner list and
+receiving choice, which stay active when switching tabs. Reconnecting that
+character or closing Bard turns receiving off. See the [bard guide](Bard.md) for
+sharing and playback.
+
 ### Network Latency & Server Phase Timing (NLSPT)
 
 Network Latency & Server Phase Timing is enabled by default. Its persisted

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"strings"
 	"unicode/utf8"
 )
@@ -20,6 +21,16 @@ type bardScore struct {
 	Title, Composer string
 	Tags            []string
 	Parts           []bardPart
+}
+
+// Keep generated metadata valid as a plain Clan Lord comment, even when a
+// title contains angle brackets. Decode entities only in the new metadata form.
+func bardComment(value string) string {
+	return "<" + strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(value) + ">"
+}
+
+func bardMetadata(key, value string) string {
+	return bardComment("@" + key + ": " + value)
 }
 
 func bardSelectedPart(score bardScore, name string) (int, error) {
@@ -48,19 +59,30 @@ func parseBardScore(value string, fallback int) (bardScore, error) {
 	lines := strings.Split(normalizeSourceEditorText(value), "\n")
 	for lineNumber, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if depth == 0 && strings.HasPrefix(trimmed, ";@") {
-			key, data, ok := strings.Cut(strings.TrimPrefix(trimmed, ";@"), ":")
+		if depth == 0 && (strings.HasPrefix(trimmed, ";@") || strings.HasPrefix(trimmed, "<@")) {
+			metadata := strings.TrimPrefix(trimmed, ";@")
+			angleComment := strings.HasPrefix(trimmed, "<@")
+			if angleComment {
+				if !strings.HasSuffix(trimmed, ">") || strings.ContainsAny(trimmed[2:len(trimmed)-1], "<>") {
+					return score, fmt.Errorf("Line %d: use <@name: value> on its own line; write &lt; and &gt; for brackets in the value.", lineNumber+1)
+				}
+				metadata = trimmed[2 : len(trimmed)-1]
+			}
+			key, data, ok := strings.Cut(metadata, ":")
 			key, data = strings.ToLower(strings.TrimSpace(key)), strings.TrimSpace(data)
+			if angleComment {
+				data = html.UnescapeString(data)
+			}
 			fail := func(message string) (bardScore, error) {
 				return score, fmt.Errorf("Line %d: %s", lineNumber+1, message)
 			}
 			if !ok {
-				return fail("Use ;@name: value for tune metadata.")
+				return fail("Use <@name: value> for tune metadata.")
 			}
 			switch key {
 			case "title", "composer", "tags":
 				if explicit {
-					return fail("Put song details before the first ;@part: line.")
+					return fail("Put song details before the first <@part: name> line.")
 				}
 				if seen[key] {
 					return fail("Duplicate " + key + " metadata.")
@@ -90,7 +112,7 @@ func parseBardScore(value string, fallback int) (bardScore, error) {
 					part.Text = notes.String()
 					score.Parts = append(score.Parts, part)
 				} else if strings.TrimSpace(stripComments(notes.String())) != "" {
-					return fail("Put the first ;@part: line before the music.")
+					return fail("Put the first <@part: name> line before the music.")
 				}
 				names[strings.ToLower(data)] = true
 				explicit = true
@@ -109,7 +131,7 @@ func parseBardScore(value string, fallback int) (bardScore, error) {
 					fallback = index
 				}
 			default:
-				return fail(fmt.Sprintf("Unknown metadata %q. Use ; for ordinary comments.", key))
+				return fail(fmt.Sprintf("Unknown metadata %q. Use <text> for ordinary comments.", key))
 			}
 			continue
 		}
@@ -169,8 +191,12 @@ func bardScoreInstrumentText(value string, fallback, selected, index int) (strin
 	}
 	part := score.Parts[selected]
 	lines := strings.Split(normalizeSourceEditorText(value), "\n")
-	metadata := ";@instrument: " + classicInstrumentNames[index]
+	metadata := bardMetadata("instrument", classicInstrumentNames[index])
 	if part.instrumentLine >= 0 {
+		// Keep the existing style when changing an older file's instrument.
+		if strings.HasPrefix(strings.TrimSpace(lines[part.instrumentLine]), ";@") {
+			metadata = ";@instrument: " + classicInstrumentNames[index]
+		}
 		lines[part.instrumentLine] = metadata
 	} else {
 		at := part.startLine + 1

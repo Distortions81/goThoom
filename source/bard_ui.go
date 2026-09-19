@@ -18,6 +18,10 @@ type bardActionGroup struct {
 }
 
 type bardPanel struct {
+	sharing                                                                                           bardSharing
+	ensembleButton                                                                                    *eui.ItemData
+	storage                                                                                           *bardCaseOperation
+	storeButton                                                                                       *eui.ItemData
 	groups                                                                                            []bardActionGroup
 	win                                                                                               *eui.WindowData
 	root, list, details, instrument, status, edit, previewButton, playButton, stopButton, stopPreview *eui.ItemData
@@ -35,45 +39,43 @@ type bardPanel struct {
 	query                                                                                             string
 	session                                                                                           *Session
 	revision                                                                                          uint64
+	generation                                                                                        uint64
 	connected                                                                                         bool
 	preview                                                                                           *bardPreview
 	performance                                                                                       *bardPerformance
 }
 
 var bardWindow *bardPanel
+var bardPanels = make(map[*Session]*bardPanel)
 
 func showBardWindow() {
 	if isWASM {
 		consoleMessage("[bard] Tunes are available in the desktop client.")
 		return
 	}
-	if bardWindow != nil {
+	session := selectedAppSession()
+	if bardWindow != nil && bardWindow.session != session {
+		bardWindow.hideForSessionSwitch()
+		bardWindow = nil
+	}
+	if p := bardPanels[session]; p != nil {
+		bardWindow = p
+		message, problem := p.statusMessage, p.statusProblem
 		bardWindow.reload()
+		p.setStatus(message, problem)
 		bardWindow.win.MarkOpen()
 		bardWindow.win.BringForward()
 		return
 	}
-	p := &bardPanel{win: eui.NewWindow(), root: eui.NewColumn()}
+	p := &bardPanel{win: eui.NewWindow(), root: eui.NewColumn(), session: session}
 	bardWindow = p
+	bardPanels[session] = p
 	win := p.win
 	win.Title = "Bard"
 	win.Closable, win.Movable, win.Resizable, win.NoScroll = true, true, true, true
 	win.Size = eui.Point{X: 640, Y: 700}
 	win.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	win.OnClose = func() {
-		if p.partnerPicker != nil {
-			p.partnerPicker.Close()
-		}
-		if p.playConfirm != nil {
-			p.playConfirm.Close()
-		}
-		p.preview.stop()
-		p.performance.stop()
-		win.RemoveWindow()
-		if bardWindow == p {
-			bardWindow = nil
-		}
-	}
+	win.OnClose = closeBardTools
 	win.Searchable = true
 	win.OnSearch = func(query string) { p.query = query; p.refreshList() }
 	newButton := eui.NewActionButton("New", func() { p.newTune() })
@@ -145,22 +147,32 @@ func showBardWindow() {
 	p.partners, _ = eui.NewInput()
 	p.partners.Label = "Play with"
 	p.partners.Size = eui.Point{X: 360, Y: 28}
-	p.partners.CompleteText = func(value string) string { return bardPartnerCompletion(selectedAppSession(), value) }
+	p.partners.CompleteText = func(value string) string { return bardPartnerCompletion(p.session, value) }
+	p.partners.Handler.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventInputChanged {
+			p.refreshSelection()
+		}
+	}
 	p.partners.SetTooltip("Type a name and press Tab to accept the gray suggestion. Separate performers with commas. Each performer chooses their own part and names the others. Leave blank to play your part alone.")
 	p.choosePartners = eui.NewActionButton("Choose players…", p.showPartnerPicker)
 	p.choosePartners.SetTooltip("Choose up to two visible players, nearest first.")
 	p.partnerRow = eui.NewRow(p.partners, p.choosePartners)
-	p.root.AddItem(p.partnerRow)
+	p.ensembleButton = eui.NewActionButton("Duet / Trio…", p.showEnsembleWindow)
+	p.ensembleButton.SetTooltip("Choose partners, assign and send music parts, and enable receiving from partners.")
 	p.playButton = eui.NewActionButton("Play in Game", p.play)
 	p.playButton.SetButtonColors(eui.ColorDarkRed, eui.ColorRed)
 	p.playButton.SetTooltip("Review the song, character, and instrument before confirming in-game playback.")
 	p.stopButton = eui.NewActionButton("Stop Playing", func() {
+		p.storage.cancel()
+		p.storage = nil
 		p.performance.stop()
 		p.performance = nil
 		p.setStatus("Stopped in-game playback.", false)
 		p.refreshSelection()
 	})
-	p.addActions(p.playButton, p.stopButton)
+	p.storeButton = eui.NewActionButton("Put All Instruments Away", p.storeInstruments)
+	p.storeButton.SetTooltip("Stop playing and return all carried instruments to your instrument case.")
+	p.addActions(p.ensembleButton, p.playButton, p.stopButton, p.storeButton)
 	p.statusFrame, p.status = newStatusBar(580)
 	p.root.AddItem(p.statusFrame)
 	win.AddItem(p.root)
@@ -194,11 +206,13 @@ func (p *bardPanel) refreshStatus() {
 	good := message != "" && !problem
 	if message == "" {
 		switch {
+		case p.storage != nil:
+			message, good = "Putting instruments away. Stop Playing cancels remaining transfers.", true
 		case p.performance != nil:
 			good = true
 			switch {
 			case !p.performance.submitted:
-				message = "Equipping the instrument for in-game playback."
+				message = "Preparing the instrument for in-game playback."
 			case p.performance.ensemble:
 				message = "Part sent; waiting for or playing with the ensemble."
 			case p.performance.finishAt.IsZero():
@@ -221,6 +235,9 @@ func (p *bardPanel) refreshStatus() {
 		return
 	}
 	p.statusText = key
+	if p.sharing.status != nil {
+		p.sharing.status.SetWrappedText(message)
+	}
 	setStatusBar(p.statusFrame, p.status, message, good, problem)
 	p.win.Refresh()
 }
@@ -273,18 +290,12 @@ func (p *bardPanel) layout() {
 	width := savedDataContentWidth(p.list.Size.X)
 	p.details.Size.X = width
 	p.status.Size.X = p.statusFrame.Size.X - 16
-	for _, control := range []*eui.ItemData{p.instrument, p.part, p.partners} {
+	for _, control := range []*eui.ItemData{p.instrument, p.part} {
 		control.Size.X = width
 		if width > 360 {
 			control.Size.X = 360
 		}
 	}
-	partnerWidth := p.root.Size.X - p.choosePartners.GetSize().X/eui.UIScale() - p.choosePartners.Position.X - p.partners.Position.X
-	if p.partners.Size.X > partnerWidth {
-		p.partners.Size.X = partnerWidth
-	}
-	p.choosePartners.Position.Y = p.partners.GetSize().Y/eui.UIScale() - p.partners.Size.Y + p.partners.Position.Y
-	p.partnerRow.Size.Y = 0
 	eui.LayoutWindowBody(p.win, p.root, p.list)
 	p.win.Refresh()
 }
@@ -431,15 +442,43 @@ func (p *bardPanel) confirmDeleteTune(tune bardTune) *eui.WindowData {
 	})
 }
 func (p *bardPanel) refreshSelection() {
-	session := selectedAppSession()
-	p.session = session
+	session := p.session
+	title := "Bard"
+	if session != nil && session.characterName() != "" {
+		title += " — " + session.characterName()
+	}
+	p.win.Title = title
 	p.connected = session != nil && session.transport.connected()
 	if session != nil {
 		p.revision = session.inventory.revision.Load()
+		p.generation = bardConnectionGeneration(session)
 	}
+	_, hasCase := bardInstrumentCase(session)
+	hasInstruments := false
+	if session != nil {
+		for _, item := range session.inventory.snapshot() {
+			hasInstruments = hasInstruments || bardItemInstrument(item) >= 0
+		}
+	}
+	p.storeButton.Disabled = !p.connected || !hasCase || !hasInstruments || p.storage != nil
+	storeTip := "Stop playing and return all carried instruments to your instrument case."
+	switch {
+	case !p.connected:
+		storeTip = "Connect a character to put instruments away."
+	case !hasCase:
+		storeTip = "Carry an instrument case to put instruments away."
+	case p.storage != nil:
+		storeTip = "Instruments are being put away. Stop Playing cancels remaining transfers."
+	case !hasInstruments:
+		storeTip = "No carried instruments to put away."
+	}
+	p.storeButton.SetTooltip(storeTip)
 	p.instrument.Options = nil
 	for i, name := range classicInstrumentNames {
 		label := name + " (preview only)"
+		if hasCase {
+			label = name + " (try case)"
+		}
 		if item, ok := bardOwnedInstrument(session, i); ok {
 			label = item.Name + " (inventory)"
 		}
@@ -452,11 +491,9 @@ func (p *bardPanel) refreshSelection() {
 	p.previewButton.Disabled = none
 	p.playButton.Disabled = true
 	p.stopPreview.Disabled = p.preview == nil
-	p.stopButton.Disabled = p.performance == nil
+	p.stopButton.Disabled = p.performance == nil && p.storage == nil
 	p.part.Options = nil
 	p.part.Invisible, p.previewPart.Invisible = true, true
-	p.partners.Invisible = true
-	p.partnerRow.Invisible = true
 	p.previewButton.Text = "Preview"
 	if none {
 		p.details.SetWrappedText("Select a song above to preview, edit, or play it.")
@@ -483,21 +520,25 @@ func (p *bardPanel) refreshSelection() {
 			p.selectedPart, index = part.Name, part.Instrument
 		}
 		if len(tune.Score.Parts) > 1 && valid {
-			p.part.Invisible, p.previewPart.Invisible, p.partners.Invisible = false, false, false
-			p.partnerRow.Invisible = false
+			p.part.Invisible, p.previewPart.Invisible = false, false
 			p.previewButton.Text = "Preview All"
+		}
+		if partners := strings.TrimSpace(p.partners.Text); partners != "" {
+			details += "\nPlay with: " + partners
 		}
 		p.details.SetWrappedText(details)
 		p.instrument.Selected = index
 		_, owned := bardOwnedInstrument(session, index)
-		p.playButton.Disabled = !valid || !p.connected || !owned
+		p.playButton.Disabled = !valid || !p.connected || (!owned && !hasCase) || p.storage != nil
 		tip := "Review the song, character, and instrument before confirming in-game playback."
 		if !valid {
 			tip = "Edit the tune to fix its metadata, then save it."
 		} else if !p.connected {
 			tip = "Connect a character to perform. Preview is local."
-		} else if !owned {
-			tip = "Take this instrument out of its case and into inventory to perform."
+		} else if !owned && !hasCase {
+			tip = "Carry this instrument or an instrument case to perform."
+		} else if p.storage != nil {
+			tip = "Wait for instruments to be put away, or cancel with Stop Playing."
 		}
 		p.playButton.SetTooltip(tip)
 	}
@@ -641,20 +682,20 @@ func (p *bardPanel) play() {
 	}
 	part := score.Parts[index]
 	var partners []string
-	if len(score.Parts) > 1 && strings.TrimSpace(p.partners.Text) != "" {
+	if strings.TrimSpace(p.partners.Text) != "" {
 		partners = strings.Split(p.partners.Text, ",")
 	}
 	if _, err = bardEnsembleCommands(part.Text, partners); err != nil {
 		p.setError(err)
 		return
 	}
-	session := selectedAppSession()
+	session := p.session
 	if session == nil || !session.transport.connected() {
 		p.setError(fmt.Errorf("Connect a character to perform. Preview is local."))
 		return
 	}
-	if _, owned := bardOwnedInstrument(session, part.Instrument); !owned {
-		p.setError(fmt.Errorf("Take %s out of its case and into inventory before playing.", classicInstrumentNames[part.Instrument]))
+	if !bardCanPrepareInstrument(session, part.Instrument) {
+		p.setError(fmt.Errorf("Carry %s or an instrument case to perform.", classicInstrumentNames[part.Instrument]))
 		return
 	}
 	p.showPlayConfirmation(bardPlayRequest{
@@ -697,7 +738,7 @@ func (p *bardPanel) newTune() {
 	name.Size = eui.Point{X: 360, Y: 28}
 	status := eui.NewWrappedLabel("", 360)
 	create := eui.NewActionButton("Create & Edit", func() {
-		value := ";@title: " + strings.TrimSpace(name.Text) + "\n;@instrument: Lucky Lyra\n;@tags:\n\n; Write your tune below.\n"
+		value := bardMetadata("title", strings.TrimSpace(name.Text)) + "\n<@instrument: Lucky Lyra>\n<@tags:>\n\n<Write your tune below.>\n"
 		tune, err := createBardTune(name.Text, value)
 		if err != nil {
 			status.SetWrappedText(err.Error())
@@ -716,17 +757,111 @@ func (p *bardPanel) newTune() {
 	win.MarkOpen()
 	eui.Focus(name)
 }
-func updateBardWindow() {
-	p := bardWindow
-	if p == nil {
+func (p *bardPanel) storeInstruments() {
+	if p.storage != nil {
 		return
 	}
-	session := selectedAppSession()
+	session := p.session
+	if session == nil || !session.transport.connected() {
+		p.setError(fmt.Errorf("Connect a character to put instruments away."))
+		return
+	}
+	if _, ok := bardInstrumentCase(session); !ok {
+		p.setError(fmt.Errorf("Carry an instrument case to put instruments away."))
+		return
+	}
+	p.performance.stop()
+	p.performance = nil
+	var err error
+	p.storage, err = startBardCaseOperation(session, -1)
+	p.setError(err)
+	p.refreshSelection()
+}
+
+// The visible panel follows the selected tab; hidden panels keep their own
+// selections, transfers, and performances running on their original session.
+func (p *bardPanel) hideForSessionSwitch() {
+	if p.win.IsOpen() {
+		// Close transient menus and release drawing resources without ending the
+		// session's work. The panel can reopen when this tab is selected again.
+		onClose := p.win.OnClose
+		p.win.OnClose = nil
+		p.win.Close()
+		p.win.OnClose = onClose
+	}
+	if p.playConfirm != nil {
+		p.playConfirm.Close()
+	}
+	if p.partnerPicker != nil {
+		p.partnerPicker.Close()
+	}
+	if p.sharing.win != nil {
+		p.sharing.win.Close()
+	}
+	p.preview.stop()
+	p.preview = nil
+}
+
+func (p *bardPanel) registered() bool {
+	return p != nil && bardPanels[p.session] == p
+}
+
+func (p *bardPanel) closeSessionPanel() {
+	delete(bardPanels, p.session)
+	p.hideForSessionSwitch()
+	p.cancelPartSending()
+	p.storage.cancel()
+	p.performance.stop()
+	p.storage, p.performance = nil, nil
+	p.win.RemoveWindow()
+}
+
+func closeBardTools() {
+	for _, p := range bardPanels {
+		p.closeSessionPanel()
+	}
+	bardWindow = nil
+}
+
+func updateBardWindow() {
+	if bardWindow == nil {
+		return
+	}
+	// Removed tabs cannot keep work alive or transfer it to a reused slot.
+	for session, p := range bardPanels {
+		current, present := appSessions.session(session.ID())
+		if !present || current != session {
+			p.closeSessionPanel()
+		}
+	}
+	if !bardWindow.registered() || bardWindow.session != selectedAppSession() {
+		previous := bardWindow.win
+		showBardWindow()
+		bardWindow.win.Size, bardWindow.win.Position = previous.Size, previous.Position
+		bardWindow.refreshList()
+	}
+	for _, p := range bardPanels {
+		p.updateSession()
+	}
+}
+
+func (p *bardPanel) updateSession() {
+	p.updateBardSharing()
+	session := p.session
+	if p.storage != nil {
+		if err := p.storage.update(time.Now()); err != nil {
+			p.storage = nil
+			p.setError(err)
+		} else if p.storage.done {
+			p.storage = nil
+			p.setStatus("All carried instruments put away.", false)
+		}
+		if p.storage == nil {
+			p.refreshSelection()
+		}
+	}
 	if p.performance != nil {
-		if p.performance.session != session {
-			p.performance.stop()
-			p.performance = nil
-		} else if err := p.performance.update(time.Now()); err != nil {
+		if err := p.performance.update(time.Now()); err != nil {
 			p.performance = nil
 			p.setError(err)
 			p.refreshSelection()
@@ -738,11 +873,7 @@ func updateBardWindow() {
 		p.refreshSelection()
 	}
 	connected := session != nil && session.transport.connected()
-	if session != p.session || connected != p.connected || (session != nil && session.inventory.revision.Load() != p.revision) {
-		if session != p.session {
-			p.preview.stop()
-			p.preview = nil
-		}
+	if connected != p.connected || (session != nil && (session.inventory.revision.Load() != p.revision || bardConnectionGeneration(session) != p.generation)) {
 		p.refreshSelection()
 	}
 	p.refreshStatus()

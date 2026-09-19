@@ -30,6 +30,9 @@ func (p *bardPanel) showPlayConfirmation(request bardPlayRequest) {
 		message += "\nWith: " + strings.Join(request.partners, ", ")
 	}
 	message += "\n\nThis equips the instrument and performs for nearby players."
+	if _, owned := bardOwnedInstrument(request.session, request.part.Instrument); !owned {
+		message += " The client will try to retrieve it from your instrument case, putting one carried instrument away first if space is needed."
+	}
 	popup := eui.ShowPopup("Confirm In-Game Playback", message, []eui.PopupButton{
 		{Text: "Cancel", Action: func() { p.setStatus("In-game playback canceled.", false) }},
 		{Text: "Play in Game", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
@@ -51,10 +54,12 @@ func (p *bardPanel) showPlayConfirmation(request bardPlayRequest) {
 				p.setError(fmt.Errorf("The saved song changed. Choose Play in Game again."))
 				return
 			}
-			if _, ok := bardOwnedInstrument(request.session, request.part.Instrument); !ok {
-				p.setError(fmt.Errorf("The confirmed instrument is no longer in inventory."))
+			if !bardCanPrepareInstrument(request.session, request.part.Instrument) {
+				p.setError(fmt.Errorf("Carry the confirmed instrument or an instrument case to perform."))
 				return
 			}
+			p.storage.cancel()
+			p.storage = nil
 			p.preview.stop()
 			p.preview = nil
 			p.performance.stop()

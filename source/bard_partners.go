@@ -57,7 +57,7 @@ func (p *bardPanel) showPartnerPicker() {
 		p.partnerPicker.BringForward()
 		return
 	}
-	session := selectedAppSession()
+	session := p.session
 	if session == nil {
 		p.setError(fmt.Errorf("Select a character first."))
 		return
@@ -127,7 +127,7 @@ func (p *bardPanel) showPartnerPicker() {
 		list.AddItem(eui.NewWrappedLabel("No other players are visible. You can also enter names in Play with.", 380))
 	}
 	ok := eui.NewActionButton("OK", func() {
-		if !p.win.IsOpen() || selectedAppSession() != session ||
+		if !p.win.IsOpen() || p.session != session ||
 			bardConnectionGeneration(session) != generation || session.characterName() != character || p.partners.Text != original {
 			p.setError(fmt.Errorf("The character or partner names changed. Choose players again."))
 			win.Close()
@@ -145,6 +145,7 @@ func (p *bardPanel) showPartnerPicker() {
 		p.partners.Text = strings.Join(chosen, ", ")
 		p.partners.Dirty = true
 		p.setError(nil)
+		p.refreshSelection()
 		win.Close()
 	})
 	root.AddItem(eui.NewRow(eui.NewActionButton("Cancel", win.Close), ok))

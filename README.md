@@ -197,9 +197,15 @@ macros accept MacRoman files.
 Open **Tools → Bard Tools** to create, import, and edit UTF-8 tune files in `Tunes/`.
 Tunes can include song details, tags, and named parts for different instruments.
 Preview an ensemble together or listen to one part. **Play in Game** equips a
-carried instrument and performs your selected part, splitting long songs
-automatically; **Play with** coordinates duos and trios with other performers.
-The editor also previews unsaved drafts and checks every part's notation.
+carried instrument, or retrieves it from your instrument case, and performs your
+selected part, splitting long songs automatically. **Duet / Trio…** sets up
+partners and shares assigned parts through private sunstone messages. Optional
+receiving saves parts from listed partners; you choose when to play them.
+Bard Tools remembers each session's selections and keeps performances running
+when you switch character tabs. The editor also previews unsaved drafts and
+checks every part's notation.
+The included **Three Lanterns** trio provides a short practice arrangement for
+Pine Flute, Starbuck Harp, and Gutbucket Bass.
 See the [bard guide](docs/Bard.md) for notation and performance controls.
 
 ## Macros and scripts

@@ -104,6 +104,59 @@ func TestBardScoreLegacyAndCommentCompatibility(t *testing.T) {
 	}
 }
 
+func TestBardScoreAngleMetadata(t *testing.T) {
+	legacy, err := parseBardScore(bardDuetFixture, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(bardDuetFixture, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, ";@") {
+			lines[i] = "<" + line[1:] + ">"
+		}
+	}
+	value := strings.Join(lines, "\n")
+	got, err := parseBardScore(value, 0)
+	if err != nil || !reflect.DeepEqual(got, legacy) {
+		t.Fatalf("angle metadata changed score: %+v %v", got, err)
+	}
+	edited, err := bardScoreInstrumentText(value, 0, 1, 2)
+	want := strings.Replace(value, "<@instrument: Lucky Lyra>", "<@instrument: Starbuck Harp>", 1)
+	if err != nil || edited != want {
+		t.Fatalf("instrument edit changed other content: %q %v", edited, err)
+	}
+	inserted, err := bardScoreInstrumentText("<A solo>\ncde", 0, 0, 17)
+	if err != nil || inserted != "<@instrument: Pine Flute>\n<A solo>\ncde" {
+		t.Fatalf("new metadata is not a CL comment: %q %v", inserted, err)
+	}
+	for _, invalid := range []string{
+		"<@", "<@title: missing end", "<@title: Song>cde",
+		"<@title: <nested>>\ncde", "<@title missing colon>\ncde",
+		"<@title: A>\n;@title: B\ncde", "<@unknown: A>\ncde",
+	} {
+		if _, err := parseBardScore(invalid, 0); err == nil {
+			t.Fatalf("accepted invalid metadata: %q", invalid)
+		}
+	}
+}
+
+func TestBardScoreAngleMetadataClassicCompatibility(t *testing.T) {
+	title := "Moonlight > < &lt; Café 月"
+	value := bardMetadata("title", title) + "\n" + bardMetadata("instrument", "Pine Flute") +
+		"\n<Start gently; <nested comment>\n<@part: ordinary text inside a comment>\n>\n@90 c#4d"
+	score, err := parseBardScore(value, 0)
+	if err != nil || score.Title != title || len(score.Parts) != 1 || score.Parts[0].Instrument != 17 {
+		t.Fatalf("metadata did not round trip: %+v %v", score, err)
+	}
+	// Send the whole single-part file to the classic notation parser, without
+	// goThoom's score parser or comment stripping as an intermediate step.
+	got, classicErr := parseClassicTune(value, instruments[17], 120, 100)
+	want, wantErr := parseClassicTune("@90 c#4d", instruments[17], 120, 100)
+	if classicErr != nil || wantErr != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("local comments changed classic playback: %v %v", classicErr, wantErr)
+	}
+}
+
 func TestBardEnsembleCommandSplitting(t *testing.T) {
 	value := "@90 " + strings.Repeat("c#4d.e_f2g ", 130)
 	commands, err := bardEnsembleCommands(value, []string{"Blue", "Example d'Exile"})
@@ -189,6 +242,9 @@ func TestBardInstrumentMetadataPreservesFilesAndDrafts(t *testing.T) {
 
 func TestBardLibraryMetadataSearchAndPartSelection(t *testing.T) {
 	bardFixture(t)
+	s := bardConnectedSession(t)
+	appSessions = newSessionManager(s)
+	s.inventory.add(222, -1, "Lucky Lyra", false)
 	duet, err := createBardTune("filename", bardDuetFixture)
 	if err != nil {
 		t.Fatal(err)
@@ -232,9 +288,6 @@ func TestBardLibraryMetadataSearchAndPartSelection(t *testing.T) {
 	if p.selectedPart != "Accompaniment" || p.part.Selected != 1 {
 		t.Fatal("refresh lost the selected part")
 	}
-	s := bardConnectedSession(t)
-	appSessions = newSessionManager(s)
-	s.inventory.add(222, -1, "Lucky Lyra", false)
 	p.refreshSelection()
 	p.partners.Text = "Blue"
 	p.play()

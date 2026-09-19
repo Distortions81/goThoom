@@ -14,8 +14,13 @@ Personal notes:
 - Filter notes by player and scope, search subjects and tags, and edit their details or text. Trashed notes remain recoverable in the user data folder.
 
 Bard tunes:
+- Includes Three Lanterns, an original 48-second trio for Pine Flute, Starbuck Harp, and Gutbucket Bass, with staggered entrances and a shared ending for practice and testing.
 - Tools → Bard manages a shared Tunes folder with new/import actions, tune search, and a saved instrument choice for each song.
-- Edit tunes with syntax colors and notation checks, preview drafts locally, or perform saved tunes using an instrument from the selected character's inventory. Long songs split into game commands automatically.
+- Edit tunes with syntax colors and notation checks, preview drafts locally, or perform saved tunes using an instrument from the selected character's inventory or instrument case. Long songs split into game commands automatically.
+- When retrieving an instrument with a full pack, Bard Tools puts one carried instrument away to make room. Put All Instruments Away returns carried instruments to the case.
+- Duet / Trio sets up partners and sends assigned music parts as readable, numbered private sunstone messages with song and instrument details. Players on other clients can copy the segments together. Optional receiving accepts parts only from listed partners and saves them as new tunes without starting playback.
+- Tune files use Clan Lord comments for song details, instruments, and named parts. Existing semicolon comments and metadata remain supported.
+- Bard Tools follows the active session and remembers each character's song, part, partners, and receiving choice. Performances, instrument transfers, and part messages continue when switching tabs, so one client can perform every part of a duet or trio.
 - Local preview and in-game performance have separate stop controls.
 
 Interface:

@@ -44,7 +44,10 @@ runtime in every connected session; character-enabled scripts run only for
 matching characters.
 
 Chat and Console combine session messages in shared transcripts and identify
-their source. Inventory, Players, and Scripts display the active session.
+their source. Inventory, Players, Scripts, and Bard Tools display the active session.
+Bard Tools remembers each session's selected song, part, and partners;
+performances, instrument transfers, and enabled part receiving continue when
+you switch tabs. See the [bard guide](Bard.md).
 
 Only the active tab plays sound effects. Every session still tracks assembled
 bard performances against wall time. When a different tab becomes active,
