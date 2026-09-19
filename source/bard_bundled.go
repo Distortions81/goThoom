@@ -47,16 +47,19 @@ func installBundledBardTunes() error {
 		if installed[entry.Name()] {
 			continue
 		}
+		// The embedded legacy name is the stable install-history key. Keep
+		// it so an upgrade never reinstalls a deleted or renamed copy.
+		nativeName := bardNativeFilename(entry.Name())
 		found := false
 		for _, file := range existing {
-			found = found || strings.EqualFold(file.Name(), entry.Name())
+			found = found || strings.EqualFold(file.Name(), entry.Name()) || strings.EqualFold(file.Name(), nativeName)
 		}
 		if !found {
 			data, err := bundledBardTunes.ReadFile("data/Tunes/" + entry.Name())
 			if err != nil {
 				return err
 			}
-			if _, err := createBardTune(entry.Name(), string(data)); err != nil {
+			if _, err := createBardTune(nativeName, string(data)); err != nil {
 				return err
 			}
 		}

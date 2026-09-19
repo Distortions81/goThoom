@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -49,6 +50,9 @@ func TestBardSharingRoundTripSaveSelectWithoutPlaying(t *testing.T) {
 	}
 	if p.selected == original || p.selectedPart != "Solo" || p.performance != nil || !s.commands.idle() {
 		t.Fatal("did not select saved part without playing")
+	}
+	if filepath.Ext(p.selected) != bardNativeExtension {
+		t.Fatalf("received part has legacy filename: %s", p.selected)
 	}
 	value, err := readBardTune(p.selected)
 	if err != nil {

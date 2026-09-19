@@ -735,12 +735,7 @@ func (p *bardPanel) importTune() {
 	if path == "" {
 		return
 	}
-	value, err := readBardTune(path)
-	if err != nil {
-		p.setError(err)
-		return
-	}
-	tune, err := createBardTune(filepath.Base(path), value)
+	tune, err := importBardTune(path)
 	if err != nil {
 		p.setError(err)
 		return

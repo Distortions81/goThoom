@@ -22,7 +22,7 @@ A preview is heard only by you. You do not need to carry the instruments. Play i
 
 Try changing @120 to @60: the same notes now take eight seconds. Change a c4 to p4 to replace that note with silence of the same length. Choose Check and Preview after each edit.
 
-New saves the file as Practice.tune in Tunes/ in your user data folder. All your characters share this library. The title line controls the displayed song name; changing that line does not rename the file.
+New saves the file as Practice.gttune in Tunes/ in your user data folder. All your characters share this library. The title line controls the displayed song name; changing that line does not rename the file.
 
 # Preview and edit an existing tune
 Select the song, then choose Edit. The editor supports search, undo/redo, and the usual copy/paste shortcuts: Ctrl on Windows/Linux, Command on macOS. Text size and colors follow the Text tab in Settings.
@@ -198,7 +198,7 @@ Add explanatory comments such as <Wait for the bass.> or <Bar 4>. Comments may s
 In metadata values, use &lt; for <, &gt; for >, and &amp; for &. Older ; comments and ;@name: value metadata work too; a semicolon comment ends at the end of its line. Without instrument metadata or a saved legacy preference, the instrument defaults to Lucky Lyra.
 
 # Import songs and manage the library
-Import accepts .tune and .txt files containing UTF-8 Clan Lord notation, up to 256 KiB. It copies the selected file into Tunes/ and opens that copy for editing. Choose Check, fix any reported problem, then Save. The original file stays where it was. If the filename already exists in the library, rename the incoming file before importing.
+Import accepts .gttune, .tune, and .txt files containing UTF-8 Clan Lord notation, up to 256 KiB. It saves a new .gttune copy in Tunes/ and opens that copy for editing, keeping the song details, parts, and instruments. Choose Check, fix any reported problem, then Save. The original file stays where it was. If the destination .gttune filename already exists, rename the incoming file before importing.
 
 To use music copied from a website or another tool, choose New and paste only its notation into the editor. For example, a classic command:
 /use /tempo 160 c4 d4 e4 g4
@@ -209,7 +209,7 @@ For music spread over several /use commands, join that performer's note text in 
 
 MIDI must first be converted to Clan Lord notation in a conversion tool. A .tune filename alone does not guarantee its contents are notation: for a tool's own project format, copy or export the music text. If an older text file is rejected for encoding, save a UTF-8 copy in a text editor before importing.
 
-Open Folder shows Tunes/ on disk. Files there are shared by all characters. Use Refresh after adding, renaming, or changing files outside goThoom. Use the titlebar search for titles, composers, tags, part names, or instruments; Tag narrows the list to one tag, and Songs - sort by changes its order.
+Open Folder shows Tunes/ on disk. Files there are shared by all characters. Existing .tune and .txt files remain editable in place; you do not need to rename them. New songs and received parts default to .gttune. Use Refresh after adding, renaming, or changing files outside goThoom. Use the titlebar search for titles, composers, tags, part names, or instruments; Tag narrows the list to one tag, and Songs - sort by changes its order.
 
 The x beside a song permanently deletes its file and instrument preference after confirmation, including any open draft. Copy files out with Open Folder if you want a backup first. Three Lanterns is installed once; editing it preserves your copy, and deleting it keeps it from being re-added.
 

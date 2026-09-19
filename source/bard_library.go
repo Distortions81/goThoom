@@ -14,6 +14,22 @@ import (
 )
 
 const bardMaxFileSize = 256 * 1024
+const bardNativeExtension = ".gttune"
+
+func isBardTuneFilename(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case bardNativeExtension, ".tune", ".txt":
+		return true
+	}
+	return false
+}
+
+func bardNativeFilename(name string) string {
+	if isBardTuneFilename(name) {
+		name = strings.TrimSuffix(name, filepath.Ext(name))
+	}
+	return name + bardNativeExtension
+}
 
 type bardTune struct {
 	Path, Name string
@@ -34,8 +50,7 @@ func listBardTunes() ([]bardTune, error) {
 	}
 	var tunes []bardTune
 	for _, entry := range entries {
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if !entry.Type().IsRegular() || (ext != ".tune" && ext != ".txt") {
+		if !entry.Type().IsRegular() || !isBardTuneFilename(entry.Name()) {
 			continue
 		}
 		tune := bardTune{Path: filepath.Join(bardTunesDir(), entry.Name()), Name: strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())), Instrument: defaultInstrument}
@@ -116,9 +131,8 @@ func saveBardPartInstrument(tune bardTune, part, index int) error {
 }
 func createBardTune(name, value string) (bardTune, error) {
 	name = strings.TrimSpace(name)
-	ext := strings.ToLower(filepath.Ext(name))
-	if ext != ".tune" && ext != ".txt" {
-		name += ".tune"
+	if !isBardTuneFilename(name) {
+		name += bardNativeExtension
 	}
 	stem := strings.TrimSuffix(name, filepath.Ext(name))
 	if stem == "" || strings.HasPrefix(name, ".") || len(name) > 180 || strings.HasSuffix(stem, ".") {

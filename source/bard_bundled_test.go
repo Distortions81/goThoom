@@ -152,7 +152,10 @@ func TestBardBundledInstallPreservesUserFiles(t *testing.T) {
 			if err := os.MkdirAll(bardTunesDir(), 0755); err != nil {
 				t.Fatal(err)
 			}
-			filename := "Three Lanterns.tune"
+			filename := "Three Lanterns.gttune"
+			if scenario == "existing" || scenario == "case variant" {
+				filename = "Three Lanterns.tune"
+			}
 			if scenario == "case variant" {
 				filename = strings.ToLower(filename)
 			}
@@ -188,6 +191,10 @@ func TestBardBundledInstallPreservesUserFiles(t *testing.T) {
 			}
 			if err := installBundledBardTunes(); err != nil {
 				t.Fatal(err)
+			}
+			tunes, err := listBardTunes()
+			if err != nil || scenario == "deleted" && len(tunes) != 0 || scenario != "deleted" && len(tunes) != 1 {
+				t.Fatalf("duplicate or resurrected bundled song: %d, %v", len(tunes), err)
 			}
 			got, err := os.ReadFile(path)
 			switch scenario {

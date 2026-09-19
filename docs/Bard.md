@@ -12,10 +12,13 @@ characters to test an in-game trio. The numbered comments mark two-second bars.
 The tune is added to `Tunes/` on startup once. Your edits are preserved, and
 deleting it keeps it out of the library on later starts.
 
-Choose **New** to name a tune, or **Import** to copy an existing `.tune` or
-`.txt` file into the library. **Open Folder** opens `Tunes/` in your user data
-folder. Files contain UTF-8 Clan Lord Tune Format text, with optional song
-details and named instrument parts. Use **Refresh** after changing files outside
+Choose **New** to name a tune; new songs use `.gttune` by default. **Import**
+accepts `.gttune`, `.tune`, and `.txt` notation files and creates a separate
+`.gttune` copy in the library, preserving song details, parts, and instruments.
+The source file stays untouched. Existing `.tune` and `.txt` files in `Tunes/`
+can still be opened and edited in place; no renaming is required. **Open Folder**
+opens `Tunes/` in your user data folder. Native `.gttune` files contain UTF-8
+Clan Lord Tune Format text, with optional song details and named instrument parts. Use **Refresh** after changing files outside
 the client. The titlebar search matches titles, composers, tags, part names, and
 instruments. Use **Tag** to filter the library and **Sort by** to order it by
 title, composer, tags, or part count.
@@ -232,5 +235,8 @@ Write notation directly, without `/use` commands or a macro wrapper:
 - `[ceg]` adds a chord on instruments that support chords.
 - `@120` sets the tempo.
 
-MIDI files must be converted to CL tune notation before importing. For music
+MIDI files must be converted to CL tune notation before importing. Native
+mTooth/Tune Helper projects and classic command or macro wrappers are not yet
+imported directly; export or copy their plain notation first. A filename
+extension alone does not identify a supported file format. For music
 with several instruments, place each performer's notation in its own named part.

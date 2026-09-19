@@ -8,7 +8,7 @@ import (
 )
 
 func pickBardTuneFile() (string, error) {
-	path, err := zenity.SelectFile(zenity.Title("Import tune"), zenity.FileFilter{Name: "CL tune text", Patterns: []string{"*.tune", "*.txt", "*.TUNE", "*.TXT"}})
+	path, err := zenity.SelectFile(zenity.Title("Import tune"), zenity.FileFilter{Name: "goThoom songs and CL tune text", Patterns: []string{"*.gttune", "*.tune", "*.txt", "*.GTTUNE", "*.TUNE", "*.TXT"}})
 	if errors.Is(err, zenity.ErrCanceled) {
 		return "", nil
 	}
