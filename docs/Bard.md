@@ -1,6 +1,8 @@
 # Bard tunes
 
 Open **Tools → Bard Tools** to manage tunes shared by all your characters.
+Choose **Help** for an offline, topic-by-topic guide to the controls, tune
+notation, instruments, group performances, sharing parts, and troubleshooting.
 
 **Three Lanterns** is an included original trio for Pine Flute, Starbuck Harp,
 and Gutbucket Bass. It lasts about 48 seconds. The bass starts alone, the harp
@@ -23,8 +25,9 @@ removes the tune and its instrument preference and discards any open draft.
 
 Click a song or its radio button in the framed song list to select it. The
 filled radio button and **Selected song** line show which song the controls use.
-Choose its instrument, or choose **Your part** in an ensemble
-arrangement. Changing the instrument saves that part's choice inside the tune
+Choose its instrument, or open **Duet / Trio…** and choose **Your part** in an
+ensemble arrangement. The main window shows the selected part.
+Changing the instrument saves that part's choice inside the tune
 file. Save or close an unsaved editor draft before using the instrument picker.
 Carried instruments are marked **inventory**. When you carry an instrument case,
 other instruments are marked **try case**: Play in Game will attempt to retrieve
@@ -98,9 +101,9 @@ Each part has its own tempo, defaulting to 120 unless its notation changes it.
 @90 c8g8
 ```
 
-Open **Duet / Trio…** to set up an ensemble. Each performer selects their own
-part in the main Bard window, enters the other performers in **Play with**, and
-chooses **Play in Game**. Use full names when sharing parts; unique name prefixes
+Open **Duet / Trio…** to set up an ensemble. Each performer selects **Your part**
+there and enters the other performers in **Play with**, then returns to the main
+Bard window to choose **Play in Game**. Use full names when sharing parts; unique name prefixes
 also work for playback. A trio with Blue and Pixy
 would enter `Blue, Pixy`; Blue and Pixy each enter the other two performers.
 Use **Choose players…** to select visible players, listed nearest first.
@@ -127,18 +130,19 @@ no decoding or goThoom installation is needed. Individual notes and notation
 tokens stay intact at message boundaries. Equip the instrument named in the
 comments and use your client's normal music playback commands.
 
-Messages use up to 400 wire bytes including the comment, leaving room for the
-private-message command and sender caption. The available space for notes
+Messages use up to 180 wire bytes including the comment, keeping segments short
+enough for private sunstone delivery. The available space for notes
 varies with the length of the song name.
 
-In goThoom, enable receiving to assemble and save the part automatically.
+In goThoom, receiving assembles and saves the part automatically.
 **Cancel Sending** cancels the selected character's unsent messages.
 Switching tabs keeps sending on the original character; closing Bard cancels
 unsent messages for every character.
 A sent message does not confirm that the other player received it.
 
-**Receive parts from partners** is off by default. Enable it to save and select
-parts sent by the full names in your **Play with** list. Use **Choose players…**
+**Receive parts from partners** is on when you first open **Duet / Trio…**.
+It saves and selects parts sent by the full names in your **Play with** list.
+Turn it off to stop accepting parts. Use **Choose players…**
 or enter their full names; a name prefix does not grant permission to send you
 parts. Only private thoughts are accepted, and blocked or ignored players are
 excluded. Each complete, valid part becomes a new tune, preserving its song
@@ -151,6 +155,9 @@ or close Duet / Trio. A received part is selected only for its recipient; it
 does not change another character's selection. Reconnecting that character or
 closing Bard turns receiving off.
 Incomplete transfers expire after two minutes; ask your partner to resend them.
+Each part is limited to 8 KiB and 64 segments, with one incomplete transfer per
+partner. Receiving pauses before saving more than 16 parts; enable it again in
+**Duet / Trio** when you are ready for more.
 
 The client adds Clan Lord's `/with` options to the music commands so playback
 waits for the other performers. Performer names stay out of the tune file.

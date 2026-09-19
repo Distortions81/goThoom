@@ -13,12 +13,16 @@ import (
 )
 
 const (
-	// Leave room for the private command and the server's sender caption.
-	bardShareMaxMessage = 400
-	bardShareMaxChunks  = 64
-	bardShareMaxPayload = 8192
-	bardShareExpiry     = 2 * time.Minute
-	bardShareBase58     = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	// Private thoughts can be truncated well below the player-command limit.
+	// Keep outgoing bodies conservative, including the header, with room for
+	// sender captions. Continue accepting intact segments from older clients.
+	bardShareSendMessageBytes = 180
+	bardShareMaxMessage       = 400
+	bardShareMaxChunks        = 64
+	bardShareMaxPayload       = 8192
+	bardShareMaxReceivedParts = 16
+	bardShareExpiry           = 2 * time.Minute
+	bardShareBase58           = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 )
 
 type bardSharedPart struct {
@@ -45,6 +49,7 @@ type bardSharing struct {
 	partners                          string
 	incoming                          map[string]*bardIncomingPart
 	received                          map[string]time.Time
+	receivedCount                     int
 	tickets                           []CommandTicket
 	sendSession                       *Session
 	sendGeneration                    uint64
@@ -166,7 +171,7 @@ func bardPartMessages(title string, part bardPart) ([]string, error) {
 	// Reserve the widest segment numbers so determining the total never causes
 	// a message to grow beyond the wire limit. Musical tokens are never split.
 	header := bardPartMessage(payload, id, bardShareMaxChunks-1, bardShareMaxChunks, "")
-	limit := bardShareMaxMessage - len(encodeMacRoman(encodeEmojiShortcodes(header)))
+	limit := bardShareSendMessageBytes - len(encodeMacRoman(encodeEmojiShortcodes(header)))
 	if limit < 1 {
 		return nil, fmt.Errorf("The song name is too long for a music message. Shorten it before sharing.")
 	}
@@ -299,6 +304,7 @@ func (p *bardPanel) setReceiveParts(enabled bool) {
 	share.receive.Checked = enabled
 	share.incoming = nil
 	share.received = nil
+	share.receivedCount = 0
 	share.session = p.session
 	share.enabledAt = time.Now()
 	share.partners = p.partners.Text
@@ -359,6 +365,18 @@ func (p *bardPanel) receivePartMessage(session *Session, generation uint64, send
 		delete(share.incoming, key)
 		return
 	}
+	// Bound incomplete transfers too, before retaining any additional data.
+	size := len(metadata.Title) + len(chunk)
+	for i, existing := range incoming.chunks {
+		if i != index {
+			size += len(existing)
+		}
+	}
+	if size > bardShareMaxPayload {
+		delete(share.incoming, key)
+		p.setError(fmt.Errorf("Part from %s was rejected: Music parts are limited to 8 KiB.", sender))
+		return
+	}
 	incoming.chunks[index] = chunk
 	for _, chunk := range incoming.chunks {
 		if chunk == "" {
@@ -366,10 +384,11 @@ func (p *bardPanel) receivePartMessage(session *Session, generation uint64, send
 		}
 	}
 	delete(share.incoming, key)
-	// Bound duplicate tracking for completed transfers in this receiving session.
-	if len(share.received) >= 128 {
+	// Bound disk writes across the entire receiving period, even after old
+	// duplicate records expire. Only explicitly enabling receiving resets it.
+	if share.receivedCount >= bardShareMaxReceivedParts {
 		p.setReceiveParts(false)
-		p.setError(fmt.Errorf("Part receiving paused after too many transfers. Enable it again when ready."))
+		p.setError(fmt.Errorf("Part receiving paused after %d saved parts. Enable it again in Duet / Trio when ready.", bardShareMaxReceivedParts))
 		return
 	}
 	part, err := decodeBardSharedPart(incoming)
@@ -391,6 +410,7 @@ func (p *bardPanel) receivePartMessage(session *Session, generation uint64, send
 		return
 	}
 	share.received[key+":"+id] = now.Add(bardShareExpiry)
+	share.receivedCount++
 	if p.playConfirm != nil {
 		p.playConfirm.Close()
 	}

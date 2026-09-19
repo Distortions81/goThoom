@@ -17,10 +17,9 @@ func bardShareFixture(t *testing.T) (*bardPanel, *Session, []string) {
 	p, s := bardReadyPanel(t)
 	p.partners.Text = "Blue, Pixy"
 	p.showEnsembleWindow()
-	if p.sharing.receive.Checked {
-		t.Fatal("receiving enabled by default")
+	if !p.sharing.receive.Checked {
+		t.Fatal("receiving is not enabled by default")
 	}
-	p.setReceiveParts(true)
 	notes := "@90 c8g8 "
 	for n := 0; n < 180; n++ {
 		notes += fmt.Sprintf("%c%d", "cdefgab"[(n*n+3*n)%7], n%9+1)
@@ -79,7 +78,7 @@ func TestBardSharingRoundTripSaveSelectWithoutPlaying(t *testing.T) {
 }
 
 func TestBardSharingReceiveGates(t *testing.T) {
-	for _, scenario := range []string{"disabled", "unlisted", "prefix", "blocked", "different session", "reconnected", "closed", "before enabled", "incomplete"} {
+	for _, scenario := range []string{"disabled", "unlisted", "prefix", "blocked", "ignored", "different session", "reconnected", "closed", "before enabled", "incomplete"} {
 		t.Run(scenario, func(t *testing.T) {
 			p, s, messages := bardShareFixture(t)
 			original := p.selected
@@ -95,6 +94,8 @@ func TestBardSharingReceiveGates(t *testing.T) {
 				p.partners.Text = "Bl, Pixy"
 			case "blocked":
 				s.players.players["Blue"] = &Player{Name: "Blue", GlobalLabel: 6}
+			case "ignored":
+				s.players.players["Blue"] = &Player{Name: "Blue", GlobalLabel: 7}
 			case "different session":
 				s = bardConnectedSession(t)
 			case "reconnected":
@@ -240,7 +241,7 @@ func TestBardSharingAssignSendAndCancel(t *testing.T) {
 	p, s := bardReadyPanel(t)
 	p.partners.Text = "Blue, Pixy"
 	p.showEnsembleWindow()
-	if p.sharing.receive.Checked || len(p.sharing.assignments) != 2 || p.sharing.assignments[0].Selected != 2 || p.sharing.assignments[1].Selected != 0 {
+	if !p.sharing.receive.Checked || len(p.sharing.assignments) != 2 || p.sharing.assignments[0].Selected != 2 || p.sharing.assignments[1].Selected != 0 {
 		t.Fatal("bad ensemble defaults")
 	}
 	p.sharing.assignments[1].Selected = 1
@@ -314,10 +315,60 @@ func TestBardSharingReceivedFileDoesNotOverwrite(t *testing.T) {
 func TestBardSharingReceiveCheckbox(t *testing.T) {
 	p, _ := bardReadyPanel(t)
 	p.showEnsembleWindow()
+	if !p.sharing.receive.Checked {
+		t.Fatal("receiving should start enabled")
+	}
+	p.sharing.receive.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: false})
+	p.sharing.win.Close()
+	p.showEnsembleWindow()
+	if p.sharing.receive.Checked {
+		t.Fatal("reopening the dialog discarded the receiving choice")
+	}
 	p.sharing.receive.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: true})
 	if !p.sharing.receive.Checked {
 		t.Fatal("checkbox did not enable receiving")
 	}
+}
+
+func TestBardSharingReceiveLimits(t *testing.T) {
+	t.Run("incomplete payload", func(t *testing.T) {
+		p, s, _ := bardShareFixture(t)
+		original := p.selected
+		part := bardSharedPart{Title: "Oversized", Instrument: 17}
+		for i := 0; i < 28; i++ {
+			message := bardPartMessage(part, "111", i, 64, strings.Repeat("c", 300))
+			deliverBardPart(p, s, "Blue", []string{message})
+		}
+		if len(p.sharing.incoming) != 0 || p.selected != original || !strings.Contains(p.statusMessage, "8 KiB") {
+			t.Fatalf("oversized incomplete transfer was retained: %s", p.statusMessage)
+		}
+	})
+	t.Run("saved files", func(t *testing.T) {
+		p, s, _ := bardShareFixture(t)
+		for i := 0; i <= bardShareMaxReceivedParts; i++ {
+			messages, err := bardPartMessages(fmt.Sprintf("Song %d", i), bardPart{Instrument: 17, Text: "cde"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Expiring duplicate records must not reset the saved-file cap.
+			for key := range p.sharing.received {
+				p.sharing.received[key] = time.Now().Add(-time.Second)
+			}
+			deliverBardPart(p, s, "Blue", messages)
+		}
+		if len(p.tunes) != bardShareMaxReceivedParts+1 || p.sharing.receive.Checked || !strings.Contains(p.statusMessage, "paused") {
+			t.Fatalf("receiving did not stop at the file cap: %d tunes, %s", len(p.tunes), p.statusMessage)
+		}
+		p.setReceiveParts(true)
+		messages, err := bardPartMessages("After resuming", bardPart{Instrument: 17, Text: "cde"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		deliverBardPart(p, s, "Blue", messages)
+		if len(p.tunes) != bardShareMaxReceivedParts+2 || p.sharing.receivedCount != 1 {
+			t.Fatal("explicitly enabling receiving did not allow another part")
+		}
+	})
 }
 
 func TestBardSharingCorruptionCanBeResent(t *testing.T) {
@@ -356,7 +407,7 @@ func TestBardSharingReadableMessagesArePlayableWhenJoined(t *testing.T) {
 		if !strings.HasPrefix(message, want) {
 			t.Fatalf("missing readable comment: %s", message)
 		}
-		if len(encodeMacRoman(encodeEmojiShortcodes(message))) > bardShareMaxMessage {
+		if len(encodeMacRoman(encodeEmojiShortcodes(message))) > bardShareSendMessageBytes {
 			t.Fatal("message exceeds wire budget")
 		}
 	}
@@ -388,7 +439,7 @@ func TestBardSharingReadableHeadersSurviveWireEncoding(t *testing.T) {
 	}
 	for _, message := range messages {
 		wire := encodeMacRoman(encodeEmojiShortcodes(message))
-		if len(wire) > bardShareMaxMessage {
+		if len(wire) > bardShareSendMessageBytes {
 			t.Fatal("wire expansion exceeds limit")
 		}
 		decoded := decodeServerText(wire)
@@ -401,5 +452,56 @@ func TestBardSharingReadableHeadersSurviveWireEncoding(t *testing.T) {
 	score, err := parseBardScore(value, 0)
 	if err != nil || score.Title != title || score.Parts[0].Name != "Solo" {
 		t.Fatalf("metadata damaged: %+v %v", score, err)
+	}
+}
+
+func TestBardSharingBundledPartsThroughLimitedPrivateThoughts(t *testing.T) {
+	data, err := bundledBardTunes.ReadFile("data/Tunes/Three Lanterns.tune")
+	if err != nil {
+		t.Fatal(err)
+	}
+	score, err := parseBardScore(string(data), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, part := range score.Parts {
+		t.Run(part.Name, func(t *testing.T) {
+			p, s, _ := bardShareFixture(t)
+			p.partners.Text = "Mossy Boots"
+			original := p.selected
+			messages, err := bardPartMessages(score.Title, part)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, message := range messages {
+				// The reported live harp transfer arrived with only the first
+				// 217 bytes of its first message. Model that truncation before
+				// decoding the private thought, not just a local round trip.
+				wire := encodeMacRoman(encodeEmojiShortcodes(message))
+				if len(wire) > 217 {
+					wire = wire[:217]
+				}
+				body := "Mossy Boots to you: " + string(wire)
+				if _, _, err := parseSessionDrawState(s, buildDrawData("Mossy Boots", kBubbleThought, body), false); err != nil {
+					t.Fatal(err)
+				}
+			}
+			drainMainThreadDispatcher()
+			if p.selected == original {
+				t.Fatalf("shared part was not saved: %s", p.statusMessage)
+			}
+			value, err := readBardTune(p.selected)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := validateBardTune(value, part.Instrument)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := validateBardTune(part.Text, part.Instrument)
+			if err != nil || !reflect.DeepEqual(got, want) {
+				t.Fatalf("private thought transfer changed the music: %v", err)
+			}
+		})
 	}
 }

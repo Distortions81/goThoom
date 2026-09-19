@@ -31,6 +31,10 @@ func (p *bardPanel) showEnsembleWindow() {
 		openedGeneration = bardConnectionGeneration(openedSession)
 	}
 	body.AddItem(eui.NewWrappedLabel("Choose one partner for a duet or two for a trio. Each performer lists the other players in Play with.", 480))
+	if tune := p.tune(); tune != nil {
+		body.AddItem(eui.NewWrappedLabel("Song: "+tune.Name, 480))
+	}
+	body.AddItem(p.part)
 	p.partners.Invisible, p.partnerRow.Invisible = false, false
 	body.AddItem(p.partnerRow)
 	if share.receive == nil {
@@ -43,14 +47,12 @@ func (p *bardPanel) showEnsembleWindow() {
 				p.setReceiveParts(event.Checked)
 			}
 		}
-		box.SetTooltip("Save and select incoming parts from the full names in Play with. Receiving is off by default and turns off when this character reconnects or you close Bard. Switching tabs keeps receiving enabled for this character. You still choose Play in Game.")
+		box.SetTooltip("On by default. Save parts only from full partner names in Play with: up to 8 KiB per part and 16 saved parts before receiving pauses. Reconnecting or closing Bard turns it off. You still choose Play in Game.")
+		p.setReceiveParts(true)
 	}
 	body.AddItem(share.receive)
 	body.AddItem(eui.NewWrappedLabel("To receive parts, enter full partner names or use Choose players. Incoming parts are saved as new tunes; playback stays under your control.", 480))
 	assignments := eui.NewColumn()
-	if tune := p.tune(); tune != nil {
-		body.AddItem(eui.NewWrappedLabel("Song: "+tune.Name+"\nYour part: "+p.selectedPart, 480))
-	}
 	body.AddItem(assignments)
 	var previousAssignments []int
 	for _, choice := range share.assignments {

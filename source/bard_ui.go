@@ -80,7 +80,10 @@ func showBardWindow() {
 	win.OnSearch = func(query string) { p.query = query; p.refreshList() }
 	newButton := eui.NewActionButton("New", func() { p.newTune() })
 	setMaterialButtonIcon(newButton, "add")
-	p.addActions(newButton, eui.NewActionButton("Import", p.importTune), eui.NewActionButton("Open Folder", func() { p.setError(open.Run(bardTunesDir())) }), eui.NewActionButton("Refresh", p.reload))
+	helpButton := eui.NewActionButton("Help", showBardHelp)
+	setMaterialButtonIcon(helpButton, "help")
+	helpButton.SetTooltip("Read the Bard Tools guide: tunes, instruments, previews, performing, sharing parts, and notation.")
+	p.addActions(newButton, eui.NewActionButton("Import", p.importTune), eui.NewActionButton("Open Folder", func() { p.setError(open.Run(bardTunesDir())) }), eui.NewActionButton("Refresh", p.reload), helpButton)
 	p.sortOrder, _ = eui.NewDropdown()
 	p.sortOrder.Label = "Songs — sort by"
 	p.sortOrder.Options = []string{"Title", "Composer", "Tags", "Part count"}
@@ -116,7 +119,6 @@ func showBardWindow() {
 			}
 		}
 	}
-	p.root.AddItem(p.part)
 	p.instrument, _ = eui.NewDropdown()
 	p.instrument.Label = "Instrument"
 	p.instrument.Size = eui.Point{X: 360, Y: 28}
@@ -290,11 +292,9 @@ func (p *bardPanel) layout() {
 	width := savedDataContentWidth(p.list.Size.X)
 	p.details.Size.X = width
 	p.status.Size.X = p.statusFrame.Size.X - 16
-	for _, control := range []*eui.ItemData{p.instrument, p.part} {
-		control.Size.X = width
-		if width > 360 {
-			control.Size.X = 360
-		}
+	p.instrument.Size.X = width
+	if width > 360 {
+		p.instrument.Size.X = 360
 	}
 	eui.LayoutWindowBody(p.win, p.root, p.list)
 	p.win.Refresh()
@@ -522,6 +522,7 @@ func (p *bardPanel) refreshSelection() {
 		if len(tune.Score.Parts) > 1 && valid {
 			p.part.Invisible, p.previewPart.Invisible = false, false
 			p.previewButton.Text = "Preview All"
+			details += "\nYour part: " + p.selectedPart
 		}
 		if partners := strings.TrimSpace(p.partners.Text); partners != "" {
 			details += "\nPlay with: " + partners
@@ -544,6 +545,9 @@ func (p *bardPanel) refreshSelection() {
 	}
 	p.refreshStatus()
 	p.layout()
+	if p.sharing.win != nil && p.sharing.win.OnResize != nil {
+		p.sharing.win.OnResize()
+	}
 }
 func (p *bardPanel) selectedText() (string, error) {
 	tune := p.tune()

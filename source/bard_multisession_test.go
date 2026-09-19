@@ -117,6 +117,7 @@ func TestBardBackgroundSharingIsSessionScoped(t *testing.T) {
 	second.refreshSelection()
 	second.partners.Text = "Stranger"
 	second.showEnsembleWindow()
+	second.setReceiveParts(false)
 	if second.sharing.receive.Checked || !first.sharing.receive.Checked || !reflect.DeepEqual(queued, bardQueueTexts(one)) {
 		t.Fatal("switching changed another session's sending or receive consent")
 	}

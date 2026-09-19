@@ -1,0 +1,129 @@
+# Getting started
+Manage your music in Tools → Bard Tools. Tunes are shared by all your characters. Choose a topic above for details; this guide is available offline.
+
+Try the included Three Lanterns trio: select it in the song list, then choose Preview All. It lasts about 48 seconds, with Gutbucket Bass entering first, Starbuck Harp after two seconds, and Pine Flute after four. Choose Your part in Duet / Trio…, then return to the main window and use Preview Part to hear one instrument.
+
+To make a tune, choose New, enter a filename, and write Clan Lord tune notation in the editor. Check validates every part; Preview lets you hear an unsaved draft. Save makes the tune available to the main window's preview and performance controls.
+
+To perform, select a song, choose Your part in Duet / Trio… if it has several parts, and select an Instrument. Choose Play in Game and review the character, part, instrument, and partners before confirming. Nearby players will hear your performance. Stop Playing ends it.
+
+For a duet or trio, open Duet / Trio… and list the other performers in Play with. Each player selects their own part, lists the others, and confirms Play in Game. The game waits for the group. See Performing together and Sharing parts for the full workflow.
+
+# Library and song selection
+New creates a tune. Import copies a .tune or .txt file into Tunes/ in your user data folder. Files use UTF-8 text. MIDI must be converted to Clan Lord notation before importing; do not paste /use commands or a macro wrapper into a tune.
+
+Open Folder opens the library on disk. Refresh reloads it after changes made outside the client. Tunes can include a title, composer, tags, and named instrument parts.
+
+The titlebar search matches titles, composers, tags, part names, and instruments. Tag filters by a tag; Songs — sort by orders the list by title, composer, tags, or part count.
+
+Click a song or its radio button to select it. The filled radio button and Selected song line identify the song used by the controls. Your part in Duet / Trio… selects one performer in a tune with several parts. The main window shows the selected part.
+
+The x beside a song permanently deletes its file and instrument preference after confirmation, and discards any open draft. Three Lanterns is installed once: your edits are preserved, and deleting it keeps it from being added again.
+
+# Editing and local previews
+Edit opens the selected tune with syntax colors, search, undo/redo, and Save. Check validates the notation, instrument compatibility, and length of every part. Errors identify the affected part. A successful check says Check passed.
+
+The editor's Preview plays all parts of the current draft without saving. Save keeps your changes on disk. Editor text size and colors follow the shared settings under Settings → Text.
+
+In the main Bard window, Preview plays a saved solo tune. For an arrangement, Preview All mixes all parts together and Preview Part plays only Your part. Stop Preview stops local playback. Local previews are heard only by you and do not require carrying the instruments.
+
+Music must be enabled and audible in the Audio mixer. The selected SoundFont and audio settings affect the sound you hear. Switching character tabs stops the local preview.
+
+The Status bar shows progress and results in green and problems in red. Hover over a long status to read the whole message.
+
+# Instruments and in-game playback
+The Instrument picker saves the selected part's instrument in the tune file. Save or close an unsaved editor draft before changing it here. Since the library is shared, the saved choice is available to your other characters too.
+
+An instrument marked inventory is carried by the selected character. With an instrument case, other instruments are marked try case: the client can attempt retrieval, but cannot know what is inside until it succeeds. Without a case, instruments you do not carry are for local preview only.
+
+Play in Game opens a confirmation naming the song, character, part, instrument, and partners. Confirming retrieves and equips the instrument, then performs your selected part. The instrument stays equipped afterward.
+
+If inventory is full during retrieval, the client puts one carried instrument away first, preferring an unequipped one. It waits for the server to confirm transfers and equipment changes before sending music.
+
+Long parts are split automatically into up to five music commands without cutting musical tokens. If a part is too long, shorten it with loops. Stop Playing cancels unsent music and sends the game's stop command, including while waiting for partners.
+
+Put All Instruments Away stops this character's performance and stores all carried instruments in their case, one at a time. The previous left-hand item is restored after successful case use. Stop Playing cancels remaining transfers; completed transfers stay in place.
+
+# Performing together
+Each performer needs their own part and instrument. Open Duet / Trio… and choose Your part for a multi-part tune, then enter the other performers in Play with, separated by commas. Leave it empty to play your part alone. This also works with solo tunes and received parts.
+
+Choose players… lists visible players nearest first. Choose up to two partners and use OK to apply them, or Cancel to keep your previous list. While typing, press Tab to accept a gray name suggestion from recent players.
+
+For a trio with Blue and Pixy, enter Blue, Pixy. Blue lists you and Pixy; Pixy lists you and Blue. Each performer chooses Play in Game and confirms. The game synchronizes playback using the partner names; sending parts alone does not start a performance.
+
+Unique name prefixes work for playback. Use full names for sending and receiving parts. Performer names are separate from the tune file, so the same arrangement can be used with different partners.
+
+The game supports a duet or trio: at most two partners per performer. Tune files and local previews can contain more parts. All parts start from the same point in time; use rests for delayed entrances. Each part has its own tempo, defaulting to 120 unless its notation changes it.
+
+Stop Playing ends the selected character's participation, whether waiting or playing. See Character tabs and stopping for performances using several of your own characters.
+
+# Sharing parts
+Open Duet / Trio…, enter full partner names in Play with, and choose the part to send beside each name. Don't send skips that partner. Send Parts sends the assigned music in private sunstone messages. Both players need working sunstones equipped.
+
+Receive parts from partners is on when you first open Duet / Trio…. Turn it off to stop accepting parts. Only private thoughts from full names in your Play with list are accepted; blocked or ignored players are excluded. A name prefix is not enough to allow receiving.
+
+Each complete, valid received part is saved as a new tune and selected for the recipient. Its song name, instrument, and music are preserved. Existing tunes and editor drafts are kept. Receiving never equips an instrument or starts playback: review the part, then choose Play in Game when ready.
+
+Players on other clients can copy the message bodies in numbered order into their tune editor or macro, including the <...> comments. Omit sender names and timestamps from chat logs. The comments identify the song, instrument, and segment, such as 1 of 3. Equip that instrument and use the client's normal music commands. No decoding is needed.
+
+Cancel Sending cancels this character's unsent messages. Sent messages cannot be recalled, and sending does not confirm receipt. Incomplete incoming transfers expire after two minutes; ask for a resend if needed.
+
+Each part is limited to 8 KiB and 64 segments, with one incomplete transfer per partner. Receiving pauses before saving more than 16 parts; enable it again in Duet / Trio when ready for more.
+
+Receiving remains enabled when you close Duet / Trio or switch tabs, but turns off when the character reconnects or you close Bard Tools.
+
+# Character tabs and stopping
+Bard Tools follows the selected character tab and remembers each session's song, part, partners, and receiving choice while the tool remains open. Inventory choices also follow that character.
+
+Switching tabs keeps in-game performances, instrument transfers, and outgoing part messages running on their original characters. Local preview stops. Received parts are selected only for their recipient, without changing another character's selection.
+
+To perform with your own characters, select the first character's part, list the other performers, and confirm Play in Game. Switch tabs and repeat for each character, always listing the other members of the group.
+
+Stop Playing affects the selected character's performance and instrument transfers. Cancel Sending affects that character's outgoing part messages. Stop Preview affects local preview.
+
+Closing the main Bard window stops all performances started through Bard Tools, cancels remaining transfers and unsent part messages for every character, and disables receiving. Completed transfers and saved tunes remain. Closing this Help window only closes the guide.
+
+# Tune notation and song details
+Write music directly, without game commands. This is a short solo tune:
+
+<@title: A short practice tune>
+<@instrument: Pine Flute>
+<Start gently.>
+@120 (cdef gab/c)2
+
+Notes a through g are eighth notes; uppercase letters are quarter notes. A digit from 1 through 9 overrides a note's length in sixteenth notes. Use p for a rest, # for sharp, and . for flat. / selects the high octave, \ the low octave, and = resets it. @120 sets the tempo. Parentheses repeat a phrase: (cde)2 plays twice. [ceg] makes a chord on instruments that support chords. Use Check to verify compatibility with your chosen instrument.
+
+Put song details on separate lines as <@name: value>. Title supplies the library title (otherwise the filename is used). Composer supplies the composer; tags supplies comma-separated tags. Instrument names the instrument, with Lucky Lyra as the default when no choice has been saved.
+
+For an arrangement, put title, composer, and tags before the first part. Begin each performer with a unique, nonempty <@part: name> and an <@instrument: name>. Music belongs to that part until the next part begins. For example:
+
+<@title: Moonlight>
+<@composer: Someone>
+<@tags: duet, quiet>
+<@part: Melody>
+<@instrument: Pine Flute>
+@90 c4e4g8
+<@part: Accompaniment>
+<@instrument: Lucky Lyra>
+@90 c8g8
+
+An instrument before the first part provides the default; an instrument inside a part applies only to that performer. Without part markers, the file is a solo tune. Parts play together from the same starting point, so add rests for delayed entrances.
+
+Use <...> for comments, including nested or multiline comments. Comments may contain Unicode and are not sent to the game. Older ; comments and ;@name: value metadata are also supported; a semicolon comment runs to the end of its line. Check reports unknown metadata keys.
+
+In metadata values, write &lt;, &gt;, and &amp; for literal <, >, and &. Other clients treat metadata as ordinary comments: copy one performer's part at a time, because part markers alone do not arrange simultaneous playback there. Older files can still use a companion .json instrument preference; instrument metadata in the tune takes precedence.
+
+# Troubleshooting
+No sound in a preview: check that music is enabled and its volume is audible in the Audio mixer. Use Check in the editor to find notation or instrument problems. The main window previews the saved tune; the editor previews the current draft.
+
+Play in Game is unavailable: select a valid song and part, connect the character, and carry the selected instrument or an instrument case. Movie playback cannot perform in game. Hover over a disabled control for its reason.
+
+An instrument cannot be retrieved or stored: check the game's response and the Status bar. A try case label does not guarantee the instrument is inside. If no carried instrument can be stored to free space, free an inventory slot and try again.
+
+The instrument picker is unavailable while editing: save or close the unsaved draft before changing the instrument in the main window.
+
+The ensemble keeps waiting: check that everyone listed the other performers, selected the intended part, and confirmed Play in Game. Stop Playing ends your participation so you can correct the setup and retry.
+
+Parts are not arriving: check working sunstones, full partner names, and Receive parts from partners on the recipient's session. Receiving turns off after reconnecting or closing Bard Tools. Ask the sender to resend incomplete transfers after checking the setup.
+
+The song or character changed during a confirmation or sharing setup: reopen Play in Game or Duet / Trio… to review the current choices before proceeding.

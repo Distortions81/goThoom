@@ -195,6 +195,8 @@ macros accept MacRoman files.
 ## Bard tunes
 
 Open **Tools → Bard Tools** to create, import, and edit UTF-8 tune files in `Tunes/`.
+Choose **Help** for the built-in guide to bard controls, notation, and performing
+with other players.
 Tunes can include song details, tags, and named parts for different instruments.
 Preview an ensemble together or listen to one part. **Play in Game** equips a
 carried instrument, or retrieves it from your instrument case, and performs your
