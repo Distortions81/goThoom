@@ -142,8 +142,8 @@ func showBardWindow() {
 	setMaterialButtonIcon(p.edit, "edit")
 	p.previewButton = eui.NewActionButton("Preview", p.startPreview)
 	p.previewButton.SetTooltip("Listen locally to every part together, using each part's instrument.")
-	p.previewPart = eui.NewActionButton("Preview Part", p.startPartPreview)
-	p.previewPart.SetTooltip("Listen locally to your selected part on its own.")
+	p.previewPart = eui.NewActionButton("Preview Part…", p.startPartPreview)
+	p.previewPart.SetTooltip("Choose any part to listen to locally, without changing your ensemble assignment.")
 	p.stopPreview = eui.NewActionButton("Stop Preview", p.endPreview)
 	p.addActions(p.edit, p.previewButton, p.previewPart, p.stopPreview)
 	p.partners, _ = eui.NewInput()
@@ -215,8 +215,12 @@ func (p *bardPanel) refreshStatus() {
 			switch {
 			case !p.performance.submitted:
 				message = "Preparing the instrument for in-game playback."
+			case p.performance.ensemble && !p.performance.startedAt.IsZero():
+				message = "Playing with the ensemble. Stop Playing ends your performance."
+			case p.performance.ensemble && !p.performance.musicSent:
+				message = "Sending the selected part to the game."
 			case p.performance.ensemble:
-				message = "Part sent; waiting for or playing with the ensemble."
+				message = "Waiting for the ensemble to start. Each performer must choose Play in Game."
 			case p.performance.finishAt.IsZero():
 				message = "Sending the selected part to the game."
 			default:
@@ -522,7 +526,6 @@ func (p *bardPanel) refreshSelection() {
 		if len(tune.Score.Parts) > 1 && valid {
 			p.part.Invisible, p.previewPart.Invisible = false, false
 			p.previewButton.Text = "Preview All"
-			details += "\nYour part: " + p.selectedPart
 		}
 		if partners := strings.TrimSpace(p.partners.Text); partners != "" {
 			details += "\nPlay with: " + partners
@@ -546,6 +549,7 @@ func (p *bardPanel) refreshSelection() {
 	p.refreshStatus()
 	p.layout()
 	if p.sharing.win != nil && p.sharing.win.OnResize != nil {
+		p.refreshEnsembleAnalysis()
 		p.sharing.win.OnResize()
 	}
 }
@@ -571,8 +575,18 @@ func (p *bardPanel) editTune() {
 		if err != nil {
 			return err
 		}
-		_, err = validateBardScore(score)
-		return err
+		partners := ""
+		if panel := bardPanels[selectedAppSession()]; panel != nil {
+			partners = panel.partners.Text
+		}
+		return validateBardEnsembleScore(score, partners)
+	}, lint: func(value string) []string {
+		score, err := parseBardScore(value, bardLegacyInstrument(path))
+		if err != nil {
+			return nil
+		}
+		_, warnings := bardTimingSummary(score)
+		return warnings
 	}, afterSave: func() {
 		if bardWindow != nil {
 			bardWindow.reload()
@@ -656,12 +670,17 @@ func (p *bardPanel) startPartPreview() {
 		p.setError(err)
 		return
 	}
-	part, err := bardSelectedPart(score, p.selectedPart)
-	if err != nil {
-		p.setError(err)
-		return
+	options := make([]string, len(score.Parts))
+	for i, part := range score.Parts {
+		options[i] = part.Name + " · " + classicInstrumentNames[part.Instrument]
+		if duration, err := bardPartDuration(part); err == nil {
+			options[i] += fmt.Sprintf(" (%.2fs)", duration.Seconds())
+		}
 	}
-	p.previewScore(score, part)
+	r := p.previewPart.DrawRect
+	eui.ShowContextMenu(options, r.X0, r.Y1, func(index int) {
+		p.previewScore(score, index)
+	})
 }
 func (p *bardPanel) play() {
 	value, err := p.selectedText()
@@ -866,14 +885,20 @@ func (p *bardPanel) updateSession() {
 	}
 	if p.performance != nil {
 		if err := p.performance.update(time.Now()); err != nil {
+			p.performance.clearMusicWatch()
 			p.performance = nil
 			p.setError(err)
 			p.refreshSelection()
 		}
 	}
 	if p.performance != nil && !p.performance.finishAt.IsZero() && time.Now().After(p.performance.finishAt) {
+		message := p.performance.endedMessage
+		if message == "" {
+			message = "In-game performance finished."
+		}
+		p.performance.clearMusicWatch()
 		p.performance = nil
-		p.setStatus("In-game performance finished.", false)
+		p.setStatus(message, false)
 		p.refreshSelection()
 	}
 	connected := session != nil && session.transport.connected()

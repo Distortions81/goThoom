@@ -63,6 +63,12 @@ func (p *bardPanel) showEnsembleWindow() {
 		choice, _ := eui.NewDropdown()
 		choice.Label = fmt.Sprintf("Part for partner %d", i+1)
 		choice.Size = eui.Point{X: 460, Y: 28}
+		choice.Handler.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventDropdownSelected {
+				p.refreshEnsembleAnalysis()
+				win.OnResize()
+			}
+		}
 		share.assignments = append(share.assignments, choice)
 		assignments.AddItem(choice)
 	}
@@ -100,6 +106,9 @@ func (p *bardPanel) showEnsembleWindow() {
 		}
 	}
 	share.assignmentPath, share.assignmentValue = path, value
+	share.analysis = eui.NewWrappedLabel("", 480)
+	body.AddItem(share.analysis)
+	p.refreshEnsembleAnalysis()
 	share.send = eui.NewActionButton("Send Parts", func() {
 		session := p.session
 		if !p.win.IsOpen() || share.win != win || !win.IsOpen() || session == nil || session != openedSession || !session.transport.connectedGeneration(openedGeneration) {
@@ -184,6 +193,7 @@ func (p *bardPanel) showEnsembleWindow() {
 		win.RemoveWindow()
 		share.win = nil
 		share.status = nil
+		share.analysis = nil
 	}
 	win.AddItem(root)
 	win.OnResize = func() {

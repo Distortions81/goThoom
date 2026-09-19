@@ -40,6 +40,7 @@ type bardIncomingPart struct {
 
 type bardSharing struct {
 	win                               *eui.WindowData
+	analysis                          *eui.ItemData
 	receive, send, cancelSend, status *eui.ItemData
 	assignments                       []*eui.ItemData
 	assignmentPath, assignmentValue   string

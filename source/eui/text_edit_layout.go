@@ -3,6 +3,7 @@ package eui
 import (
 	"math"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"gothoom/internal/inputkeys"
@@ -17,6 +18,7 @@ type editTextLine struct {
 	bytes         []int // source rune boundary -> display byte boundary (tabs expand)
 	stops         []int // grapheme boundaries in the source line
 	width         float32
+	softBreak     bool // the next visual row continues this source line
 }
 
 type editTextLayout struct {
@@ -24,6 +26,7 @@ type editTextLayout struct {
 	face              text.Face
 	lines             []editTextLine
 	lineHeight, width float32
+	wrapWidth         float32
 }
 
 func (line editTextLine) advance(pos int, face text.Face) float32 {
@@ -45,11 +48,21 @@ func (line editTextLine) nearest(x float32, face text.Face) int {
 func (item *itemData) editLayout() *editTextLayout {
 	s := item.editor()
 	face := itemFace(item, item.FontSize*uiScale+2)
-	if s.layout != nil && s.layout.value == item.Text && s.layout.face == face {
+	metrics := face.Metrics()
+	lineHeight := float32(math.Ceil(metrics.HAscent + metrics.HDescent + 2))
+	wrapWidth := float32(0)
+	if item.WordWrap && item.Multiline {
+		offset, size := item.editDrawGeometry()
+		viewport, gutter := item.editBaseViewport(offset, size, lineHeight)
+		wrapWidth = max(1, viewport.X1-viewport.X0-gutter-2)
+	}
+	if s.layout != nil && s.layout.value == item.Text && s.layout.face == face && s.layout.wrapWidth == wrapWidth {
 		return s.layout
 	}
-	metrics := face.Metrics()
-	layout := &editTextLayout{value: item.Text, face: face, lineHeight: float32(math.Ceil(metrics.HAscent + metrics.HDescent + 2))}
+	if s.layout != nil {
+		s.followCaret, s.hasPreferredX = true, false
+	}
+	layout := &editTextLayout{value: item.Text, face: face, lineHeight: lineHeight, wrapWidth: wrapWidth}
 	start := 0
 	for _, raw := range strings.Split(item.Text, "\n") {
 		line := editTextLine{start: start, length: utf8.RuneCountInString(raw), stops: graphemeStops(raw), bytes: []int{0}}
@@ -73,17 +86,31 @@ func (item *itemData) editLayout() *editTextLayout {
 		}
 		line.display = display.String()
 		line.width = float32(text.AdvanceAt(line.display, len(line.display), face))
-		layout.width = max(layout.width, line.width)
-		layout.lines = append(layout.lines, line)
+		if wrapWidth > 0 {
+			layout.lines = append(layout.lines, wrapEditLine(line, raw, face, wrapWidth)...)
+		} else {
+			layout.lines = append(layout.lines, line)
+		}
 		start += line.length + 1
+	}
+	for _, line := range layout.lines {
+		layout.width = max(layout.width, line.width)
 	}
 	s.layout = layout
 	return layout
 }
 
 func (layout *editTextLayout) caret(pos int) (int, float32) {
+	return layout.caretAt(pos, false)
+}
+
+func (item *itemData) editCaret() (int, float32) {
+	return item.editLayout().caretAt(item.CursorPos, item.editor().caretUpstream)
+}
+
+func (layout *editTextLayout) caretAt(pos int, upstream bool) (int, float32) {
 	for i, line := range layout.lines {
-		if pos <= line.start+line.length || i == len(layout.lines)-1 {
+		if pos < line.start+line.length || pos == line.start+line.length && (!line.softBreak || upstream) || i == len(layout.lines)-1 {
 			return i, line.advance(pos-line.start, layout.face)
 		}
 	}
@@ -95,18 +122,31 @@ func (item *itemData) editViewport(offset, size point) rect {
 	return viewport
 }
 
-func (item *itemData) editScrollGeometry(offset, size point) (rect, rect, rect) {
+func (item *itemData) editBaseViewport(offset, size point, lineHeight float32) (rect, float32) {
 	pad := (item.BorderPad + item.Padding + currentStyle.TextPadding) * uiScale
 	// Small inputs must retain a full line even when a theme has generous
 	// horizontal padding. Center that line in the available control height.
-	padY := min(pad, max(0, (size.Y-item.editLayout().lineHeight)/2))
+	padY := min(pad, max(0, (size.Y-lineHeight)/2))
 	viewport := rect{X0: offset.X + pad, Y0: offset.Y + padY,
 		X1: max(offset.X+pad+1, offset.X+size.X-pad),
 		Y1: max(offset.Y+padY+1, offset.Y+size.Y-padY)}
+	width := min(max(10*uiScale, ScrollbarWidth()), (viewport.X1-viewport.X0)/2, (viewport.Y1-viewport.Y0)/2)
+	return viewport, width
+}
+
+func (item *itemData) editScrollGeometry(offset, size point) (rect, rect, rect) {
+	layout := item.editLayout()
+	viewport, width := item.editBaseViewport(offset, size, layout.lineHeight)
 	var vertical, horizontal rect
 	if item.Multiline {
-		layout := item.editLayout()
-		width := min(max(10*uiScale, ScrollbarWidth()), (viewport.X1-viewport.X0)/2, (viewport.Y1-viewport.Y0)/2)
+		if item.WordWrap {
+			// Reserve a stable gutter so a vertical scrollbar never changes wrapping.
+			viewport.X1 -= width
+			if float32(len(layout.lines))*layout.lineHeight > viewport.Y1-viewport.Y0 {
+				vertical = rect{X0: viewport.X1, Y0: viewport.Y0, X1: viewport.X1 + width, Y1: viewport.Y1}
+			}
+			return viewport, vertical, horizontal
+		}
 		needV, needH := false, false
 		// One scrollbar can make the other axis overflow.
 		for range 2 {
@@ -149,15 +189,22 @@ func (item *itemData) editGeometry() (rect, point) {
 }
 
 func (item *itemData) editCursorAt(mpos point) int {
+	pos, _ := item.editHit(mpos)
+	return pos
+}
+
+func (item *itemData) editHit(mpos point) (int, bool) {
 	layout := item.editLayout()
 	_, origin := item.editGeometry()
 	line := max(0, min(int(math.Floor(float64((mpos.Y-origin.Y)/layout.lineHeight))), len(layout.lines)-1))
-	return layout.lines[line].nearest(mpos.X-origin.X, layout.face)
+	row := layout.lines[line]
+	pos := row.nearest(mpos.X-origin.X, layout.face)
+	return pos, row.softBreak && pos == row.start+row.length
 }
 
 func (item *itemData) editVertical(direction int, page, extend bool) {
 	layout, state := item.editLayout(), item.editor()
-	line, x := layout.caret(item.CursorPos)
+	line, x := item.editCaret()
 	if !state.hasPreferredX {
 		state.preferredX, state.hasPreferredX = x, true
 	}
@@ -167,13 +214,19 @@ func (item *itemData) editVertical(direction int, page, extend bool) {
 		step = max(1, int((viewport.Y1-viewport.Y0)/layout.lineHeight)-1)
 	}
 	line = max(0, min(line+direction*step, len(layout.lines)-1))
-	item.editMove(layout.lines[line].nearest(state.preferredX, layout.face), extend)
+	row := layout.lines[line]
+	pos := row.nearest(state.preferredX, layout.face)
+	item.editMove(pos, extend)
+	state.caretUpstream = row.softBreak && pos == row.start+row.length
 }
 
 func (item *itemData) clampEditScroll(viewport rect) {
 	layout, state := item.editLayout(), item.editor()
 	state.scroll.X = max(0, min(state.scroll.X, layout.width+2-(viewport.X1-viewport.X0)))
 	state.scroll.Y = max(0, min(state.scroll.Y, float32(len(layout.lines))*layout.lineHeight-(viewport.Y1-viewport.Y0)))
+	if item.Multiline && item.WordWrap {
+		state.scroll.X = 0
+	}
 	if !item.Multiline {
 		state.scroll.Y = 0
 	}
@@ -182,7 +235,7 @@ func (item *itemData) clampEditScroll(viewport rect) {
 func (item *itemData) followEditCaret(viewport rect) {
 	layout, state := item.editLayout(), item.editor()
 	if state.followCaret {
-		line, x := layout.caret(item.CursorPos)
+		line, x := item.editCaret()
 		y := float32(line) * layout.lineHeight
 		w, h := viewport.X1-viewport.X0, viewport.Y1-viewport.Y0
 		if x < state.scroll.X {
@@ -241,10 +294,10 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		}
 		item.drawTextSwatches(target, line, layout, origin, y)
 		a, b := max(start, line.start), min(end, line.start+line.length)
-		if start != end && (a < b || start <= line.start+line.length && end > line.start+line.length) {
+		if start != end && (a < b || start <= line.start+line.length && end > line.start+line.length && !line.softBreak) {
 			x0 := line.advance(a-line.start, layout.face)
 			x1 := line.advance(b-line.start, layout.face)
-			if end > line.start+line.length {
+			if end > line.start+line.length && !line.softBreak {
 				x1 += max(3, layout.lineHeight/3)
 			}
 			r := intersectRect(rect{X0: origin.X + min(x0, x1), Y0: y, X1: origin.X + max(x0, x1), Y1: y + layout.lineHeight}, clip)
@@ -259,7 +312,7 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		}
 	}
 	if suffix := item.textCompletion(); suffix != "" {
-		line, x := layout.caret(item.CursorPos)
+		line, x := item.editCaret()
 		op := &text.DrawOptions{}
 		op.Filter = ebiten.FilterNearest
 		op.GeoM.Translate(float64(origin.X+x), float64(origin.Y+float32(line)*layout.lineHeight))
@@ -269,7 +322,7 @@ func (item *itemData) drawEditableText(dst *ebiten.Image, offset, size point, cl
 		text.Draw(target, suffix, layout.face, op)
 	}
 	if item.Focused && state.caretOn && start == end {
-		line, x := layout.caret(item.CursorPos)
+		line, x := item.editCaret()
 		y := origin.Y + float32(line)*layout.lineHeight
 		strokeLine(target, origin.X+x, y, origin.X+x, y+layout.lineHeight-2, max(1, uiScale), caption, false)
 	}
@@ -327,4 +380,71 @@ func scrollEditable(items []*itemData, mpos, delta point, mods inputkeys.Modifie
 		}
 	}
 	return false
+}
+
+// SetWordWrap changes only presentation, retaining the draft, selection and undo.
+func (item *itemData) SetWordWrap(enabled bool) {
+	if item.WordWrap == enabled {
+		return
+	}
+	item.WordWrap = enabled
+	state := item.editor()
+	state.layout = nil
+	state.scroll.X = 0
+	state.caretUpstream, state.hasPreferredX = false, false
+	item.resetCaret()
+}
+
+// Keep source offsets and tab expansion while breaking at whitespace when
+// possible. Long tokens break only between graphemes, never inside one.
+func wrapEditLine(line editTextLine, raw string, face text.Face, width float32) []editTextLine {
+	if line.width <= width || line.length == 0 {
+		return []editTextLine{line}
+	}
+	runes := []rune(raw)
+	var rows []editTextLine
+	for first := 0; first < len(line.stops)-1; {
+		start := line.stops[first]
+		measure := func(last int) float32 {
+			value := line.display[line.bytes[start]:line.bytes[line.stops[last]]]
+			return float32(text.AdvanceAt(value, len(value), face))
+		}
+		// Exponential probing keeps work bounded by a visual row even for very
+		// long, unspaced songs. Always allow at least one complete grapheme.
+		low, high := first+1, first+2
+		for high < len(line.stops) && measure(high) <= width {
+			low, high = high, first+2*(high-first)
+		}
+		high = min(high, len(line.stops)-1)
+		for low < high {
+			middle := (low + high + 1) / 2
+			if measure(middle) <= width {
+				low = middle
+			} else {
+				high = middle - 1
+			}
+		}
+		last := low
+		if last < len(line.stops)-1 {
+			for i := last; i > first; i-- {
+				if unicode.IsSpace(runes[line.stops[i]-1]) {
+					last = i
+					break
+				}
+			}
+		}
+		end := line.stops[last]
+		row := editTextLine{start: line.start + start, length: end - start,
+			display: line.display[line.bytes[start]:line.bytes[end]], softBreak: end < line.length}
+		for _, b := range line.bytes[start : end+1] {
+			row.bytes = append(row.bytes, b-line.bytes[start])
+		}
+		for _, stop := range line.stops[first : last+1] {
+			row.stops = append(row.stops, stop-start)
+		}
+		row.width = float32(text.AdvanceAt(row.display, len(row.display), face))
+		rows = append(rows, row)
+		first = last
+	}
+	return rows
 }

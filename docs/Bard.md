@@ -26,7 +26,7 @@ removes the tune and its instrument preference and discards any open draft.
 Click a song or its radio button in the framed song list to select it. The
 filled radio button and **Selected song** line show which song the controls use.
 Choose its instrument, or open **Duet / Trio…** and choose **Your part** in an
-ensemble arrangement. The main window shows the selected part.
+ensemble arrangement.
 Changing the instrument saves that part's choice inside the tune
 file. Save or close an unsaved editor draft before using the instrument picker.
 Carried instruments are marked **inventory**. When you carry an instrument case,
@@ -37,7 +37,13 @@ local preview only. The picker follows the selected character's inventory.
 
 **Edit** opens the text editor with syntax colors, search, undo/redo, and
 **Check** for notation, instrument compatibility, and the length of every part.
+**Word wrap** starts enabled and fits long lines to the window without adding
+line breaks to the tune. Turn it off to scroll horizontally; the choice is
+remembered across file editors.
 A successful check displays **Check passed.** Errors identify the affected part.
+Check includes the current character's **Play with** names when testing the
+five-command limit. If no partners are listed, it checks solo playback.
+Parts with different durations produce a warning without failing Check.
 The fixed **Status** bar shows results in green and problems in red, without
 resizing the window or text area. Hover over a long status to read it in full.
 The editor's **Preview** plays all parts in the current draft without saving it.
@@ -45,8 +51,10 @@ The editor's **Preview** plays all parts in the current draft without saving it.
 Font size and colors follow the shared editor settings.
 
 The Bard window's **Preview** plays a saved solo tune locally. For an ensemble,
-**Preview All** mixes every part together and **Preview Part** plays only your
-selected part. **Stop Preview** stops that preview. Music must be enabled and
+**Preview All** mixes every part together and **Preview Part…** opens a picker
+of part names and instruments. Choose any part to hear it alone, without opening
+Duet / Trio or changing your ensemble assignment.
+**Stop Preview** stops that preview. Music must be enabled and
 audible in the Audio mixer.
 
 The red **Play in Game** button opens a confirmation showing the song, character,
@@ -63,6 +71,10 @@ Switching session tabs keeps each character's performance running.
 **Stop Playing** applies to the selected character; closing Bard stops all
 performances started through Bard Tools.
 The instrument remains equipped afterward.
+For ensembles, Status distinguishes sending, waiting for the other performers,
+playing, and finished. Playback starts are confirmed from received music events;
+completion follows the received part's duration, including trailing rests.
+Status tracking works with local music muted and while viewing another session.
 
 **Put All Instruments Away** stops the selected character's performance and
 returns all carried instruments to their case, one at a time. The previous
@@ -106,6 +118,11 @@ there and enters the other performers in **Play with**, then returns to the main
 Bard window to choose **Play in Game**. Use full names when sharing parts; unique name prefixes
 also work for playback. A trio with Blue and Pixy
 would enter `Blue, Pixy`; Blue and Pixy each enter the other two performers.
+The Duet / Trio window shows every part's duration, including rests and tempo
+changes. It warns when parts end at different times or the same part is assigned
+to multiple performers. These warnings do not prevent sending or playing:
+different endings and doubled parts can be intentional. Each part defaults to
+120 BPM; use `@60` through `@180` to set its tempo explicitly.
 Use **Choose players…** to select visible players, listed nearest first.
 Check up to two partners, then choose **OK** to apply the names or **Cancel**
 to keep your previous choices. You can also enter names separated by commas.

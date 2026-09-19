@@ -69,13 +69,14 @@ func (g *textEditingRenderGame) render(screen *ebiten.Image) error {
 		var dropdowns []openDropdown
 		input.drawItem(nil, point{X: 15, Y: baseY}, point{}, rect{X1: 840, Y1: 640}, screen, &dropdowns)
 		area, _ := NewTextArea()
-		area.Text = "func greet() {\n\tprint(\"Hello!\")\n\n\t// Another line\n}\n"
+		area.Text = "func greet() {\n\tprint(\"Hello!\")\n\n\t// Another line with a longer comment that wraps across visual rows without changing the source file.\n}\n"
+		area.SetWordWrap(true)
 		area.SetTextHighlighter(func(value string) []TextColorSpan {
 			quoted, comment := strings.Index(value, "\"Hello!\""), strings.Index(value, "//")
 			return []TextColorSpan{
 				{0, 4, NewColor(120, 190, 255, 255)},
 				{quoted, quoted + len("\"Hello!\""), NewColor(235, 190, 130, 255)},
-				{comment, comment + len("// Another line"), NewColor(145, 200, 145, 255)},
+				{comment, comment + len("// Another line with a longer comment that wraps across visual rows without changing the source file."), NewColor(145, 200, 145, 255)},
 			}
 		})
 		area.Size = point{X: 400 / scale, Y: 185 / scale}
@@ -83,12 +84,15 @@ func (g *textEditingRenderGame) render(screen *ebiten.Image) error {
 		area.editMove(0, false)
 		baseline := ebiten.NewImageFromImage(screen)
 		area.drawItem(nil, point{X: 425, Y: baseY}, point{}, rect{X1: 840, Y1: 640}, screen, &dropdowns)
+		if len(area.editLayout().lines) <= strings.Count(area.Text, "\n")+1 {
+			return fmt.Errorf("scale %v: editor did not wrap", scale)
+		}
 		// Multiline editing keeps a neutral document background while focused.
 		background := area.Color
 		if background == (Color{}) {
 			background = area.themeStyle().Color
 		}
-		r, g, b, _ := screen.At(805, int(baseY+170)).RGBA()
+		r, g, b, _ := screen.At(427, int(baseY+170)).RGBA()
 		if uint8(r>>8) != background.R || uint8(g>>8) != background.G || uint8(b>>8) != background.B {
 			return fmt.Errorf("scale %v: focused text area changed document background", scale)
 		}

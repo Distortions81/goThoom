@@ -1,6 +1,46 @@
 package eui
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/image/font/gofont/goregular"
+)
+
+func TestContextMenuStartsAtAnchorAndMatchesHitTargets(t *testing.T) {
+	isolateThemeTest(t)
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatal(err)
+	}
+	oldHeight, oldWidth, oldScale := screenHeight, screenWidth, uiScale
+	t.Cleanup(func() {
+		screenHeight, screenWidth, uiScale = oldHeight, oldWidth, oldScale
+		CloseContextMenus()
+	})
+	screenHeight, screenWidth = 1200, 1200
+	for _, scale := range []float32{1, 1.3, 2} {
+		uiScale = scale
+		CloseContextMenus()
+		selected := -1
+		anchor := point{X: 100, Y: 200} // The bottom-left corner of a source button.
+		menu := ShowContextMenu([]string{"Flute", "Harp", "Bass"}, anchor.X, anchor.Y, func(index int) {
+			selected = index
+		})
+		bounds, visible := dropdownOpenRect(menu, anchor)
+		if bounds.X0 != anchor.X || bounds.Y0 != anchor.Y || visible != 3 {
+			t.Fatalf("%.1fx context menu left a gap at its anchor: %+v", scale, bounds)
+		}
+		rowHeight := dropdownOptionHeight(menu)
+		pointer := point{X: bounds.X0 + 1, Y: bounds.Y0 + rowHeight*1.5}
+		handleContextMenus(pointer, false)
+		if menu.HoverIndex != 1 {
+			t.Fatalf("%.1fx menu hover does not match the second visible row", scale)
+		}
+		handleContextMenus(pointer, true)
+		if selected != 1 || ContextMenusOpen() {
+			t.Fatalf("%.1fx menu click did not select and close the second row", scale)
+		}
+	}
+}
 
 func TestHoverContextMenuDismissesOutsideSourceAndMenu(t *testing.T) {
 	CloseContextMenus()

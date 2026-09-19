@@ -55,6 +55,7 @@ type settingsSchemaEntry struct {
 // readable v4 JSON names. Derived compatibility fields and runtime-only fields
 // are intentionally not included.
 var settingsSchema = []settingsSchemaEntry{
+	{field: "EditorWordWrap", category: settingsInterface, name: "editor_word_wrap"},
 	{field: "EditorFontSize", category: settingsInterface, name: "editor_font_size"},
 	{field: "EditorUseCustomColors", category: settingsInterface, name: "editor_use_custom_colors"},
 	{field: "EditorSyntaxColors", category: settingsInterface, name: "editor_syntax_colors"},

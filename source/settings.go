@@ -321,6 +321,7 @@ var gsdef settings = settings{
 	InventoryFontSize:             14,
 	PlayersFontSize:               14,
 	EditorFontSize:                11,
+	EditorWordWrap:                true,
 	ShowRecentPlayers:             true,
 	GroupClanMembers:              false,
 	PlayerShareIcons:              false,
@@ -663,6 +664,7 @@ type settings struct {
 	MessagesToConsole              bool
 	EditorUseCustomColors          bool
 	EditorFontSize                 int
+	EditorWordWrap                 bool
 	EditorSyntaxColors             *eui.SyntaxColors
 	MessageTextColors              map[string]eui.Color
 	MessageTextColorsLight         map[string]eui.Color

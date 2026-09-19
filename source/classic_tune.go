@@ -72,6 +72,11 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 }
 
 func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]Note, *tuneParseError) {
+	notes, _, err := parseClassicTuneTimeline(tune, inst, tempo, velocity)
+	return notes, err
+}
+
+func parseClassicTuneTimeline(tune string, inst instrument, tempo int, velocity int) ([]Note, time.Duration, *tuneParseError) {
 	if tempo <= 0 {
 		tempo = 120
 	}
@@ -314,10 +319,10 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 			}
 			if len(ks) > 0 {
 				if strictCLTF && (!inst.hasChords || len(ks) > inst.polyphony) {
-					return notes, &tuneParseError{Code: tuneErrorInvalidChord, Position: chordStart}
+					return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorInvalidChord, Position: chordStart}
 				}
 				if strictCLTF && long && !inst.longChord {
-					return notes, &tuneParseError{Code: tuneErrorUnsupportedInstrument, Position: i - 1}
+					return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorUnsupportedInstrument, Position: i - 1}
 				}
 
 				// Finite chord voices become reusable after their logical duration,
@@ -364,7 +369,7 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 							}
 						}
 						if len(occupied) >= inst.polyphony {
-							return notes, &tuneParseError{Code: tuneErrorPolyphonyOverflow, Position: chordStart}
+							return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorPolyphonyOverflow, Position: chordStart}
 						}
 						occupied[key] = long
 					}
@@ -482,7 +487,7 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 	if curMelTicks == 0 {
 		// filter out chord-originated notes
 		if len(chordIdx) == 0 {
-			return notes, nil
+			return notes, ticksToDur(curMelTicks), nil
 		}
 		keep := make([]bool, len(notes))
 		for i := range keep {
@@ -499,7 +504,7 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 				out = append(out, n)
 			}
 		}
-		return out, nil
+		return out, ticksToDur(curMelTicks), nil
 	}
 	// Otherwise clip chord notes that exceed melody end
 	for _, idx := range chordIdx {
@@ -525,7 +530,7 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 		}
 		out = append(out, n)
 	}
-	return out, nil
+	return out, ticksToDur(curMelTicks), nil
 }
 
 func ms(x int) time.Duration { return time.Duration(int64(x)) * time.Millisecond }

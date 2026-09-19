@@ -38,6 +38,7 @@ func showContextMenu(options []string, icons []*ebiten.Image, x, y float32, onSe
 	menu.HoverIndex = -1
 	menu.OnSelect = onSelect
 	menu.ParentWindow = nil
+	menu.contextMenu = true
 	// Use same option height as dropdown (menu.Size.Y). Width is computed below.
 
 	// Compute a suitable width based on the longest label and theme paddings.

@@ -68,7 +68,7 @@ func (item *itemData) updateCaretBlink(now time.Time) {
 func (item *itemData) clickEditableText(mpos point, extend bool) {
 	activeSearch = nil
 	state := item.editor()
-	pos := item.editCursorAt(mpos)
+	pos, upstream := item.editHit(mpos)
 	state.group, state.hasPreferredX = "", false
 	if extend {
 		item.editMove(pos, true)
@@ -106,6 +106,9 @@ func (item *itemData) clickEditableText(mpos point, extend bool) {
 			item.editMove(pos, false)
 		}
 	}
+	if state.clickCount < 2 {
+		state.caretUpstream = upstream
+	}
 	state.lastClick, state.lastClickPos = updateNow, mpos
 	state.dragStart, state.dragEnd = item.SelectStart, item.SelectEnd
 	item.selecting = true
@@ -133,7 +136,7 @@ func (item *itemData) dragEditableText(mpos point) {
 		state.scroll.Y += step
 	}
 	item.clampEditScroll(viewport)
-	pos := item.editCursorAt(mpos)
+	pos, upstream := item.editHit(mpos)
 	anchor := state.dragStart
 	if state.clickCount > 1 {
 		a, b := editLineBounds(item.editText(), pos)
@@ -160,6 +163,9 @@ func (item *itemData) dragEditableText(mpos point) {
 	}
 	if item.SelectStart != anchor || item.SelectEnd != pos || state.scroll != (point{}) {
 		item.editSelect(anchor, pos)
+	}
+	if state.clickCount < 2 {
+		state.caretUpstream = upstream
 	}
 	state.followCaret = false
 }

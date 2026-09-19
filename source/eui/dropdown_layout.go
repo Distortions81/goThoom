@@ -48,7 +48,10 @@ func dropdownMenuLayout(item *itemData, offset point) dropdownLayout {
 	maxVisible := max(1, int((float32(screenHeight)-optionH*dropdownOverlayReserve*2)/optionH))
 	visible = min(visible, maxVisible)
 
-	startY := offset.Y + maxSize.Y
+	startY := offset.Y
+	if !item.contextMenu {
+		startY += maxSize.Y
+	}
 	r := rect{X0: offset.X, Y0: startY, X1: offset.X + maxSize.X, Y1: startY + optionH*float32(visible)}
 	bottomLimit := float32(screenHeight) - optionH*dropdownOverlayReserve
 	if r.Y1 > bottomLimit {

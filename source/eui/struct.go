@@ -218,6 +218,7 @@ type itemData struct {
 
 	// Preview menus retain their opening geometry until dismissed.
 	dropdownLayout *dropdownLayout
+	contextMenu    bool // Options start at the supplied anchor, without a dropdown field.
 
 	// HeaderCount marks the number of initial options that are shown as
 	// non-interactive headers in dropdowns/context menus. These indices are
@@ -300,6 +301,8 @@ type itemData struct {
 	ExternalTextEditing bool
 	// Multiline allows Enter to insert a newline. AcceptTab inserts tabs instead
 	// of moving focus; Shift+Tab removes indentation from selected lines.
+	// WordWrap soft-wraps multiline text to the viewport without changing Text.
+	WordWrap               bool
 	Multiline              bool
 	AcceptTab              bool
 	textEdit               *textEditState

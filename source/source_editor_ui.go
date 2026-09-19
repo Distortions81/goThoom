@@ -25,6 +25,7 @@ type sourceEditor struct {
 	saveButton             *eui.ItemData
 	undoButton, redoButton *eui.ItemData
 	toolbar                *eui.ItemData
+	wordWrap               *eui.ItemData
 	actions                []*eui.ItemData
 	confirm                *eui.WindowData
 	discard                bool
@@ -78,6 +79,7 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 	input, events := eui.NewTextArea()
 	ed.input = input
 	input.Text, input.AcceptTab = doc.savedText, true
+	input.SetWordWrap(gs.EditorWordWrap)
 	input.FontSize = float32(sourceEditorFontSize())
 	input.OnTextZoom = changeSourceEditorFontSize
 	if options.colorSwatches {
@@ -139,6 +141,25 @@ func openSourceEditor(doc *sourceDocument, options sourceEditorOptions) *sourceE
 		}
 		addButton(label, func() { ed.save(true) }).SetTooltip(options.reloadTooltip)
 	}
+	ed.wordWrap, _ = eui.NewCheckbox()
+	ed.wordWrap.Text = "Word wrap"
+	ed.wordWrap.Size = eui.Point{X: 110, Y: 24}
+	ed.wordWrap.FontSize = 11
+	ed.wordWrap.Checked = gs.EditorWordWrap
+	ed.wordWrap.SetTooltip("Fit long lines to the editor width without adding line breaks to the file. Applies to all file editors and is remembered.")
+	ed.wordWrap.Handler.Handle = func(event eui.UIEvent) {
+		if event.Type != eui.EventCheckboxChanged {
+			return
+		}
+		gs.EditorWordWrap, settingsDirty = event.Checked, true
+		for _, editor := range sourceEditors {
+			editor.input.SetWordWrap(event.Checked)
+			editor.wordWrap.Checked = event.Checked
+			editor.win.Refresh()
+		}
+		ed.focus()
+	}
+	ed.actions = append(ed.actions, ed.wordWrap)
 	settingsButton := addButton("Settings", func() {
 		makeSettingsWindow()
 		selectSettingsTab("Text")

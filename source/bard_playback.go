@@ -83,17 +83,21 @@ func queueBardCommands(session *Session, commands []string) []CommandTicket {
 }
 
 type bardPerformance struct {
-	session     *Session
-	generation  uint64
-	instrument  InventoryItem
-	commands    []string
-	tickets     []CommandTicket
-	deadline    time.Time
-	submitted   bool
-	duration    time.Duration
-	finishAt    time.Time
-	ensemble    bool
-	preparation *bardCaseOperation
+	watch        *bardMusicWatch
+	startedAt    time.Time
+	endedMessage string
+	session      *Session
+	generation   uint64
+	instrument   InventoryItem
+	commands     []string
+	tickets      []CommandTicket
+	deadline     time.Time
+	submitted    bool
+	musicSent    bool
+	duration     time.Duration
+	finishAt     time.Time
+	ensemble     bool
+	preparation  *bardCaseOperation
 }
 
 func startBardPerformance(session *Session, value string, index int) (*bardPerformance, error) {
@@ -126,10 +130,12 @@ func startBardEnsemblePerformance(session *Session, value string, index int, par
 		return nil, err
 	}
 	p := &bardPerformance{session: session, generation: generation, instrument: item, commands: commands, deadline: time.Now().Add(10 * time.Second), ensemble: len(partners) > 0}
-	for _, n := range notes {
-		if end := n.Start + n.Duration; end > p.duration {
-			p.duration = end
-		}
+	p.duration, err = bardPartDuration(score.Parts[0])
+	if err != nil {
+		return nil, err
+	}
+	if p.ensemble {
+		p.watch = &bardMusicWatch{notes: notes, program: instruments[index].program, expectedDuration: p.duration}
 	}
 	if !ok {
 		p.preparation, err = startBardCaseOperation(session, index)
@@ -156,6 +162,7 @@ func (p *bardPerformance) stop() {
 	if p == nil {
 		return
 	}
+	p.clearMusicWatch()
 	p.preparation.cancel()
 	for _, ticket := range p.tickets {
 		ticket.Cancel()
@@ -193,6 +200,25 @@ func (p *bardPerformance) update(now time.Time) error {
 		p.deadline = now.Add(10 * time.Second)
 	}
 	if p.submitted {
+		p.musicSent = true
+		for _, ticket := range p.tickets {
+			p.musicSent = p.musicSent && ticket.Status().State == scriptapi.CommandSent
+			if status := ticket.Status().State; status == scriptapi.CommandCancelled || status == scriptapi.CommandRejected {
+				p.clearMusicWatch()
+				return fmt.Errorf("Performance interrupted before all music commands were sent. Try Play in Game again.")
+			}
+		}
+		if p.watch != nil {
+			state := p.session.music
+			state.mu.Lock()
+			started, duration, stopped := p.watch.started, p.watch.duration, p.watch.stopped
+			state.mu.Unlock()
+			if stopped {
+				p.finishAt, p.endedMessage = now, "In-game performance stopped."
+			} else if !started.IsZero() {
+				p.startedAt, p.finishAt = started, started.Add(duration)
+			}
+		}
 		// Ensemble playback waits for remote performers after our commands are
 		// sent. Keep Stop available instead of guessing when that playback ends.
 		if !p.ensemble && p.finishAt.IsZero() && p.tickets[len(p.tickets)-1].Status().State == scriptapi.CommandSent {
@@ -208,6 +234,11 @@ func (p *bardPerformance) update(now time.Time) error {
 				break
 			}
 			// Clear pending song parts before this performance.
+			if p.watch != nil {
+				p.session.music.mu.Lock()
+				p.session.music.bardWatch = p.watch
+				p.session.music.mu.Unlock()
+			}
 			p.tickets = append(p.tickets, p.queue(append([]string{"/use /stop"}, p.commands...))...)
 			p.submitted = true
 			return nil

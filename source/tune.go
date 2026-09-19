@@ -80,6 +80,7 @@ func classicInstrument(program, octave, chord, melody int, longChord, hasChords,
 }
 
 type tuneJob struct {
+	duration time.Duration
 	program  int
 	notes    []Note
 	who      int
@@ -213,6 +214,7 @@ const musicPartTimeout = 20 * time.Second
 
 type sessionMusicState struct {
 	mu          sync.Mutex
+	bardWatch   *bardMusicWatch
 	pendingByID map[int]*pendingSong
 	active      []sessionMusicTrack
 }
@@ -228,6 +230,7 @@ func (s *sessionMusicState) reset() {
 	s.mu.Lock()
 	s.pendingByID = make(map[int]*pendingSong)
 	s.active = nil
+	s.bardWatch = nil
 	s.mu.Unlock()
 }
 
@@ -329,6 +332,10 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 	}
 	state := session.music
 	now := musicCommandNow()
+	watching := false
+	if !blockMusic && movieMusicIndexCapture == nil {
+		watching = state.observeBardCommand(mp)
+	}
 	// The classic client runs its idle purge before every music command.
 	state.mu.Lock()
 	for who, song := range state.pendingByID {
@@ -355,7 +362,9 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 			})
 		} else {
 			// Global stop
-			state.reset()
+			state.mu.Lock()
+			state.pendingByID = make(map[int]*pendingSong)
+			state.mu.Unlock()
 			if movieMusicIndexStop != nil {
 				movieMusicIndexStop(0)
 				return
@@ -370,9 +379,9 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 	if blockMusic {
 		return
 	}
-	// Ignore play requests while muted, matching classic behavior when sound
-	// is off. Still handled /stop above regardless of mute state.
-	if movieMusicIndexCapture == nil && (gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0) {
+	// A watched Bard performance still assembles server events while muted so
+	// its status remains accurate. enqueueSessionTunes keeps the audio silent.
+	if !watching && movieMusicIndexCapture == nil && (gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0) {
 		return
 	}
 	// Validate basics
@@ -535,8 +544,8 @@ func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 	} else if vel > 127 {
 		vel = 127
 	}
-	notesOut, parseErr := parseClassicTune(notes, instData, tempo, vel)
-	return tuneJob{program: prog, notes: notesOut, who: who, debug: debug, parseErr: parseErr}
+	notesOut, duration, parseErr := parseClassicTuneTimeline(notes, instData, tempo, vel)
+	return tuneJob{program: prog, notes: notesOut, duration: duration, who: who, debug: debug, parseErr: parseErr}
 }
 
 func enqueueTune(job tuneJob) {
@@ -576,6 +585,10 @@ func enqueueSessionTunes(session *Session, jobs []tuneJob) {
 		}
 	}
 	if session != nil && session.music != nil {
+		session.music.observeBardStart(jobs, musicCommandNow())
+		if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
+			return
+		}
 		session.music.startTracks(jobs, musicCommandNow())
 		invalidateSessionMusicRestore(session)
 	}

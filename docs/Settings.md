@@ -44,6 +44,11 @@ works too. On Mac, Command is also supported. **Ctrl+scroll up/down** over edito
 text changes its size without scrolling. Text, selection, and undo history stay
 intact. The preference is stored as `interface.editor_font_size`.
 
+**Word wrap** in the file editor toolbar fits long lines to the window without
+inserting line breaks into the file. It starts enabled and applies to all file
+editors, including tunes and personal notes. Turning it off restores horizontal
+scrolling. The preference is stored as `interface.editor_word_wrap`.
+
 **Text → Editor Colors** opens syntax colors for macro, Go script, TTS, and
 theme/style editors. **Use custom syntax colors** switches between the active theme and a
 shared custom palette. The choice is saved as

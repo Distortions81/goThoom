@@ -592,6 +592,13 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	}
 	s = strings.TrimPrefix(s, "/music/")
 	prefixWho := musicCommandWho(s)
+	selfCommand := false
+	for _, token := range strings.Split(s, "/") {
+		if token == "P" || token == "play" {
+			break
+		}
+		selfCommand = selfCommand || token == "E" || token == "me"
+	}
 
 	// Recognize and act on /stop (or /S) even if combined with play.
 	stop := musicCommandHasStop(s)
@@ -633,7 +640,7 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	tempo := 120
 	vol := 100
 	who := prefixWho
-	me := false
+	me := selfCommand
 	part := false
 	withIDs := []int{}
 
@@ -685,8 +692,11 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	} else if n, ok := getInt("/W"); ok {
 		who = n
 	}
-	if strings.Contains(s, "/me") || strings.Contains(s, "/E") {
-		me = true
+	for _, token := range strings.Split(s, "/") {
+		if strings.HasPrefix(token, "notes") || strings.HasPrefix(token, "N") {
+			break
+		}
+		me = me || token == "me" || token == "E"
 	}
 	if strings.Contains(s, "/part") || strings.Contains(s, "/M") {
 		part = true

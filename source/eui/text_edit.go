@@ -26,6 +26,7 @@ type textEditState struct {
 	changed            time.Time
 	caretReset         time.Time
 	caretOn            bool
+	caretUpstream      bool // caret at the end of a soft-wrapped row
 	scroll             point
 	zoomWheel          float32
 	followCaret        bool
@@ -98,6 +99,7 @@ func (item *itemData) editSelect(anchor, end int) {
 	item.SelectStart = max(0, min(anchor, n))
 	item.SelectEnd = max(0, min(end, n))
 	item.CursorPos = item.SelectEnd
+	item.editor().caretUpstream = false
 	selectedTextItem = item
 	item.resetCaret()
 }
@@ -439,6 +441,9 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 	boundary := func() int {
 		if mods.Line() {
 			a, b := editLineBounds(item.editText(), pos)
+			if key == ebiten.KeyArrowLeft || key == ebiten.KeyArrowRight {
+				a, b = item.editVisualLineBounds()
+			}
 			if direction < 0 {
 				return a
 			}
@@ -461,9 +466,12 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 			pos = boundary()
 		}
 		item.editMove(pos, shift)
+		if mods.Line() && direction > 0 {
+			s.caretUpstream = true
+		}
 	case ebiten.KeyHome, ebiten.KeyEnd:
 		s.hasPreferredX = false
-		a, b := editLineBounds(item.editText(), pos)
+		a, b := item.editVisualLineBounds()
 		if mods.Shortcut() {
 			a, b = 0, len([]rune(item.editText()))
 		}
@@ -472,6 +480,9 @@ func (item *itemData) editKey(key ebiten.Key, mods inputkeys.Modifiers, shift bo
 			pos = a
 		}
 		item.editMove(pos, shift)
+		if key == ebiten.KeyEnd && !mods.Shortcut() {
+			s.caretUpstream = true
+		}
 	case ebiten.KeyArrowUp, ebiten.KeyArrowDown, ebiten.KeyPageUp, ebiten.KeyPageDown:
 		if !item.Multiline {
 			return false
@@ -527,4 +538,13 @@ func (item *itemData) textCompletion() string {
 		return ""
 	}
 	return suffix
+}
+
+func (item *itemData) editVisualLineBounds() (int, int) {
+	if !item.WordWrap || !item.Multiline {
+		return editLineBounds(item.editText(), item.CursorPos)
+	}
+	row, _ := item.editCaret()
+	line := item.editLayout().lines[row]
+	return line.start, line.start + line.length
 }

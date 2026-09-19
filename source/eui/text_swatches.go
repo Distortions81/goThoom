@@ -45,6 +45,15 @@ func (item *itemData) textSwatches() []TextColorSpan {
 }
 
 func (item *itemData) textSwatchVisible(span TextColorSpan) bool {
+	if item.WordWrap && item.Multiline {
+		layout := item.editLayout()
+		first, _ := layout.caret(span.Start)
+		last, _ := layout.caretAt(span.End, true)
+		// A swatch must fit on one visual row; otherwise show its editable text.
+		if first != last {
+			return false
+		}
+	}
 	start, end := min(item.SelectStart, item.SelectEnd), max(item.SelectStart, item.SelectEnd)
 	if start != end && start < span.End && end > span.Start {
 		return false
