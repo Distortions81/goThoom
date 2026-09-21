@@ -347,7 +347,10 @@ func TestRenderBardTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	createBardTune("Moonlight at the docks", "@90 c4e4g8")
-	duet, err := createBardTune("Moonlight duet", bardDuetFixture)
+	// Use a display title covered by the bundled UI font; the score tests keep
+	// the original Unicode fixture to exercise metadata preservation.
+	renderDuet := strings.Replace(bardDuetFixture, "Moonlight — 月", "Moonlight duet", 1)
+	duet, err := createBardTune("Moonlight duet", renderDuet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,6 +390,7 @@ func TestRenderBardTool(t *testing.T) {
 	}
 	selectTune := func(path string) func() {
 		return func() {
+			p.moreActions.Invisible, p.moreButton.Text = true, "More…"
 			p.selected, p.selectedPart = path, ""
 			p.refreshSelection()
 			p.refreshList()
@@ -399,6 +403,10 @@ func TestRenderBardTool(t *testing.T) {
 		{"bard-narrow", p.win, 400, 520, selectTune(tune.Path)},
 		{"bard-ensemble", p.win, 640, 520, selectTune(duet.Path)},
 		{"bard-ensemble-narrow", p.win, 400, 520, selectTune(duet.Path)},
+		{"bard-more-narrow", p.win, 400, 520, func() {
+			selectTune(duet.Path)()
+			clickMacroEditorButton(t, p.win, "More…")
+		}},
 		{"bard-confirm", confirmation, 0, 0, nil},
 		{"bard-partners", partnerPicker, 420, 360, partnerPicker.OnResize},
 		{"bard-duet-trio", ensembleWindow, 520, 500, ensembleWindow.OnResize},

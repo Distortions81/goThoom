@@ -31,7 +31,7 @@ Word wrap in the editor toolbar fits long lines to the window and starts enabled
 
 Use the editor's Preview to hear the current draft, including unsaved changes. It plays all parts together. To audition a particular part, Save first, then use Preview Part… in the main Bard window and choose the part by name and instrument. The picker also shows its duration.
 
-The main window's Preview plays a saved solo tune; Preview All plays every saved part together. Preview Part… does not change Your part in Duet / Trio. Stop Preview ends local sound; it does not stop a performance already sent to the game.
+The main window's Preview plays a saved solo tune; Preview All plays every saved part together. Preview Part… does not change Your part. The Listen row groups local preview controls; the Perform row controls in-game playback. Stop Preview ends local sound; it does not stop a performance already sent to the game.
 
 The selected SoundFont affects the instrument sounds in local playback. Switching character tabs stops your preview.
 
@@ -40,18 +40,18 @@ Check tests every part's notation, instrument restrictions, and command length. 
 After a successful Check, Save before using Play in Game. Check does not equip an instrument or send music. The main Bard controls use the saved file, not the unsaved editor text.
 
 # Perform alone and use an instrument case
-1. Select a saved song. For a file with several parts, open Duet / Trio… and choose Your part. To play alone, clear Play with, then Close that window.
+1. Select a saved song. For a file with several parts, choose Your part in the main window. To play alone, open Duet / Trio…, clear Play with, then Close that window.
 2. In the main Bard window, check Instrument. For the Practice example, select Pine Flute.
 3. Choose Play in Game. Review the character, song, part, instrument, and partner list in the confirmation, then confirm.
 4. The client retrieves the instrument if needed, equips it, waits for the game's equipment confirmation, and sends the music. The instrument stays equipped afterward.
 
-The Instrument picker changes the selected part's saved instrument. For a multi-part tune, choose Your part before changing Instrument. Save or close an unsaved editor draft first; the picker cannot overwrite that draft.
+The Instrument picker immediately saves the selected part's instrument in the song shared by all your characters. Status confirms the saved instrument and part. For a multi-part tune, choose Your part before changing Instrument. Save or close an unsaved editor draft first; the picker cannot overwrite that draft.
 
 An inventory label means the character carries that instrument. A try case label means the character carries an instrument case and the client can request the instrument; it does not mean the case is known to contain it. Without the instrument or a case, that choice is for local preview only.
 
 If your inventory is full during retrieval, the client first stores one carried instrument in the case, preferring an unequipped one. Watch Status and the game's response if retrieval fails.
 
-Stop Playing cancels this character's pending music and sends the game's stop command. It also works while waiting for partners. Put All Instruments Away stops this character and stores all carried instruments in the case, one at a time, restoring the previous left-hand item after successful case use. Stop Playing cancels remaining transfers; items already stored stay stored.
+Stop Playing cancels this character's pending music and sends the game's stop command. It also works while waiting for partners. More… → Put All Instruments Away stops this character and stores all carried instruments in the case, one at a time, restoring the previous left-hand item after successful case use. Stop Playing cancels remaining transfers; items already stored stay stored.
 
 # Set up a duet or trio
 Each performer sends their own music to the game. Your part chooses what this character plays. The partner part pickers choose what to SEND to others; they do not start those players or remotely select their instruments.
@@ -209,9 +209,9 @@ For music spread over several /use commands, join that performer's note text in 
 
 MIDI must first be converted to Clan Lord notation in a conversion tool. A .tune filename alone does not guarantee its contents are notation: for a tool's own project format, copy or export the music text. If an older text file is rejected for encoding, save a UTF-8 copy in a text editor before importing.
 
-Open Folder shows Tunes/ on disk. Files there are shared by all characters. Existing .tune and .txt files remain editable in place; you do not need to rename them. New songs and received parts default to .gttune. Use Refresh after adding, renaming, or changing files outside goThoom. Use the titlebar search for titles, composers, tags, part names, or instruments; Tag narrows the list to one tag, and Songs - sort by changes its order.
+More… → Open Folder shows Tunes/ on disk. Files there are shared by all characters. Existing .tune and .txt files remain editable in place; you do not need to rename them. New songs and received parts default to .gttune. Use More… → Refresh after adding, renaming, or changing files outside goThoom. Use the titlebar search for titles, composers, tags, part names, or instruments; Tag narrows the list to one tag, and Songs - sort by changes its order.
 
-The x beside a song permanently deletes its file and instrument preference after confirmation, including any open draft. Copy files out with Open Folder if you want a backup first. Three Lanterns is installed once; editing it preserves your copy, and deleting it keeps it from being re-added.
+Select a song and choose More… → Delete Song… to permanently delete its file and instrument preference after confirmation, including any open draft. Copy files out with Open Folder if you want a backup first. Three Lanterns is installed once; editing it preserves your copy, and deleting it keeps it from being re-added.
 
 A performance uses at most five music commands per part, including partner names. This is separate from the number of performers and from the number of sunstone messages used for sharing. If Check says a part is too long, replace repeated music with loops, for example (c4 d4)4 instead of writing that pair four times. Shortening comments will not help: they are already omitted from the game commands.
 
@@ -237,7 +237,7 @@ Play in Game is disabled:
 Hover over it for the reason. Select a valid tune, connect the character, and carry its instrument or an instrument case. A character watching a movie cannot perform in game.
 
 The instrument picker is disabled:
-Save or close the unsaved editor draft, then change Instrument. For an arrangement, select Your part in Duet / Trio first so you change the intended performer.
+Save or close the unsaved editor draft, then change Instrument. For an arrangement, select Your part beside Part instrument in the main window first so you change the intended performer.
 
 Retrieving or storing an instrument failed:
 Read Status and the game's response. A try case label does not prove the instrument is in the case. If inventory is full and no carried instrument can be stored to make room, free a slot and retry.

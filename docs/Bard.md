@@ -16,22 +16,23 @@ Choose **New** to name a tune; new songs use `.gttune` by default. **Import**
 accepts `.gttune`, `.tune`, and `.txt` notation files and creates a separate
 `.gttune` copy in the library, preserving song details, parts, and instruments.
 The source file stays untouched. Existing `.tune` and `.txt` files in `Tunes/`
-can still be opened and edited in place; no renaming is required. **Open Folder**
+can still be opened and edited in place; no renaming is required. **More… → Open Folder**
 opens `Tunes/` in your user data folder. Native `.gttune` files contain UTF-8
-Clan Lord Tune Format text, with optional song details and named instrument parts. Use **Refresh** after changing files outside
+Clan Lord Tune Format text, with optional song details and named instrument parts. Use **More… → Refresh** after changing files outside
 the client. The titlebar search matches titles, composers, tags, part names, and
 instruments. Use **Tag** to filter the library and **Sort by** to order it by
 title, composer, tags, or part count.
 
-Use the **x** beside a tune to delete it after confirmation. This permanently
+Select a tune and use **More… → Delete Song…** to delete it after confirmation. This permanently
 removes the tune and its instrument preference and discards any open draft.
 
 Click a song or its radio button in the framed song list to select it. The
 filled radio button and **Selected song** line show which song the controls use.
-Choose its instrument, or open **Duet / Trio…** and choose **Your part** in an
-ensemble arrangement.
-Changing the instrument saves that part's choice inside the tune
-file. Save or close an unsaved editor draft before using the instrument picker.
+For an ensemble arrangement, choose **Your part** beside **Part instrument**
+in the main window. The same part selection is available in **Duet / Trio…**.
+Changing the instrument immediately saves that part's choice inside the tune
+file shared by all your characters. Status confirms the saved instrument and
+part. Save or close an unsaved editor draft before using the instrument picker.
 Carried instruments are marked **inventory**. When you carry an instrument case,
 other instruments are marked **try case**: Play in Game will attempt to retrieve
 the selected instrument. The case's contents are not known until retrieval
@@ -53,14 +54,15 @@ The editor's **Preview** plays all parts in the current draft without saving it.
 **Save** keeps your changes.
 Font size and colors follow the shared editor settings.
 
-The Bard window's **Preview** plays a saved solo tune locally. For an ensemble,
+The Bard window's **Listen** row contains local preview controls.
+**Preview** plays a saved solo tune locally. For an ensemble,
 **Preview All** mixes every part together and **Preview Part…** opens a picker
 of part names and instruments. Choose any part to hear it alone, without opening
 Duet / Trio or changing your ensemble assignment.
 **Stop Preview** stops that preview. Music must be enabled and
 audible in the Audio mixer.
 
-The red **Play in Game** button opens a confirmation showing the song, character,
+In the **Perform** row, **Play in Game** opens a confirmation showing the song, character,
 part, instrument, and any other performers. Confirm to retrieve and equip the
 instrument and perform your selected part. If your inventory is full when an
 instrument needs to come out of the case, the client puts one carried instrument
@@ -79,7 +81,7 @@ playing, and finished. Playback starts are confirmed from received music events;
 completion follows the received part's duration, including trailing rests.
 Status tracking works with local music muted and while viewing another session.
 
-**Put All Instruments Away** stops the selected character's performance and
+**More… → Put All Instruments Away** stops the selected character's performance and
 returns all carried instruments to their case, one at a time. The previous
 left-hand item is restored after successful case use. **Stop Playing** cancels
 that character's remaining transfers; closing Bard cancels transfers for all

@@ -34,7 +34,17 @@ func (p *bardPanel) showEnsembleWindow() {
 	if tune := p.tune(); tune != nil {
 		body.AddItem(eui.NewWrappedLabel("Song: "+tune.Name, 480))
 	}
-	body.AddItem(p.part)
+	share.part, _ = eui.NewDropdown()
+	share.part.Label = "Your part"
+	share.part.Size = eui.Point{X: 460, Y: 28}
+	share.part.Options = append([]string(nil), p.part.Options...)
+	share.part.Selected, share.part.Invisible = p.part.Selected, p.part.Invisible
+	share.part.Handler.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventDropdownSelected {
+			p.selectPart(share.part.Selected)
+		}
+	}
+	body.AddItem(share.part)
 	p.partners.Invisible, p.partnerRow.Invisible = false, false
 	body.AddItem(p.partnerRow)
 	if share.receive == nil {
@@ -194,6 +204,7 @@ func (p *bardPanel) showEnsembleWindow() {
 		share.win = nil
 		share.status = nil
 		share.analysis = nil
+		share.part = nil
 	}
 	win.AddItem(root)
 	win.OnResize = func() {

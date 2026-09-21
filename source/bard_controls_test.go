@@ -175,3 +175,38 @@ func TestBardPartnerNameCompletion(t *testing.T) {
 		t.Fatal("completion leaked another session's players")
 	}
 }
+
+func TestBardPartSelectionStaysVisibleAndSavesTheSelectedPart(t *testing.T) {
+	p, session := bardReadyPanel(t)
+	p.showEnsembleWindow()
+	if p.part.ParentWindow != p.win || p.part.Invisible || p.sharing.part.ParentWindow != p.sharing.win {
+		t.Fatal("opening ensemble setup moved the main part control")
+	}
+	p.sharing.part.Selected = 1
+	p.sharing.part.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected})
+	if p.part.Selected != 1 || p.selectedPart != "Accompaniment" || p.instrument.Selected != 0 {
+		t.Fatal("ensemble selection did not update the main part and instrument")
+	}
+	p.instrument.Selected = 2
+	p.instrument.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected})
+	value, err := readBardTune(p.selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	score, err := parseBardScore(value, 0)
+	if err != nil || score.Parts[0].Instrument != 17 || score.Parts[1].Instrument != 2 {
+		t.Fatal("instrument picker changed the wrong part", err)
+	}
+	if !strings.Contains(p.status.Text, "Saved Starbuck Harp for Accompaniment") || !strings.Contains(p.sharing.part.Options[1], "Starbuck Harp") {
+		t.Fatal("saved instrument was not reflected in feedback and ensemble selection")
+	}
+	p.part.Selected = 0
+	p.part.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected})
+	if p.sharing.part.Selected != 0 || p.instrument.Selected != 17 {
+		t.Fatal("main selection did not update ensemble setup")
+	}
+	p.sharing.win.Close()
+	if p.part.ParentWindow != p.win || p.part.Invisible || !session.commands.idle() {
+		t.Fatal("closing ensemble setup hid the main part or sent game commands")
+	}
+}

@@ -200,7 +200,9 @@ Existing `.tune` and `.txt` notation files remain supported. Import saves a new
 Choose **Help** for the built-in guide to bard controls, notation, and performing
 with other players.
 Tunes can include song details, tags, and named parts for different instruments.
-Preview an ensemble together or listen to one part. **Play in Game** equips a
+Choose **Your part** in the main window; changing its instrument saves the choice
+in the song shared by all your characters. Preview an ensemble together or listen
+to one part. **Play in Game** equips a
 carried instrument, or retrieves it from your instrument case, and performs your
 selected part, splitting long songs automatically. **Duet / Trio…** sets up
 partners and shares assigned parts through private sunstone messages. Optional

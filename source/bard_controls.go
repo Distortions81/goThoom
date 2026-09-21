@@ -35,7 +35,7 @@ func (p *bardPanel) showPlayConfirmation(request bardPlayRequest) {
 	}
 	popup := eui.ShowPopup("Confirm In-Game Playback", message, []eui.PopupButton{
 		{Text: "Cancel", Action: func() { p.setStatus("In-game playback canceled.", false) }},
-		{Text: "Play in Game", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+		{Text: "Play in Game", Action: func() {
 			// The confirmation names a specific song, part and connected character.
 			// Switching tabs, reconnecting or editing the file requires a new review.
 			if !p.win.IsOpen() || selectedAppSession() != request.session ||

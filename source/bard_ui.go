@@ -22,6 +22,7 @@ type bardPanel struct {
 	ensembleButton                                                                                    *eui.ItemData
 	storage                                                                                           *bardCaseOperation
 	storeButton                                                                                       *eui.ItemData
+	moreButton, moreActions, deleteButton                                                             *eui.ItemData
 	groups                                                                                            []bardActionGroup
 	win                                                                                               *eui.WindowData
 	root, list, details, instrument, status, edit, previewButton, playButton, stopButton, stopPreview *eui.ItemData
@@ -83,7 +84,29 @@ func showBardWindow() {
 	helpButton := eui.NewActionButton("Help", showBardHelp)
 	setMaterialButtonIcon(helpButton, "help")
 	helpButton.SetTooltip("Read the Bard Tools guide: tunes, instruments, previews, performing, sharing parts, and notation.")
-	p.addActions(newButton, eui.NewActionButton("Import", p.importTune), eui.NewActionButton("Open Folder", func() { p.setError(open.Run(bardTunesDir())) }), eui.NewActionButton("Refresh", p.reload), helpButton)
+	p.edit = eui.NewActionButton("Edit", p.editTune)
+	setMaterialButtonIcon(p.edit, "edit")
+	p.moreButton = eui.NewActionButton("More…", func() {
+		p.moreActions.Invisible = !p.moreActions.Invisible
+		p.moreButton.Text = "More…"
+		if !p.moreActions.Invisible {
+			p.moreButton.Text = "Less"
+		}
+		p.layout()
+	})
+	p.moreButton.SetTooltip("Show or hide file actions and instrument storage.")
+	p.addActions(newButton, eui.NewActionButton("Import", p.importTune), p.edit, p.moreButton, helpButton)
+	p.deleteButton = eui.NewActionButton("Delete Song…", func() {
+		if tune := p.tune(); tune != nil {
+			p.confirmDeleteTune(*tune)
+		}
+	})
+	setMaterialButtonIcon(p.deleteButton, "delete")
+	p.deleteButton.SetTooltip("Permanently delete the selected song after confirmation.")
+	p.storeButton = eui.NewActionButton("Put All Instruments Away", p.storeInstruments)
+	p.addActions(eui.NewActionButton("Open Folder", func() { p.setError(open.Run(bardTunesDir())) }), eui.NewActionButton("Refresh", p.reload), p.deleteButton, p.storeButton)
+	p.moreActions = p.groups[len(p.groups)-1].column
+	p.moreActions.Invisible = true
 	p.sortOrder, _ = eui.NewDropdown()
 	p.sortOrder.Label = "Songs — sort by"
 	p.sortOrder.Options = []string{"Title", "Composer", "Tags", "Part count"}
@@ -110,17 +133,12 @@ func showBardWindow() {
 	p.part.Size = eui.Point{X: 360, Y: 28}
 	p.part.Handler.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventDropdownSelected {
-			if tune := p.tune(); tune != nil && p.part.Selected >= 0 && p.part.Selected < len(tune.Score.Parts) {
-				p.selectedPart = tune.Score.Parts[p.part.Selected].Name
-				p.preview.stop()
-				p.preview = nil
-				p.setError(nil)
-				p.refreshSelection()
-			}
+			p.selectPart(p.part.Selected)
 		}
 	}
 	p.instrument, _ = eui.NewDropdown()
-	p.instrument.Label = "Instrument"
+	p.instrument.Label = "Instrument (saved to song)"
+	p.instrument.SetTooltip("Changing this instrument immediately saves it in the song shared by all your characters. Save or close an unsaved editor draft first.")
 	p.instrument.Size = eui.Point{X: 360, Y: 28}
 	p.instrument.Handler.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventDropdownSelected {
@@ -134,18 +152,19 @@ func showBardWindow() {
 				p.preview.stop()
 				p.preview = nil
 				p.reload()
+				p.setStatus(fmt.Sprintf("Saved %s for %s in “%s”.", classicInstrumentNames[index], p.selectedPart, tune.Name), false)
 			}
 		}
 	}
-	p.root.AddItem(p.instrument)
-	p.edit = eui.NewActionButton("Edit", p.editTune)
-	setMaterialButtonIcon(p.edit, "edit")
+	p.addActions(p.part, p.instrument)
 	p.previewButton = eui.NewActionButton("Preview", p.startPreview)
 	p.previewButton.SetTooltip("Listen locally to every part together, using each part's instrument.")
 	p.previewPart = eui.NewActionButton("Preview Part…", p.startPartPreview)
 	p.previewPart.SetTooltip("Choose any part to listen to locally, without changing your ensemble assignment.")
 	p.stopPreview = eui.NewActionButton("Stop Preview", p.endPreview)
-	p.addActions(p.edit, p.previewButton, p.previewPart, p.stopPreview)
+	listenLabel := eui.NewLabel("Listen:")
+	listenLabel.Position.Y = 7
+	p.addActions(listenLabel, p.previewButton, p.previewPart, p.stopPreview)
 	p.partners, _ = eui.NewInput()
 	p.partners.Label = "Play with"
 	p.partners.Size = eui.Point{X: 360, Y: 28}
@@ -162,7 +181,6 @@ func showBardWindow() {
 	p.ensembleButton = eui.NewActionButton("Duet / Trio…", p.showEnsembleWindow)
 	p.ensembleButton.SetTooltip("Choose partners, assign and send music parts, and enable receiving from partners.")
 	p.playButton = eui.NewActionButton("Play in Game", p.play)
-	p.playButton.SetButtonColors(eui.ColorDarkRed, eui.ColorRed)
 	p.playButton.SetTooltip("Review the song, character, and instrument before confirming in-game playback.")
 	p.stopButton = eui.NewActionButton("Stop Playing", func() {
 		p.storage.cancel()
@@ -172,9 +190,9 @@ func showBardWindow() {
 		p.setStatus("Stopped in-game playback.", false)
 		p.refreshSelection()
 	})
-	p.storeButton = eui.NewActionButton("Put All Instruments Away", p.storeInstruments)
-	p.storeButton.SetTooltip("Stop playing and return all carried instruments to your instrument case.")
-	p.addActions(p.ensembleButton, p.playButton, p.stopButton, p.storeButton)
+	performLabel := eui.NewLabel("Perform:")
+	performLabel.Position.Y = 7
+	p.addActions(performLabel, p.playButton, p.stopButton, p.ensembleButton)
 	p.statusFrame, p.status = newStatusBar(580)
 	p.root.AddItem(p.statusFrame)
 	win.AddItem(p.root)
@@ -182,6 +200,15 @@ func showBardWindow() {
 	win.AddWindow(false)
 	p.reload()
 	win.MarkOpen()
+}
+func (p *bardPanel) selectPart(index int) {
+	if tune := p.tune(); tune != nil && index >= 0 && index < len(tune.Score.Parts) {
+		p.selectedPart = tune.Score.Parts[index].Name
+		p.preview.stop()
+		p.preview = nil
+		p.setError(nil)
+		p.refreshSelection()
+	}
 }
 func (p *bardPanel) tune() *bardTune {
 	for i := range p.tunes {
@@ -233,7 +260,7 @@ func (p *bardPanel) refreshStatus() {
 		case p.tune().Err != nil:
 			message, problem = p.tune().Err.Error(), true
 		default:
-			message, good = "Ready to preview the selected song.", true
+			message = "Ready to preview the selected song."
 		}
 	}
 	key := fmt.Sprintf("%t:%t:%s", good, problem, message)
@@ -271,6 +298,14 @@ func (p *bardPanel) addActions(buttons ...*eui.ItemData) {
 }
 func (p *bardPanel) layout() {
 	eui.LayoutWindowBody(p.win, p.root, p.list)
+	// Keep the part and its saved instrument together when the window is wide
+	// enough for both captions, and stack them in narrow windows.
+	width := p.root.Size.X - 8
+	p.part.Size.X, p.instrument.Size.X = width, width
+	if !p.part.Invisible && width >= 560 {
+		p.part.Size.X = (width - 8) / 2
+		p.instrument.Size.X = (width - 8) / 2
+	}
 	for _, group := range p.groups {
 		row := eui.NewRow()
 		rows := []*eui.ItemData{}
@@ -293,13 +328,9 @@ func (p *bardPanel) layout() {
 		group.column.Size.Y = 0
 	}
 	eui.LayoutWindowBody(p.win, p.root, p.list)
-	width := savedDataContentWidth(p.list.Size.X)
+	width = savedDataContentWidth(p.list.Size.X)
 	p.details.Size.X = width
 	p.status.Size.X = p.statusFrame.Size.X - 16
-	p.instrument.Size.X = width
-	if width > 360 {
-		p.instrument.Size.X = 360
-	}
 	eui.LayoutWindowBody(p.win, p.root, p.list)
 	p.win.Refresh()
 }
@@ -330,12 +361,9 @@ func (p *bardPanel) refreshList() {
 			p.refreshSelection()
 			p.refreshList()
 		}
-		remove := eui.NewActionButton("x", func() { p.confirmDeleteTune(tune) })
-		remove.Size = eui.Point{X: 30, Y: 30}
-		remove.SetTooltip("Delete " + tune.Name)
-		button.Size = eui.Point{X: width - remove.Size.X - remove.Position.X, Y: 30}
+		button.Size = eui.Point{X: width, Y: 30}
 		button.ConstrainToSize = true
-		row := eui.NewRow(button, remove)
+		row := eui.NewRow(button)
 		row.Position = eui.Point{X: 4, Y: 4}
 		row.Filled = button.Checked
 		row.Color = eui.SubtleAlternateRowColor()
@@ -492,12 +520,14 @@ func (p *bardPanel) refreshSelection() {
 	none := tune == nil
 	p.instrument.Disabled = none
 	p.edit.Disabled = none
+	p.deleteButton.Disabled = none
 	p.previewButton.Disabled = none
 	p.playButton.Disabled = true
 	p.stopPreview.Disabled = p.preview == nil
 	p.stopButton.Disabled = p.performance == nil && p.storage == nil
 	p.part.Options = nil
 	p.part.Invisible, p.previewPart.Invisible = true, true
+	p.instrument.Label = "Instrument (saved to song)"
 	p.previewButton.Text = "Preview"
 	if none {
 		p.details.SetWrappedText("Select a song above to preview, edit, or play it.")
@@ -525,6 +555,7 @@ func (p *bardPanel) refreshSelection() {
 		}
 		if len(tune.Score.Parts) > 1 && valid {
 			p.part.Invisible, p.previewPart.Invisible = false, false
+			p.instrument.Label = "Part instrument (saved to song)"
 			p.previewButton.Text = "Preview All"
 		}
 		if partners := strings.TrimSpace(p.partners.Text); partners != "" {
@@ -548,6 +579,10 @@ func (p *bardPanel) refreshSelection() {
 	}
 	p.refreshStatus()
 	p.layout()
+	if part := p.sharing.part; part != nil {
+		part.Options = append([]string(nil), p.part.Options...)
+		part.Selected, part.Invisible = p.part.Selected, p.part.Invisible
+	}
 	if p.sharing.win != nil && p.sharing.win.OnResize != nil {
 		p.refreshEnsembleAnalysis()
 		p.sharing.win.OnResize()
