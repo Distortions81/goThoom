@@ -13,7 +13,7 @@ const scriptID = "example-follow-player"
 const scriptName = "Follow Player"
 const scriptAuthor = "goThoom"
 const scriptCategory = "Movement"
-const scriptDescription = "Alt-right-click a player to follow their trail across area edges and doorways. Move manually or /follow off to stop."
+const scriptDescription = "Alt-right-click a player to follow their trail, with optional caduceus healing and moonstone self-healing. Move manually or /follow off to stop."
 const scriptAPIVersion = 2
 
 var targetName string
@@ -55,7 +55,20 @@ var sceneryHints = true
 var drawBreadcrumbs bool
 var mobileClearance = 34.0
 
+var healLeader bool
+var healSelf bool
+var healEquip = true
+var selfHealBelow = 80
+var healHealthReserve = 30
+var healSpiritReserve = 20
+var healRange = 96.0
+var healInterval = 3.0
+var nextHeal time.Time
+var cadActive bool
+var healStatus = "Off"
+
 func Init() {
+	initFollowHealing()
 	startDistance = gt2.Decimal(gt2.DecimalOption{Key: "start", Label: "Start following distance", Default: 72, Min: 60, Max: 180, Step: 4, OnChange: func(v float64) { startDistance = v }})
 	stopDistance = gt2.Decimal(gt2.DecimalOption{Key: "stop", Label: "Stop following distance", Default: 44, Min: 24, Max: 56, Step: 4, OnChange: func(v float64) { stopDistance = v }})
 	mobileClearance = gt2.Decimal(gt2.DecimalOption{Key: "clearance", Label: "Preferred mobile clearance", Help: "A soft spacing preference; tight passages may require less room.", Default: 34, Min: 24, Max: 60, Step: 2, OnChange: func(v float64) { mobileClearance = v }})
@@ -90,6 +103,108 @@ func Init() {
 	})
 	gt2.OnLogout(func(event gt2.LifecycleEvent) { stopFollow("") })
 	gt2.OnCharacterChange(func(event gt2.LifecycleEvent) { stopFollow("") })
+}
+
+func initFollowHealing() {
+	healLeader = gt2.Bool(gt2.BoolOption{Key: "heal-leader", Label: "Heal followed player with caduceus", Help: "Requires a caduceus and Send server commands permission. Retries while the player is visible and within the healing distance.", Scope: gt2.ScopeCharacter, Default: false, OnChange: func(v bool) {
+		healLeader = v
+		stopFollowHealing()
+	}})
+	healSelf = gt2.Bool(gt2.BoolOption{Key: "heal-self", Label: "Self-heal with moonstone", Help: "While following, prioritize /use 10 with a moonstone when health is below the threshold.", Scope: gt2.ScopeCharacter, Default: false, OnChange: func(v bool) {
+		healSelf = v
+		stopFollowHealing()
+	}})
+	selfHealBelow = gt2.Integer(gt2.IntegerOption{Key: "self-heal-below", Label: "Self-heal below health (%)", Scope: gt2.ScopeCharacter, Default: 80, Min: 1, Max: 100, Step: 1, OnChange: func(v int) { selfHealBelow = v }})
+	healEquip = gt2.Bool(gt2.BoolOption{Key: "heal-equip", Label: "Equip healing items automatically", Help: "Switch between caduceus and moonstone as needed. Leaves the last healing item equipped. When off, healing requires the appropriate item already equipped.", Scope: gt2.ScopeCharacter, Default: true, OnChange: func(v bool) { healEquip = v }})
+	healHealthReserve = gt2.Integer(gt2.IntegerOption{Key: "heal-health-reserve", Label: "Caduceus health reserve (%)", Help: "Pause caduceus healing at or below this health level. Self-healing can still run.", Scope: gt2.ScopeCharacter, Default: 30, Min: 0, Max: 100, Step: 1, OnChange: func(v int) { healHealthReserve = v }})
+	healSpiritReserve = gt2.Integer(gt2.IntegerOption{Key: "heal-spirit-reserve", Label: "Healing spirit reserve (%)", Help: "Pause all healing at or below this spirit level.", Scope: gt2.ScopeCharacter, Default: 20, Min: 0, Max: 100, Step: 1, OnChange: func(v int) { healSpiritReserve = v }})
+	healRange = gt2.Decimal(gt2.DecimalOption{Key: "heal-range", Label: "Maximum caduceus distance", Help: "World pixels. Set this to suit your trained range; following continues outside this distance.", Scope: gt2.ScopeCharacter, Default: 96, Min: 24, Max: 300, Step: 4, OnChange: func(v float64) { healRange = v }})
+	healInterval = gt2.Decimal(gt2.DecimalOption{Key: "heal-interval", Label: "Healing retry interval (seconds)", Help: "Minimum time between healing or equipment requests. The server controls healing pulses.", Scope: gt2.ScopeCharacter, Default: 3, Min: 1, Max: 15, Step: 1, OnChange: func(v float64) { healInterval = v }})
+}
+
+func stopCaduceus() {
+	if cadActive {
+		gt2.Send("/useitem caduceus /off")
+		cadActive = false
+	}
+}
+
+func stopFollowHealing() {
+	stopCaduceus()
+	healStatus = "Off"
+}
+
+// Never wait inside the world callback: movement must keep receiving updates.
+// Equipment is checked again on a later frame before sending any /use command.
+func followHealing(world gt2.World, leader gt2.Mobile, visible bool) {
+	if !healLeader && !healSelf {
+		stopFollowHealing()
+		return
+	}
+	self := gt2.Self()
+	if self.HealthMax <= 0 || self.SpiritMax <= 0 || self.Health <= 0 {
+		stopCaduceus()
+		healStatus = "Waiting for vitals"
+		return
+	}
+	health := 100 * float64(self.Health) / float64(self.HealthMax)
+	spirit := 100 * float64(self.Spirit) / float64(self.SpiritMax)
+	if spirit <= float64(healSpiritReserve) {
+		stopCaduceus()
+		healStatus = "Saving spirit"
+		return
+	}
+	itemName := "caduceus"
+	selfHealing := healSelf && health < float64(selfHealBelow)
+	if selfHealing {
+		stopCaduceus()
+		itemName = "moonstone"
+	} else {
+		if !healLeader {
+			stopFollowHealing()
+			return
+		}
+		if health <= float64(healHealthReserve) {
+			stopCaduceus()
+			healStatus = "Saving health"
+			return
+		}
+		if !visible || math.Hypot(float64(leader.H)-float64(world.Self.H), float64(leader.V)-float64(world.Self.V)) > healRange {
+			stopCaduceus()
+			healStatus = "Waiting for target in range"
+			return
+		}
+	}
+	item, found := gt2.FindItem(itemName)
+	if !found {
+		stopCaduceus()
+		healStatus = "Missing " + itemName
+		return
+	}
+	if !gt2.IsEquipped(item.Name) {
+		stopCaduceus()
+		healStatus = "Equip " + itemName
+		if healEquip && !world.ReceivedAt.Before(nextHeal) {
+			gt2.Equip(item.Name)
+			nextHeal = world.ReceivedAt.Add(time.Duration(healInterval * float64(time.Second)))
+			healStatus = "Waiting for " + itemName
+		}
+		return
+	}
+	healStatus = "Caduceus: " + targetName
+	if selfHealing {
+		healStatus = "Self-healing"
+	}
+	if world.ReceivedAt.Before(nextHeal) {
+		return
+	}
+	nextHeal = world.ReceivedAt.Add(time.Duration(healInterval * float64(time.Second)))
+	if selfHealing {
+		gt2.Send("/use 10")
+	} else {
+		gt2.Send("/useitem caduceus " + followName(leader.Name))
+		cadActive = true
+	}
 }
 
 func followClickedPlayer(event gt2.InputEvent) {
@@ -145,6 +260,7 @@ func startFollow(args string) {
 
 func beginFollow(world gt2.World, leader gt2.Mobile) {
 	defer refreshFollowWindow()
+	stopFollowHealing()
 	releaseFollowMovement()
 	targetName = leader.Name
 	followActivity = "Following"
@@ -170,6 +286,9 @@ func refreshFollowWindow() {
 		target = "None"
 	}
 	status := "Following: " + target + "\nStatus: " + followActivity
+	if healLeader || healSelf {
+		status += "\nHealing: " + healStatus
+	}
 	if followNote != "" {
 		status += "\n" + followNote
 	} else {
@@ -180,6 +299,7 @@ func refreshFollowWindow() {
 }
 
 func stopFollow(message string) {
+	stopFollowHealing()
 	followActivity = "Stopped"
 	followNote = message
 	defer refreshFollowWindow()
@@ -215,7 +335,7 @@ func followWorld(world gt2.World) {
 		stopFollow("Follow stopped: manual movement.")
 		return
 	}
-	if world.Self.Dead || time.Since(world.ReceivedAt) > time.Second {
+	if world.Self.Dead || world.Self.Stale || time.Since(world.ReceivedAt) > time.Second {
 		pauseFollow("Waiting for character and world")
 		return
 	}
@@ -240,6 +360,7 @@ func followWorld(world gt2.World) {
 		}
 	}
 	goal, ready := followTrail(&world, leader, visible)
+	followHealing(world, leader, visible)
 	if !ready {
 		waitForLeader()
 		previous = world
@@ -316,7 +437,10 @@ func followWorld(world gt2.World) {
 	// a stall.
 	heading, clear := routeDirection(world, leader, direction, reach, true)
 	if !clear {
-		followActivity = "Routing around obstacle"
+		releaseFollowMovement()
+		followActivity = "Waiting for an opening"
+		previous = world
+		return
 	}
 	if math.Abs(heading-direction) > 0.01 {
 		reach = math.Min(100, math.Max(65, reach))
@@ -377,6 +501,7 @@ func drawFollowBreadcrumbs(world gt2.World) {
 
 // Unavailable movement or coordinates suspend pursuit, not the chosen target.
 func pauseFollow(activity string) {
+	stopFollowHealing()
 	releaseFollowMovement()
 	followActivity = activity
 	following = false
@@ -406,7 +531,10 @@ func followBreadcrumb(world gt2.World, goal followPoint) {
 	heading, clear := routeDirection(world, gt2.Mobile{}, desired, reach, true)
 	followActivity = "Following breadcrumbs"
 	if !clear {
-		followActivity = "Routing around breadcrumb"
+		releaseFollowMovement()
+		followActivity = "Waiting for an opening"
+		previous = world
+		return
 	}
 	if math.Abs(heading-desired) > 0.01 {
 		reach = math.Min(80, math.Max(45, reach))
@@ -622,6 +750,7 @@ func followTrail(snapshot *gt2.World, leader gt2.Mobile, visible bool) (followPo
 			// lastLeader has already been aligned with stationary scenery, so
 			// scrolling cannot supply a false exit direction. Ignore teleports.
 			if distance > 80 {
+				trail = nil
 				leaderDirection = followPoint{}
 				leaderMovedAt = time.Time{}
 			} else if distance >= 2 {

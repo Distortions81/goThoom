@@ -136,7 +136,7 @@ func TestScriptMovementLease(t *testing.T) {
 
 func TestFollowPlayerProof(t *testing.T) {
 	initFont()
-	for _, scenario := range []string{"hysteresis", "blocked", "camera", "manual", "yield", "lost", "stale", "wiggle", "wiggle-lateral-release", "near-still", "camera-only-stuck", "lateral", "retreat", "scenery", "avoid-mobile"} {
+	for _, scenario := range []string{"hysteresis", "surrounded", "blocked", "camera", "manual", "yield", "lost", "stale", "wiggle", "wiggle-lateral-release", "near-still", "camera-only-stuck", "lateral", "retreat", "scenery", "avoid-mobile"} {
 		t.Run(scenario, func(t *testing.T) {
 			isolateScriptWorld(t)
 			const owner = "follow_proof"
@@ -188,6 +188,21 @@ func TestFollowPlayerProof(t *testing.T) {
 				update(90, 0, true)
 				if !moving().mouseDown {
 					t.Fatal("did not restart at outer threshold")
+				}
+			case "surrounded":
+				blockers = []frameMobile{{Index: 3, H: 10}, {Index: 4, H: -10}, {Index: 5, V: 10}, {Index: 6, V: -10}}
+				update(100, 0, true)
+				if moving().mouseDown {
+					t.Fatal("pushed into surrounding mobiles")
+				}
+				update(100, 0, false)
+				if moving().mouseDown {
+					t.Fatal("pushed into surrounding mobiles while following breadcrumbs")
+				}
+				blockers = nil
+				update(100, 0, true)
+				if !moving().mouseDown {
+					t.Fatal("did not resume after an opening appeared")
 				}
 			case "blocked":
 				for i := 0; i < 5; i++ {

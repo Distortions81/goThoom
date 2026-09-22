@@ -9,7 +9,7 @@ import (
 
 func TestFollowBreadcrumbTransitions(t *testing.T) {
 	initFont()
-	for _, scenario := range []string{"turn-and-edge", "camera-only", "old-direction", "join-recent-track", "scenery-door", "location-door", "temporary-no-self", "no-wandering", "loss-during-wiggle", "trail-blocked", "wait", "manual", "fallen", "self-fallen", "frame-reset"} {
+	for _, scenario := range []string{"turn-and-edge", "leader-jump", "camera-only", "old-direction", "join-recent-track", "scenery-door", "location-door", "temporary-no-self", "no-wandering", "loss-during-wiggle", "trail-blocked", "wait", "manual", "fallen", "self-fallen", "frame-reset"} {
 		t.Run(scenario, func(t *testing.T) {
 			isolateScriptWorld(t)
 			const owner = "follow_transition"
@@ -68,6 +68,14 @@ func TestFollowBreadcrumbTransitions(t *testing.T) {
 				self.H = 60
 			}
 			update(self, &frameMobile{Index: 2, H: 80, V: 20})
+			if scenario == "leader-jump" {
+				update(self, &frameMobile{Index: 2, H: -100})
+				got := update(self, nil)
+				if !got.mouseDown || got.mouseX != -100 || got.mouseY != 0 {
+					t.Fatalf("followed pre-teleport breadcrumbs: %+v", got)
+				}
+				return
+			}
 			if scenario == "join-recent-track" {
 				self.H, self.V = 110, 20
 				update(self, &frameMobile{Index: 2, H: 140, V: 60})

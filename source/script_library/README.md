@@ -559,6 +559,28 @@ off by default; enable it in the script's Settings to show the recorded trail
 as blue markers in the game view. The brighter, larger marker is the next point
 the script will follow after the target leaves view.
 
+In **Info -> Settings**, enable **Heal followed player with caduceus** to heal
+your target while following. Healing also requires **Send server commands** in
+the script's permissions. Healing options are saved separately for each
+character and are off by default.
+
+**Self-heal with moonstone** prioritizes `/use 10` when your health is strictly
+below **Self-heal below health (%)**, which defaults to **80%** and is adjustable.
+At or above that threshold, caduceus healing can resume. **Equip healing items
+automatically** switches between your carried caduceus and moonstone, waits for
+equipment confirmation, and leaves the last item equipped. Turn it off to heal
+only with an already-equipped item.
+
+Caduceus healing pauses at or below the **Caduceus health reserve** (default 30%).
+All healing pauses at or below the **Healing spirit reserve** (default 20%).
+Set **Maximum caduceus distance** to suit your trained range (default 96 world
+pixels); following continues when the target is farther away. **Healing retry
+interval** defaults to three seconds and limits equipment and healing requests;
+the server controls healing pulses. The script cannot see the target's health.
+The window shows healing activity, missing items, and reasons for pausing.
+Losing sight of the target cancels caduceus healing. Manual movement,
+**Stop Follow**, or `/follow off` ends follow healing.
+
 Every fresh scene update checks the direct path against other standing mobiles.
 The script prefers 34 pixels of clearance (configurable), but treats that as a
 soft preference so tighter passages remain possible. It rejects local paths
@@ -595,6 +617,7 @@ The window shows **Routing to breadcrumb** during that detour.
 Breadcrumbs and blocked spots stay anchored to the scenery as the background
 moves. With no recent travel direction, or after reaching the end of the
 continuation, it waits for the target to reappear.
+If the target makes a large position jump, the old trail is discarded.
 
 After a location or scenery change, it discards the old area's coordinates and
 looks for the target by name. It resumes following when they reappear, even if
