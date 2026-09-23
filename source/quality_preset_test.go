@@ -80,8 +80,8 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 			name:   "High",
 			preset: highPreset,
 			want: qualityPreset{
-				artworkUpscaleMode:    artworkUpscaleBalanced,
-				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
+				artworkUpscaleMode: artworkUpscaleBalanced,
+				precacheSounds:     true, windowShadows: true,
 				characterShadows: true, shaderLighting: true,
 				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
 				soundEnhancement: true,
@@ -92,8 +92,8 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 			name:   "Ultra",
 			preset: ultraPreset,
 			want: qualityPreset{
-				artworkUpscaleMode:    artworkUpscaleBalanced,
-				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
+				artworkUpscaleMode: artworkUpscaleBalanced,
+				precacheSounds:     true, windowShadows: true,
 				characterShadows: true, shaderLighting: true,
 				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
 				soundEnhancement: true, highQualityResampling: true,

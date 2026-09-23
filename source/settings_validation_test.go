@@ -12,7 +12,6 @@ func TestNormalizeLoadedNumericSettingsClampsToSupportedRanges(t *testing.T) {
 	value.BubbleLifePerWord = 4
 	value.NameBgOpacity = -1
 	value.BarOpacity = 0
-	value.ObscuringPictureOpacity = 1
 	value.NameHealthBarThickness = 20
 	value.MaxNightLevel = 200
 	value.GameScale = 3.6
@@ -39,8 +38,8 @@ func TestNormalizeLoadedNumericSettingsClampsToSupportedRanges(t *testing.T) {
 	if value.BubbleOpacity != 1 || value.BubbleBaseLife != 1 || value.BubbleLifePerWord != 2 {
 		t.Fatalf("bubble normalization = opacity:%v base:%v word:%v", value.BubbleOpacity, value.BubbleBaseLife, value.BubbleLifePerWord)
 	}
-	if value.NameBgOpacity != 0 || value.BarOpacity != 0.1 || value.ObscuringPictureOpacity != 0.7 {
-		t.Fatalf("opacity normalization = name:%v bar:%v artwork:%v", value.NameBgOpacity, value.BarOpacity, value.ObscuringPictureOpacity)
+	if value.NameBgOpacity != 0 || value.BarOpacity != 0.1 {
+		t.Fatalf("opacity normalization = name:%v bar:%v", value.NameBgOpacity, value.BarOpacity)
 	}
 	if value.NameHealthBarThickness != 8 || value.MaxNightLevel != 100 || value.GameScale != 3.6 {
 		t.Fatalf("display normalization = bar:%d night:%d scale:%v", value.NameHealthBarThickness, value.MaxNightLevel, value.GameScale)

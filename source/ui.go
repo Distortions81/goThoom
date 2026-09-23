@@ -217,7 +217,6 @@ var (
 	recordBtn                *eui.ItemData
 	qualityPresetDD          *eui.ItemData
 	qualityRenderScaleSlider *eui.ItemData
-	fadeObscuringCB          *eui.ItemData
 	characterShadowsCB       *eui.ItemData
 	mobileSunShadowsCB       *eui.ItemData
 	characterShadowSlider    *eui.ItemData
@@ -5207,13 +5206,12 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	shaderPage := newSettingsPage("Lighting & Effects", pageWidth)
 
 	artworkSection := eui.NewSection("Artwork Scaling", width)
-	occlusionSection := eui.NewSection("Foreground Occlusion", width)
 	gammaSection := eui.NewSection("Sprite Gamma", width)
 	denoiseSection := eui.NewSection("Dither Cleanup", width)
 	shadowSection := eui.NewSection("Shadows", width)
 	motionSection := eui.NewSection("Motion Smoothing", width)
 	shaderSection := eui.NewSection("Lighting & Effects", pageWidth)
-	addQualityColumns(artworkPage, width, []*eui.ItemData{artworkSection, occlusionSection}, []*eui.ItemData{gammaSection, denoiseSection})
+	addQualityColumns(artworkPage, width, []*eui.ItemData{artworkSection}, []*eui.ItemData{gammaSection, denoiseSection})
 	shaderPage.AddItem(shaderSection)
 	outer.Tabs = []*eui.ItemData{artworkPage, motionPage, shaderPage}
 
@@ -5302,34 +5300,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 		}
 	}
 	artworkSection.AddItem(pixelPerfectCB)
-
-	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
-	fadeObscuringCB = fadePicsCB
-	fadePicsCB.Text = "Fade objects obscuring mobiles"
-	fadePicsCB.Size = eui.Point{X: width, Y: 24}
-	fadePicsCB.Checked = gs.FadeObscuringPictures
-	fadePicsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.FadeObscuringPictures = ev.Checked
-			settingsDirty = true
-		}
-	}
-	occlusionSection.AddItem(fadePicsCB)
-
-	obscureSlider, obscureEvents := eui.NewSlider()
-	obscureSlider.Label = "Obscuring Object Opacity"
-	obscureSlider.MinValue = 0.25
-	obscureSlider.MaxValue = 0.7
-	obscureSlider.Value = float32(gs.ObscuringPictureOpacity)
-	obscureSlider.Size = eui.Point{X: width - 10, Y: 24}
-	obscureSlider.SetTooltip("Lower values make covering artwork more transparent while it is faded.")
-	obscureEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.ObscuringPictureOpacity = float64(ev.Value)
-			settingsDirty = true
-		}
-	}
-	occlusionSection.AddItem(obscureSlider)
 
 	/*
 		                                showFPSCB, showFPSEvents := eui.NewCheckbox()

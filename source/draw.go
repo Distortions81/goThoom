@@ -56,9 +56,7 @@ type framePicture struct {
 	Again        bool
 	// Keep a light's flicker phase attached to the matched picture as its
 	// player-relative position changes, including retained edge pictures.
-	lightKey     uint64
-	obscuredPrev bool
-	obscuredNow  bool
+	lightKey uint64
 }
 
 type frameMobile struct {
@@ -1989,9 +1987,6 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		draw.current.prevMobiles = previousMobiles
 	} else {
 		draw.current.mobileScratch = previousMobiles
-	}
-	if gs.FadeObscuringPictures {
-		cachePictureObscuring(draw.current.pictures, mobiles, draw.current.descriptors, draw.current.prevMobiles, draw.current.logicalFrame)
 	}
 	// Populate prevMobiles only when pictureShift succeeds so interpolation of
 	// mobiles and pinned effects is skipped on failure.

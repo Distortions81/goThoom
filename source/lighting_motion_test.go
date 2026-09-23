@@ -42,7 +42,6 @@ func TestPictureLightFlickerFollowsCameraAndPictureMotion(t *testing.T) {
 	clImages = nil
 	movieMode, movieVersion, seekingMov = true, 367, false
 	pixelCountCache = map[uint16]int{1: 100, 2: 10000, 3: 10000}
-	gs.FadeObscuringPictures = false
 	gs.GameScale = 1
 	gs.FloatingPointSpriteCoords = true
 	for _, smoothing := range []bool{true, false} {

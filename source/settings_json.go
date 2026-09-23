@@ -146,8 +146,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "SpriteGammaCorrection", category: settingsRendering, name: "artwork_gamma_correction"},
 	{field: "SpriteGamma", category: settingsRendering, name: "artwork_source_gamma"},
 	{field: "MonitorGamma", category: settingsRendering, name: "display_gamma"},
-	{field: "ObscuringPictureOpacity", category: settingsRendering, name: "obscuring_artwork_opacity"},
-	{field: "FadeObscuringPictures", category: settingsRendering, name: "fade_obscuring_artwork"},
 	{field: "MaxNightLevel", category: settingsRendering, name: "maximum_night_darkness"},
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},

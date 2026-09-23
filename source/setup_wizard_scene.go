@@ -194,7 +194,6 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 		setupWizardScenePicture(1925, 48, -55),
 	}
 	logicalFrame := int(step + 1)
-	cachePictureObscuring(pictures, snap.mobiles, snap.descriptors, snap.prevMobiles, logicalFrame)
 	sortPictures(pictures)
 	snap.picsNeg = snap.picsNeg[:0]
 	snap.picsZero = snap.picsZero[:0]

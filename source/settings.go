@@ -248,7 +248,6 @@ func normalizeLoadedNumericSettings(value *settings) bool {
 	clampFloat(&value.BubbleScale, 1, 8)
 	clampFloat(&value.NameBgOpacity, 0, 1)
 	clampFloat(&value.BarOpacity, 0.1, 1)
-	clampFloat(&value.ObscuringPictureOpacity, 0.25, 0.7)
 	clampInt(&value.NameHealthBarThickness, 1, 8)
 	clampInt(&value.MaxNightLevel, 0, 100)
 
@@ -344,8 +343,6 @@ var gsdef settings = settings{
 	HideSelfNameTag:               false,
 	NameTagsOnHoverOnly:           false,
 	BarOpacity:                    0.66,
-	ObscuringPictureOpacity:       0.66,
-	FadeObscuringPictures:         true,
 	SpeechBubbles:                 true,
 	AnimatedChatBubbles:           false,
 	AvoidBubbleOverlap:            true,
@@ -598,26 +595,24 @@ type settings struct {
 	SmoothNameTagMotion    bool
 	HideSelfNameTag        bool
 	// NameTagsOnHoverOnly hides name tags unless the cursor is over a mobile.
-	NameTagsOnHoverOnly     bool
-	BarOpacity              float64
-	ObscuringPictureOpacity float64
-	FadeObscuringPictures   bool
-	SpeechBubbles           bool
-	AnimatedChatBubbles     bool
-	AvoidBubbleOverlap      bool
-	BubbleNormal            bool
-	BubbleWhisper           bool
-	BubbleYell              bool
-	BubbleThought           bool
-	BubbleRealAction        bool
-	BubbleMonster           bool
-	BubblePlayerAction      bool
-	BubblePonder            bool
-	BubbleNarrate           bool
-	BubbleSelf              bool
-	BubbleOtherPlayers      bool
-	BubbleMonsters          bool
-	BubbleNarration         bool
+	NameTagsOnHoverOnly bool
+	BarOpacity          float64
+	SpeechBubbles       bool
+	AnimatedChatBubbles bool
+	AvoidBubbleOverlap  bool
+	BubbleNormal        bool
+	BubbleWhisper       bool
+	BubbleYell          bool
+	BubbleThought       bool
+	BubbleRealAction    bool
+	BubbleMonster       bool
+	BubblePlayerAction  bool
+	BubblePonder        bool
+	BubbleNarrate       bool
+	BubbleSelf          bool
+	BubbleOtherPlayers  bool
+	BubbleMonsters      bool
+	BubbleNarration     bool
 
 	MotionSmoothing                bool
 	InterpolateSmallMovingPictures bool
@@ -1619,7 +1614,6 @@ func restoreWindowsAfterScale() {
 
 type qualityPreset struct {
 	artworkUpscaleMode       int
-	fadeObscuringPictures    bool
 	precacheSounds           bool
 	windowShadows            bool
 	characterShadows         bool
@@ -1648,7 +1642,6 @@ var (
 	}
 	highPreset = qualityPreset{
 		artworkUpscaleMode:       artworkUpscaleBalanced,
-		fadeObscuringPictures:    true,
 		precacheSounds:           true,
 		windowShadows:            true,
 		characterShadows:         true,
@@ -1660,7 +1653,6 @@ var (
 	}
 	ultraPreset = qualityPreset{
 		artworkUpscaleMode:       artworkUpscaleBalanced,
-		fadeObscuringPictures:    true,
 		precacheSounds:           true,
 		windowShadows:            true,
 		characterShadows:         true,
@@ -1690,7 +1682,6 @@ func applyQualityPreset(name string) {
 	}
 
 	setArtworkUpscaleMode(p.artworkUpscaleMode)
-	gs.FadeObscuringPictures = p.fadeObscuringPictures
 	gs.PrecacheSounds = p.precacheSounds
 	gs.WindowShadows = p.windowShadows
 	gs.CharacterShadows = p.characterShadows
@@ -1708,9 +1699,6 @@ func applyQualityPreset(name string) {
 	}
 	if qualityRenderScaleSlider != nil {
 		qualityRenderScaleSlider.Value = float32(gs.GameScale)
-	}
-	if fadeObscuringCB != nil {
-		fadeObscuringCB.Checked = gs.FadeObscuringPictures
 	}
 	if precacheSoundCB != nil {
 		precacheSoundCB.Checked = gs.PrecacheSounds
@@ -1755,7 +1743,6 @@ func applyQualityPreset(name string) {
 
 func matchesPreset(p qualityPreset) bool {
 	return artworkUpscaleMode() == p.artworkUpscaleMode &&
-		gs.FadeObscuringPictures == p.fadeObscuringPictures &&
 		gs.PrecacheSounds == p.precacheSounds &&
 		gs.WindowShadows == p.windowShadows &&
 		gs.CharacterShadows == p.characterShadows &&

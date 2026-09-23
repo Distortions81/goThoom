@@ -90,7 +90,6 @@ func TestApplyRecommendedSettingsChangesOnlyRecommendedValues(t *testing.T) {
 	value.MotionSmoothing = false
 	value.BlendMobiles = true
 	value.DenoiseImages = true
-	value.FadeObscuringPictures = false
 
 	changes := recommendedSettingsChanges(value, environment)
 	if len(changes) != 23 {
@@ -100,7 +99,7 @@ func TestApplyRecommendedSettingsChangesOnlyRecommendedValues(t *testing.T) {
 	if changes := recommendedSettingsChanges(value, environment); len(changes) != 0 {
 		t.Fatalf("recommended settings still differ after applying: %v", changes)
 	}
-	if !value.ClickToToggle || value.MotionSmoothing || !value.BlendMobiles || !value.DenoiseImages || value.FadeObscuringPictures {
+	if !value.ClickToToggle || value.MotionSmoothing || !value.BlendMobiles || !value.DenoiseImages {
 		t.Fatal("applying recommendations changed an excluded or unrelated setting")
 	}
 	if value.GameScale != 4 {
@@ -212,7 +211,6 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 	wantChecks := map[string]bool{
 		"Dark mode names/bubbles": false,
 		"Speech bubbles":          false,
-		"Fade obscuring objects":  false,
 		"Show toolbar info bar":   false,
 	}
 	var visit func(*eui.ItemData)
@@ -534,7 +532,7 @@ func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 		t.Fatal("graphics detection retained samples from the previous run")
 	}
 	if !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.WindowShadows ||
-		!gs.MobilesReceiveSunShadows || !gs.FadeObscuringPictures || !gs.MusicEnhancement ||
+		!gs.MobilesReceiveSunShadows || !gs.MusicEnhancement ||
 		!gs.SoundEnhancement || gs.SoundEnhancementAmount != 2 ||
 		gs.GameScale != originalSettings.GameScale || artworkUpscaleMode() != artworkUpscaleBalanced {
 		t.Fatal("graphics detection did not apply High before sampling")

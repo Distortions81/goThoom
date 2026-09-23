@@ -326,8 +326,10 @@ phase, lead, reply timing, RTT floor, jitter/loss samples, fallback state, and
 cooldowns are also session measurements and are never written to
 `settings.json`.
 
-This prevents one server session's timing from becoming a stale or
-self-amplifying input to the next session.
+NLSPT uses original timing while learning and when packet loss, uneven frame
+arrivals, or slow command replies make prediction unreliable. Stats shows why
+it is paused. After the connection settles, prediction resumes with an earlier
+send time and waits before trying later sends again.
 
 ### Debug Settings
 

@@ -1296,29 +1296,6 @@
           ]
         },
         {
-          "label": "Fade objects obscuring mobiles",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            558,
-            335,
-            24
-          ]
-        },
-        {
-          "label": "Obscuring Object Opacity",
-          "help": "Lower values make covering artwork more transparent\nwhile it is faded.",
-          "kind": "Slider",
-          "value": "0.66 (range 0.25\u20130.7)",
-          "rect": [
-            24,
-            586,
-            325,
-            44
-          ]
-        },
-        {
           "label": "Enable Sprite Gamma Correction",
           "help": "Compensates classic artwork for modern displays; disable if\ncolors look washed out.",
           "kind": "Checkbox",
@@ -1468,29 +1445,6 @@
             484,
             335,
             24
-          ]
-        },
-        {
-          "label": "Fade objects obscuring mobiles",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            558,
-            335,
-            24
-          ]
-        },
-        {
-          "label": "Obscuring Object Opacity",
-          "help": "Lower values make covering artwork more transparent\nwhile it is faded.",
-          "kind": "Slider",
-          "value": "0.66 (range 0.25\u20130.7)",
-          "rect": [
-            24,
-            586,
-            325,
-            44
           ]
         },
         {

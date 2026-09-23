@@ -152,6 +152,11 @@ func (s *sessionInputState) next() inputState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.queue) > 0 {
+		if !gs.MotionSmoothing {
+			// Switching to classic movement also drops any older queued targets.
+			s.queue[0] = s.queue[len(s.queue)-1]
+			s.queue = s.queue[:1]
+		}
 		input := s.queue[0]
 		s.latest = input
 		s.queue = s.queue[1:]
@@ -177,17 +182,39 @@ func (s *sessionInputState) enqueue(input inputState) {
 		return
 	}
 	s.mu.Lock()
+	if !gs.MotionSmoothing {
+		// Classic samples current movement at the send opportunity. In
+		// particular, a release must supersede an unsent direction change.
+		s.queue = s.queue[:0]
+		if s.latest != input {
+			s.queue = append(s.queue, input)
+		}
+		s.mu.Unlock()
+		return
+	}
 	switch len(s.queue) {
 	case 0:
 		if s.latest != input {
 			s.queue = append(s.queue, input)
 		}
 	case 1:
-		if s.queue[0] != input {
+		if s.queue[0].mouseDown == input.mouseDown || s.queue[0].mouseDown == s.latest.mouseDown {
+			// Replace unsent direction/hover changes, including a direction
+			// superseded by release. Only an unsent button transition needs
+			// its own send opportunity to preserve a short click.
+			s.queue[0] = input
+			if input == s.latest {
+				s.queue = s.queue[:0]
+			}
+		} else {
 			s.queue = append(s.queue, input)
 		}
 	default:
-		if s.queue[len(s.queue)-1] != input {
+		if s.queue[0].mouseDown == input.mouseDown {
+			// The latest state supersedes the pending return transition.
+			s.queue[0] = input
+			s.queue = s.queue[:1]
+		} else {
 			s.queue[len(s.queue)-1] = input
 		}
 	}

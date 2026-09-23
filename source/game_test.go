@@ -403,7 +403,7 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	// Once the hold expires, successful replies must not probe later across
 	// the boundary that already caused a full-frame miss.
 	for i := 0; i < pnaSuccessesBeforeLater*3; i++ {
-		recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14,
+		recordPNACommandFeedback(90*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14,
 			holdUntil.Add(time.Duration(i+1)*time.Second))
 	}
 	primarySession.timing.controllerMu.Lock()
@@ -416,14 +416,14 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	// Once per long cooldown, make one much smaller later probe so a changed
 	// server boundary can eventually be discovered without a short limit cycle.
 	probeTime := missTime.Add(pnaBoundaryProbeInterval)
-	recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 15, probeTime)
+	recordPNACommandFeedback(90*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 15, probeTime)
 	primarySession.timing.controllerMu.Lock()
 	probeLead, probeFloor, nextProbe := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor, primarySession.timing.controller.nextBoundaryProbe
 	primarySession.timing.controllerMu.Unlock()
 	if probeLead != 62500*time.Microsecond || probeFloor != probeLead || nextProbe != probeTime.Add(pnaBoundaryProbeInterval) {
 		t.Fatalf("rare boundary probe = lead %v floor %v next %v", probeLead, probeFloor, nextProbe)
 	}
-	recordPNACommandFeedback(100*time.Millisecond, 137500*time.Microsecond, 200*time.Millisecond, 15, 16, probeTime.Add(time.Second))
+	recordPNACommandFeedback(90*time.Millisecond, 137500*time.Microsecond, 200*time.Millisecond, 15, 16, probeTime.Add(time.Second))
 	primarySession.timing.controllerMu.Lock()
 	heldProbeLead := primarySession.timing.controller.lead
 	primarySession.timing.controllerMu.Unlock()
@@ -433,7 +433,7 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 
 	// A miss following a probe moves the floor earlier and restarts cooldown.
 	secondMiss := probeTime.Add(2 * time.Second)
-	recordPNACommandFeedback(250*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 16, secondMiss)
+	recordPNACommandFeedback(249*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 16, secondMiss)
 	primarySession.timing.controllerMu.Lock()
 	secondLead, secondFloor, secondProbe := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor, primarySession.timing.controller.nextBoundaryProbe
 	primarySession.timing.controllerMu.Unlock()
@@ -445,7 +445,7 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 	originalEnabled := gs.AltNetMode
 	primarySession.timing.cadenceMu.Lock()
-	originalJitter := primarySession.timing.jitter
+	originalJitter, originalInterval := primarySession.timing.jitter, primarySession.timing.interval
 	primarySession.timing.cadenceMu.Unlock()
 	primarySession.frames.statsMu.Lock()
 	originalFrameBuckets, originalLostBuckets, originalBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
@@ -460,7 +460,7 @@ func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
 		primarySession.timing.cadenceMu.Lock()
-		primarySession.timing.jitter = originalJitter
+		primarySession.timing.jitter, primarySession.timing.interval = originalJitter, originalInterval
 		primarySession.timing.cadenceMu.Unlock()
 		primarySession.frames.statsMu.Lock()
 		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
@@ -495,7 +495,7 @@ func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 			interval := time.Second / time.Duration(scenario.rate)
 			gs.AltNetMode = true
 			primarySession.timing.cadenceMu.Lock()
-			primarySession.timing.jitter = scenario.jitter
+			primarySession.timing.jitter, primarySession.timing.interval = scenario.jitter, interval
 			primarySession.timing.cadenceMu.Unlock()
 			primarySession.timing.controllerMu.Lock()
 			primarySession.timing.controller = pnaControllerState{}
@@ -629,7 +629,7 @@ func TestPNAFallbackReason(t *testing.T) {
 	}
 }
 
-func TestPNAReplyTimeAndJitterNeverPauseTiming(t *testing.T) {
+func TestPNAHealthyConnectionDoesNotPauseTiming(t *testing.T) {
 	resetPNAFallback()
 	t.Cleanup(resetPNAFallback)
 	if usePNA, reason := pnaTimingStatus(0, time.Now()); !usePNA || reason != "" {

@@ -515,10 +515,6 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 		gs.SpeechBubbles = checked
 		settingsDirty = true
 	}, setupWizardPanelWidth))
-	displayPanel.AddItem(setupWizardCheckboxWidth("Fade obscuring objects", "Fade foreground artwork when it covers a character.", gs.FadeObscuringPictures, func(checked bool) {
-		gs.FadeObscuringPictures = checked
-		settingsDirty = true
-	}, setupWizardPanelWidth))
 	root.AddItem(panels)
 }
 

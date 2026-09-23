@@ -20,7 +20,6 @@ type tourPerformanceFixture struct {
 	frameData       [][]byte
 	initialScene    drawState
 	busyScene       drawState
-	obscuringScene  drawState
 	longestBubble   string
 	drawPacketCount int
 	movieVersion    uint16
@@ -122,7 +121,6 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 		playerName:    playerName,
 	}
 	bestSceneScore := -1
-	bestObscuringScore := -1
 	for _, frame := range frames {
 		fixture.frameData = append(fixture.frameData, frame.data)
 		if len(frame.data) < 2 || binary.BigEndian.Uint16(frame.data[:2]) != 2 {
@@ -137,11 +135,6 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 		if sceneScore > bestSceneScore {
 			bestSceneScore = sceneScore
 			fixture.busyScene = cloneDrawState(primarySession.draw.current)
-		}
-		obscuringScore := len(primarySession.draw.current.pictures) * len(primarySession.draw.current.mobiles)
-		if obscuringScore > bestObscuringScore {
-			bestObscuringScore = obscuringScore
-			fixture.obscuringScene = cloneDrawState(primarySession.draw.current)
 		}
 		for _, bubble := range primarySession.draw.current.bubbles {
 			if len(bubble.Text) > len(fixture.longestBubble) {
@@ -298,24 +291,6 @@ func BenchmarkCaptureBusySceneSnapshot(b *testing.B) {
 	}
 	b.ReportMetric(float64(len(fixture.busyScene.pictures)), "pictures/op")
 	b.ReportMetric(float64(len(fixture.busyScene.mobiles)), "mobiles/op")
-}
-
-func BenchmarkBusyScenePictureObscuring(b *testing.B) {
-	fixture := loadTourPerformanceFixture(b)
-	installTourBenchmarkGlobals(b, fixture)
-	scene := cloneDrawState(fixture.obscuringScene)
-	mobiles := make([]frameMobile, 0, len(scene.mobiles))
-	for _, mobile := range scene.mobiles {
-		mobiles = append(mobiles, mobile)
-	}
-	cachePictureObscuring(scene.pictures, mobiles, scene.descriptors, scene.prevMobiles, scene.logicalFrame)
-
-	b.ReportAllocs()
-	for b.Loop() {
-		cachePictureObscuring(scene.pictures, mobiles, scene.descriptors, scene.prevMobiles, scene.logicalFrame)
-	}
-	b.ReportMetric(float64(len(scene.pictures)), "pictures/op")
-	b.ReportMetric(float64(len(mobiles)), "mobiles/op")
 }
 
 func BenchmarkTourBubbleTextLayout(b *testing.B) {

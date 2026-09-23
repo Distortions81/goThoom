@@ -104,10 +104,6 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		var snap drawSnapshot
 		prepareSetupWizardSceneSnapshot(&snap, now)
 		viewportState := &viewportRenderState{}
-		if mode == setupWizardSceneDay && !setupWizardSceneHasObscuringPicture(snap) {
-			g.err = fmt.Errorf("daylight scene has no foreground picture obscuring the moving traveler")
-			break
-		}
 		if mode == setupWizardSceneDay {
 			probe := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
 			probe.Fill(color.RGBA{R: 120, G: 130, B: 140, A: 255})
@@ -153,17 +149,6 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		}
 	}
 	g.rendered = true
-}
-
-func setupWizardSceneHasObscuringPicture(snap drawSnapshot) bool {
-	for _, pictures := range [][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
-		for _, picture := range pictures {
-			if picture.obscuredPrev || picture.obscuredNow {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func verifyLightingCoordinates() error {

@@ -254,6 +254,7 @@ const (
 	pnaRecoveryPacketLossPercent  = 0.1
 	pnaFallbackCooldown           = 5 * time.Second
 	pnaTimingWarmupSamples        = 5
+	pnaHealthWindow               = 2 * time.Second
 	pnaFeedbackHold               = 30 * time.Second
 	pnaBoundaryProbeInterval      = 5 * time.Minute
 	pnaSuccessesBeforeLater       = 3
@@ -890,8 +891,6 @@ type worldRenderKey struct {
 	mobilesReceiveSunShadows                   bool
 	nightEffect                                bool
 	maxNightLevel, forceNightLevel             int
-	fadeObscuringPictures                      bool
-	obscuringPictureOpacity                    float64
 	speechBubbles, animatedChatBubbles         bool
 	expandEmojiNames                           bool
 	avoidBubbleOverlap                         bool
@@ -961,8 +960,6 @@ func currentSessionWorldRenderKey(session *Session, width, height int) worldRend
 		nightEffect:               gs.NightEffect,
 		maxNightLevel:             gs.MaxNightLevel,
 		forceNightLevel:           gs.forceNightLevel,
-		fadeObscuringPictures:     gs.FadeObscuringPictures,
-		obscuringPictureOpacity:   gs.ObscuringPictureOpacity,
 		speechBubbles:             gs.SpeechBubbles,
 		animatedChatBubbles:       gs.AnimatedChatBubbles,
 		avoidBubbleOverlap:        gs.AvoidBubbleOverlap,
@@ -2750,144 +2747,6 @@ func drawMobileSpriteOutline(screen, sprite *ebiten.Image, x, y, scale float64, 
 	}
 }
 
-func pictureObscuresMobileAt(pictID uint16, frame int, pictH, pictV int16, mob frameMobile, mobDesc frameDescriptor) bool {
-	if clImages == nil || clImages.IsSemiTransparent(uint32(pictID)) {
-		return false
-	}
-	w, h := clImages.Size(uint32(pictID))
-	if w <= 0 || h <= 0 {
-		return false
-	}
-	frames := clImages.NumFrames(uint32(pictID))
-	if frames > 1 {
-		h /= frames
-	}
-	size := mobileSize(mobDesc.PictID)
-	if size == 0 {
-		return false
-	}
-
-	picL := int(pictH) - w/2
-	picR := picL + w
-	picT := int(pictV) - h/2
-	picB := picT + h
-	mL := int(mob.H) - size/2
-	mR := mL + size
-	mT := int(mob.V) - size/2
-	mB := mT + size
-	interL := picL
-	if mL > interL {
-		interL = mL
-	}
-	interR := picR
-	if mR < interR {
-		interR = mR
-	}
-	interT := picT
-	if mT > interT {
-		interT = mT
-	}
-	interB := picB
-	if mB < interB {
-		interB = mB
-	}
-	if interR <= interL || interB <= interT {
-		return false
-	}
-
-	picMask := clImages.AlphaMaskQuarter(uint32(pictID), false)
-	mobMask := clImages.AlphaMaskQuarter(uint32(mobDesc.PictID), true)
-	if picMask == nil || mobMask == nil {
-		return false
-	}
-
-	picFrameOffsetY := (frame * h) >> 2
-	picX0 := (interL - picL) >> 2
-	picY0 := picFrameOffsetY + ((interT - picT) >> 2)
-	picX1 := (interR - picL + 3) >> 2
-	picY1 := picFrameOffsetY + ((interB - picT + 3) >> 2)
-
-	mobFrameX := int(mob.State&0x0F) * size
-	mobFrameY := int(mob.State>>4) * size
-	mobX0 := (mobFrameX + (interL - mL)) >> 2
-	mobY0 := (mobFrameY + (interT - mT)) >> 2
-	mobX1 := (mobFrameX + (interR - mL) + 3) >> 2
-	mobY1 := (mobFrameY + (interB - mT) + 3) >> 2
-
-	if picX0 < 0 {
-		picX0 = 0
-	}
-	if picY0 < 0 {
-		picY0 = 0
-	}
-	if mobX0 < 0 {
-		mobX0 = 0
-	}
-	if mobY0 < 0 {
-		mobY0 = 0
-	}
-	if picX1 > picMask.W {
-		picX1 = picMask.W
-	}
-	if picY1 > picMask.H {
-		picY1 = picMask.H
-	}
-	if mobX1 > mobMask.W {
-		mobX1 = mobMask.W
-	}
-	if mobY1 > mobMask.H {
-		mobY1 = mobMask.H
-	}
-
-	width := picX1 - picX0
-	if w := mobX1 - mobX0; w < width {
-		width = w
-	}
-	height := picY1 - picY0
-	if h := mobY1 - mobY0; h < height {
-		height = h
-	}
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if picMask.Opaque(picX0+x, picY0+y) && mobMask.Opaque(mobX0+x, mobY0+y) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// pictureDrawsAfterMobileAt reports whether a picture at the given position
-// would be drawn after a mobile based on plane and sort order.
-func pictureDrawsAfterMobileAt(p framePicture, pictH, pictV int16, mobH, mobV int16, mobPlane int) bool {
-	if p.Plane > mobPlane {
-		return true
-	}
-	if p.Plane < mobPlane {
-		return false
-	}
-	if int(mobV) < int(pictV) {
-		return true
-	}
-	if int(mobV) > int(pictV) {
-		return false
-	}
-	return int(mobH) <= int(pictH)
-}
-
-func pictureMobileBoundsOverlap(pictH, pictV int16, pictW, pictHeight int, mob frameMobile, mobSize int) bool {
-	picL := int(pictH) - pictW/2
-	picT := int(pictV) - pictHeight/2
-	mobL := int(mob.H) - mobSize/2
-	mobT := int(mob.V) - mobSize/2
-	return picL < mobL+mobSize && mobL < picL+pictW &&
-		picT < mobT+mobSize && mobT < picT+pictHeight
-}
-
-func pictureEligibleForObscuring(p framePicture) bool {
-	return p.Plane >= 0 && !pictureSemiTransparent(p.PictID)
-}
-
 const obscuringBlockSize = 128
 
 type obscuringBlockKey struct {
@@ -2895,193 +2754,11 @@ type obscuringBlockKey struct {
 	y int
 }
 
-type obscuringMobileCandidate struct {
-	current    frameMobile
-	previous   frameMobile
-	descriptor frameDescriptor
-	size       int
-}
-
-type pictureObscuringScratch struct {
-	candidates     []obscuringMobileCandidate
-	currentBlocks  map[obscuringBlockKey][]int
-	previousBlocks map[obscuringBlockKey][]int
-	currentUsed    []obscuringBlockKey
-	previousUsed   []obscuringBlockKey
-	seen           []uint32
-	visit          uint32
-}
-
-func newPictureObscuringScratch() *pictureObscuringScratch {
-	return &pictureObscuringScratch{
-		currentBlocks:  make(map[obscuringBlockKey][]int),
-		previousBlocks: make(map[obscuringBlockKey][]int),
-	}
-}
-
-func (s *pictureObscuringScratch) reset() {
-	s.candidates = s.candidates[:0]
-	for _, key := range s.currentUsed {
-		s.currentBlocks[key] = s.currentBlocks[key][:0]
-	}
-	for _, key := range s.previousUsed {
-		s.previousBlocks[key] = s.previousBlocks[key][:0]
-	}
-	s.currentUsed = s.currentUsed[:0]
-	s.previousUsed = s.previousUsed[:0]
-}
-
-func (s *pictureObscuringScratch) addBlock(blocks map[obscuringBlockKey][]int, used *[]obscuringBlockKey, key obscuringBlockKey, candidateIndex int) {
-	entries := blocks[key]
-	if len(entries) == 0 {
-		*used = append(*used, key)
-	}
-	blocks[key] = append(entries, candidateIndex)
-}
-
-func (s *pictureObscuringScratch) prepareSeen(count int) {
-	if cap(s.seen) < count {
-		s.seen = make([]uint32, count)
-	} else {
-		s.seen = s.seen[:count]
-	}
-}
-
-func (s *pictureObscuringScratch) nextVisit() uint32 {
-	s.visit++
-	if s.visit == 0 {
-		clear(s.seen[:cap(s.seen)])
-		s.visit = 1
-	}
-	return s.visit
-}
-
-var pictureObscuringScratchPool = sync.Pool{
-	New: func() any { return newPictureObscuringScratch() },
-}
-
 func obscuringBlockCoordinate(v int) int {
 	if v < 0 {
 		return -((-v + obscuringBlockSize - 1) / obscuringBlockSize)
 	}
 	return v / obscuringBlockSize
-}
-
-func obscuringBlockRange(h, v int16, width, height int) (minX, maxX, minY, maxY int) {
-	left := int(h) - width/2
-	top := int(v) - height/2
-	return obscuringBlockCoordinate(left), obscuringBlockCoordinate(left + width),
-		obscuringBlockCoordinate(top), obscuringBlockCoordinate(top + height)
-}
-
-func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, logicalFrame int) {
-	if clImages == nil {
-		return
-	}
-	scratch := pictureObscuringScratchPool.Get().(*pictureObscuringScratch)
-	scratch.reset()
-	defer pictureObscuringScratchPool.Put(scratch)
-
-	for _, m := range mobiles {
-		d, ok := descMap[m.Index]
-		if !ok {
-			continue
-		}
-		size := mobileSize(d.PictID)
-		if size <= 0 {
-			continue
-		}
-		previous := m
-		if pm, ok := prevMobiles[m.Index]; ok {
-			previous = pm
-		}
-		candidateIndex := len(scratch.candidates)
-		scratch.candidates = append(scratch.candidates, obscuringMobileCandidate{current: m, previous: previous, descriptor: d, size: size})
-		minX, maxX, minY, maxY := obscuringBlockRange(m.H, m.V, size, size)
-		for blockY := minY; blockY <= maxY; blockY++ {
-			for blockX := minX; blockX <= maxX; blockX++ {
-				key := obscuringBlockKey{blockX, blockY}
-				scratch.addBlock(scratch.currentBlocks, &scratch.currentUsed, key, candidateIndex)
-			}
-		}
-		minX, maxX, minY, maxY = obscuringBlockRange(previous.H, previous.V, size, size)
-		for blockY := minY; blockY <= maxY; blockY++ {
-			for blockX := minX; blockX <= maxX; blockX++ {
-				key := obscuringBlockKey{blockX, blockY}
-				scratch.addBlock(scratch.previousBlocks, &scratch.previousUsed, key, candidateIndex)
-			}
-		}
-	}
-	scratch.prepareSeen(len(scratch.candidates))
-	for i := range pictures {
-		p := &pictures[i]
-		p.obscuredPrev = false
-		p.obscuredNow = false
-		if !pictureEligibleForObscuring(*p) {
-			continue
-		}
-		width, height := clImages.Size(uint32(p.PictID))
-		if width <= 0 || height <= 0 {
-			continue
-		}
-		if frames := clImages.NumFrames(uint32(p.PictID)); frames > 1 {
-			height /= frames
-		}
-		frame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
-		previousFrame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, pictureAnimationInstanceKey(p.PrevH, p.PrevV))
-		prevMinX, prevMaxX, prevMinY, prevMaxY := obscuringBlockRange(p.PrevH, p.PrevV, width, height)
-		visit := scratch.nextVisit()
-		for blockY := prevMinY; blockY <= prevMaxY && !p.obscuredPrev; blockY++ {
-			for blockX := prevMinX; blockX <= prevMaxX && !p.obscuredPrev; blockX++ {
-				for _, candidateIndex := range scratch.previousBlocks[obscuringBlockKey{blockX, blockY}] {
-					if scratch.seen[candidateIndex] == visit {
-						continue
-					}
-					scratch.seen[candidateIndex] = visit
-					c := scratch.candidates[candidateIndex]
-					if pictureDrawsAfterMobileAt(*p, p.PrevH, p.PrevV, c.previous.H, c.previous.V, c.descriptor.Plane) &&
-						pictureMobileBoundsOverlap(p.PrevH, p.PrevV, width, height, c.previous, c.size) {
-						p.obscuredPrev = pictureObscuresMobileAt(p.PictID, previousFrame, p.PrevH, p.PrevV, c.previous, c.descriptor)
-						if p.obscuredPrev {
-							break
-						}
-					}
-				}
-			}
-		}
-		currentMinX, currentMaxX, currentMinY, currentMaxY := obscuringBlockRange(p.H, p.V, width, height)
-		visit = scratch.nextVisit()
-		for blockY := currentMinY; blockY <= currentMaxY && !p.obscuredNow; blockY++ {
-			for blockX := currentMinX; blockX <= currentMaxX && !p.obscuredNow; blockX++ {
-				for _, candidateIndex := range scratch.currentBlocks[obscuringBlockKey{blockX, blockY}] {
-					if scratch.seen[candidateIndex] == visit {
-						continue
-					}
-					scratch.seen[candidateIndex] = visit
-					c := scratch.candidates[candidateIndex]
-					if pictureDrawsAfterMobileAt(*p, p.H, p.V, c.current.H, c.current.V, c.descriptor.Plane) &&
-						pictureMobileBoundsOverlap(p.H, p.V, width, height, c.current, c.size) {
-						p.obscuredNow = pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, c.current, c.descriptor)
-						if p.obscuredNow {
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-func pictureObscuringFadeAlpha(obscuredPrev, obscuredNow bool, opacity, fade float32) float32 {
-	prevAlpha := float32(1)
-	if obscuredPrev {
-		prevAlpha = opacity
-	}
-	targetAlpha := float32(1)
-	if obscuredNow {
-		targetAlpha = opacity
-	}
-	return prevAlpha + (targetAlpha-prevAlpha)*fade
 }
 
 func pictureCanPinToMobile(p framePicture, width, height int) bool {
@@ -3127,11 +2804,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
 	addPictureLightSourceForViewport(viewport, p, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
-	fadeAlpha := float32(1.0)
-	if gs.FadeObscuringPictures {
-		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
-	}
-	fadeAlpha *= shadowAlpha
+	fadeAlpha := shadowAlpha
 	effectFrame := 0
 	if clImages != nil {
 		effectFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
@@ -5173,6 +4846,12 @@ func (s *Session) recordPNACommandFeedback(reply, sentPhase, sentInterval time.D
 	if !gs.AltNetMode || reply <= 0 || sentInterval <= 0 || sentPhase < 0 || sentPhase > sentInterval || acknowledgedFrame <= sentFrame {
 		return
 	}
+	// A reply beyond the useful phase window cannot tell us where the next
+	// server boundary lies. Stop adding a predicted wait to this slow path.
+	if reply >= max(sentInterval+sentInterval/4, 50*time.Millisecond) {
+		s.timing.pausePNA("slow command replies", now)
+		return
+	}
 	recentLoss, _, _, _ := s.frames.packetLoss()
 	if usePNA, _ := s.timing.pnaStatus(recentLoss, now); !usePNA {
 		return
@@ -5234,7 +4913,7 @@ func (s *Session) recordPNACommandFeedback(reply, sentPhase, sentInterval time.D
 			}
 			controller.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
 			deadband := max(2*time.Millisecond, jitter/4)
-			if reply > baseMinimum+deadband {
+			if reply < sentInterval/2 && reply > baseMinimum+deadband {
 				step := minDuration((reply-baseMinimum)/8, sentInterval/40)
 				if step > 0 {
 					controller.learnedLeadFloor -= step
@@ -5248,10 +4927,12 @@ func (s *Session) recordPNACommandFeedback(reply, sentPhase, sentInterval time.D
 			controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 			return
 		}
+		// A long reply is not spare headroom: moving later can turn it
+		// into another missed server update on a slow connection.
 		controller.consecutiveHits++
 		deadband := max(2*time.Millisecond, jitter/4)
 		if controller.consecutiveHits >= pnaSuccessesBeforeLater &&
-			reply > minimum+deadband {
+			reply < sentInterval/2 && reply > minimum+deadband {
 			// Move later by only a fraction of the measured excess. Reply time
 			// changes as a consequence of this control output, so bounded steps
 			// keep the loop from amplifying its own feedback.
@@ -5263,8 +4944,7 @@ func (s *Session) recordPNACommandFeedback(reply, sentPhase, sentInterval time.D
 	controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 }
 
-// pnaFallbackReason pauses NLSPT only for meaningful recent packet loss. Reply
-// time and jitter are timing feedback for NLSPT itself, not reasons to disable it.
+// pnaFallbackReason reports the packet-loss part of the prediction health check.
 func pnaFallbackReason(recentLoss float64) string {
 	if recentLoss > pnaMaxRecentPacketLossPercent {
 		return "recent packet loss"
@@ -5282,15 +4962,57 @@ func pnaTimingStatus(recentLoss float64, now time.Time) (usePNA bool, reason str
 	return primarySession.timing.pnaStatus(recentLoss, now)
 }
 
-func (s *networkTimingState) pnaStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
-	s.fallbackMu.Lock()
-	defer s.fallbackMu.Unlock()
+// recentPhaseError reacts to individual late or bunched frames rather than
+// waiting for a spike to occupy five percent of the one-minute jitter window.
+func (s *networkTimingState) recentPhaseError(now time.Time) (time.Duration, time.Duration) {
+	s.cadenceMu.Lock()
+	defer s.cadenceMu.Unlock()
+	var worst time.Duration
+	cutoff := now.Add(-pnaHealthWindow)
+	for i := len(s.samples) - 1; i >= 0; i-- {
+		sample := s.samples[i]
+		if sample.at.Before(cutoff) {
+			break
+		}
+		if sample.at.After(now) {
+			continue
+		}
+		deviation := sample.value - s.interval
+		if deviation < 0 {
+			deviation = -deviation
+		}
+		worst = max(worst, deviation)
+	}
+	return s.interval, worst
+}
 
-	if reason := pnaFallbackReason(recentLoss); reason != "" {
-		s.fallback.activeUntil = now.Add(pnaFallbackCooldown)
-		s.fallback.reason = reason
+// pausePNA keeps the safer lead when prediction resumes. Do not immediately
+// probe later again after a bad network interval.
+func (s *networkTimingState) pausePNA(reason string, now time.Time) {
+	_, interval, jitter, _, _ := s.cadenceSnapshot()
+	s.fallbackMu.Lock()
+	s.fallback = pnaFallbackState{activeUntil: now.Add(pnaFallbackCooldown), reason: reason}
+	s.fallbackMu.Unlock()
+	s.controllerMu.Lock()
+	s.controller.initialized = true
+	s.controller.lead = clampPNALead(max(s.controller.lead, interval/2), pnaBaseLead(interval, jitter), interval)
+	s.controller.holdUntil = now.Add(pnaFeedbackHold)
+	s.controller.consecutiveHits = 0
+	s.controllerMu.Unlock()
+}
+
+func (s *networkTimingState) pnaStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
+	interval, phaseError := s.recentPhaseError(now)
+	reason = pnaFallbackReason(recentLoss)
+	if reason == "" && phaseError >= max(interval/4, 5*time.Millisecond) {
+		reason = "unstable frame timing"
+	}
+	if reason != "" {
+		s.pausePNA(reason, now)
 		return false, reason
 	}
+	s.fallbackMu.Lock()
+	defer s.fallbackMu.Unlock()
 	if s.fallback.activeUntil.IsZero() {
 		return true, ""
 	}
@@ -5299,6 +5021,9 @@ func (s *networkTimingState) pnaStatus(recentLoss float64, now time.Time) (usePN
 	}
 	if !pnaRecoveryReady(recentLoss) {
 		return false, "waiting for packet loss to clear"
+	}
+	if phaseError > max(interval/8, 2*time.Millisecond) {
+		return false, "waiting for frame timing to settle"
 	}
 	s.fallback = pnaFallbackState{}
 	return true, ""
@@ -5310,6 +5035,14 @@ func pnaFallbackExplanation(reason string, recentLoss float64) string {
 		return fmt.Sprintf("loss %.1f%% > %.1f%%; using original timing", recentLoss, pnaMaxRecentPacketLossPercent)
 	case "cooldown after recent packet loss":
 		return "loss cleared; holding original timing during cooldown"
+	case "unstable frame timing":
+		return "server frames are arriving unevenly; using original timing"
+	case "slow command replies":
+		return "command replies are too slow for prediction; using original timing"
+	case "cooldown after unstable frame timing", "cooldown after slow command replies":
+		return "holding original timing while the connection settles"
+	case "waiting for frame timing to settle":
+		return "waiting for steadier server frame arrivals"
 	case "waiting for packet loss to clear":
 		return "waiting for loss to fall below the recovery limit"
 	default:
@@ -5330,6 +5063,11 @@ func (s *Session) waitForPNASend(ctx context.Context) bool {
 		if !gs.AltNetMode {
 			return true
 		}
+		if _, resend := s.frames.snapshot(); resend != 0 {
+			// Recover missing state at this send opportunity rather than
+			// waiting for a predicted movement phase.
+			return true
+		}
 		recentLoss, _, _, _ := s.frames.packetLoss()
 		if usePNA, _ := s.timing.pnaStatus(recentLoss, time.Now()); !usePNA {
 			return true
@@ -5347,9 +5085,11 @@ func (s *Session) waitForPNASend(ctx context.Context) bool {
 		case <-timer.C:
 			latestFrameTime, _, _, _, _ := s.timing.cadenceSnapshot()
 			if latestFrameTime.After(frameTime) {
-				// A new frame raced the timer. Its phase is now authoritative;
-				// do not emit an extra input at the old frame boundary.
-				continue
+				// Never postpone the pending input into another server cycle.
+				s.timing.pausePNA("unstable frame timing", time.Now())
+				// This send covers the newly arrived frame too. Its queued
+				// notification must not immediately send a second input.
+				s.timing.drainWake()
 			}
 			return true
 		case <-s.timing.wake:
@@ -5359,8 +5099,14 @@ func (s *Session) waitForPNASend(ctx context.Context) bool {
 				default:
 				}
 			}
-			// The server frame arrived before the predicted send point. Treat
-			// it as the new phase origin rather than sending on the stale cycle.
+			latestFrameTime, _, _, _, _ := s.timing.cadenceSnapshot()
+			if latestFrameTime.After(frameTime) {
+				// A fresh frame beat our predicted send. Send now instead of
+				// restarting the wait, which can starve input during bursts.
+				s.timing.pausePNA("unstable frame timing", time.Now())
+				return true
+			}
+			// A queued notification for the same frame does not change its deadline.
 			continue
 		case <-ctx.Done():
 			if !timer.Stop() {
@@ -5383,9 +5129,9 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
 	var nextReliable time.Time
-	var lastPNASend time.Time
-	var lastPNASentInput inputState
-	var haveLastPNASentInput bool
+	var lastSend time.Time
+	var lastSentInput inputState
+	var haveLastSentInput bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -5407,12 +5153,16 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 		now := time.Now()
 		_, _, predictive := session.pnaCommandTiming(now)
 		commandPending := !session.commands.idle()
-		if predictive && haveLastPNASentInput && !pnaInputSendAllowed(lastPNASend, now, s != lastPNASentInput, commandPending) {
+		_, resend := session.frames.snapshot()
+		// Resend requests carry new protocol work even when movement is
+		// unchanged. Do not delay recovery behind redundant-input pacing.
+		if predictive && haveLastSentInput && !pnaInputSendAllowed(lastSend, now, s != lastSentInput, commandPending || resend != 0) {
 			continue
 		}
 		if now.After(nextReliable) && session.commands.idle() && tcpConn != nil {
 			reliable = true
-			// next packet will be 3 to 5 minutes from now
+			// Schedule attempts 3 to 5 minutes apart even if TCP fails,
+			// so subsequent movement can continue over UDP.
 			nextReliable = now.Add(3*time.Minute + time.Duration(rand.Intn(120))*time.Second)
 		}
 
@@ -5423,13 +5173,14 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 			err = sendSessionPlayerInput(session, udpConn, s.mouseX, s.mouseY, s.mouseDown, false)
 		}
 		if err != nil {
-			// ignore errors from dead connections
+			// A failed write must not suppress the next attempt.
+			continue
 		}
-		if predictive {
-			lastPNASend = now
-			lastPNASentInput = s
-			haveLastPNASentInput = true
-		}
+		// Include fallback sends, so prediction resumes against the actual
+		// last transmitted state rather than an older predictive input.
+		lastSend = now
+		lastSentInput = s
+		haveLastSentInput = true
 	}
 }
 

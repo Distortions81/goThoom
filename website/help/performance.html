@@ -63,7 +63,7 @@
 <tr><td>Lowest</td><td>Turns off the artwork upscale filter and the rendering/audio enhancements managed by presets.</td></tr>
 <tr><td>Low</td><td>Balanced artwork filtering and character shadows.</td></tr>
 <tr><td>Medium</td><td>Also enables sound precaching, window shadows, and lighting effects.</td></tr>
-<tr><td>High</td><td>Also fades obscuring scenery, blends world animation, lets characters receive sun shadows, and enhances sound effects and bard music.</td></tr>
+<tr><td>High</td><td>Also blends world animation, lets characters receive sun shadows, and enhances sound effects and bard music.</td></tr>
 <tr><td>Ultra</td><td>Also enables high-quality audio resampling.</td></tr>
 </tbody></table></div>
 <p>Choose a preset before fine-tuning: it changes the listed graphics and audio options together. Artwork scale, sprite packs, replacement effects, VSync, and power-saving settings are separate choices. A lower preset will not automatically turn off a sprite pack or replacement effect you enabled.</p>
@@ -99,8 +99,6 @@
 <h3 id="artwork-recipes">Choose a visual direction</h3>
 <ul><li><strong>For a sharper, more classic look:</strong> start with a crisper upscale style and compare Pixel-art scaling. If the picture still appears softened, turn off <strong>Blend Image Dithering</strong> and compare the result.</li><li><strong>For gentler edges:</strong> compare the smoother styles while standing still. Then walk through the scene; a treatment you like in a still image may look different in motion.</li><li><strong>If artwork looks washed out:</strong> compare Enable Sprite Gamma Correction before adjusting several brightness settings. Sprite Gamma describes the source artwork’s brightness encoding; Monitor Gamma describes the target response. They are not two independent brightness boosts.</li></ul>
 <p><strong>Blend Image Dithering</strong> processes the artwork’s alternating pixel patterns. Its Denoise strength and Sharpness controls alter that treatment; judge both the intended smoothing and any fine detail you want to keep.</p>
-<h3 id="scenery-visibility">See characters behind scenery</h3>
-<p><strong>Fade objects obscuring mobiles</strong> makes obstructing artwork less opaque. Its opacity value controls how much of the object remains visible while faded. This changes visibility, not collision: being able to see through an object does not mean your character can walk through it.</p>
 </section>
 <section id="sprite-packs" class="manual-section"><h2 id="install-a-sprite-pack">Install a sprite pack</h2>
 <p><strong>Settings → Performance → Artwork → Use sprite pack files</strong> replaces supported static pictures with artwork you install. It starts off. The replacement keeps the original picture’s game size and position; a higher-resolution file adds detail without enlarging the object. This is separate from both upscaling the original pixels and the animated <a href="#replacement-effects">Replacement Effects</a>.</p>

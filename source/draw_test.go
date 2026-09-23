@@ -147,36 +147,6 @@ func TestModernNameColorsAreIndependentFromHealth(t *testing.T) {
 	}
 }
 
-func TestPictureObscuringFadeUsesCachedUpdateStates(t *testing.T) {
-	const opacity = float32(0.4)
-	if got := pictureObscuringFadeAlpha(false, true, opacity, 0.25); got != 0.85 {
-		t.Fatalf("fade into obscuring = %v, want 0.85", got)
-	}
-	if got := pictureObscuringFadeAlpha(true, false, opacity, 0.25); got != 0.55 {
-		t.Fatalf("fade out of obscuring = %v, want 0.55", got)
-	}
-	if got := pictureObscuringFadeAlpha(true, true, opacity, 0.75); got != opacity {
-		t.Fatalf("steady obscuring = %v, want %v", got, opacity)
-	}
-}
-
-func TestPictureEligibleForObscuringIncludesPlaneZero(t *testing.T) {
-	original := pictureSemiTransparent
-	pictureSemiTransparent = func(uint16) bool { return false }
-	t.Cleanup(func() { pictureSemiTransparent = original })
-
-	if !pictureEligibleForObscuring(framePicture{PictID: 1, Plane: 0}) {
-		t.Fatal("plane-zero foreground picture was excluded from mobile occlusion")
-	}
-	if pictureEligibleForObscuring(framePicture{PictID: 1, Plane: -1}) {
-		t.Fatal("negative-plane background picture was included in mobile occlusion")
-	}
-	pictureSemiTransparent = func(uint16) bool { return true }
-	if pictureEligibleForObscuring(framePicture{PictID: 1, Plane: 1}) {
-		t.Fatal("semi-transparent picture was included in mobile occlusion")
-	}
-}
-
 func mockCLImages(w, h int) *climg.CLImages {
 	imgs := &climg.CLImages{}
 	v := reflect.ValueOf(imgs).Elem()

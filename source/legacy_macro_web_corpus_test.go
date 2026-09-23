@@ -782,6 +782,10 @@ func TestLegacyMacroMovePlayerQueuesReferenceInput(t *testing.T) {
 	})
 
 	legacyMacroMovePlayer(legacyMacroMove{Direction: legacyMacroMoveSouthWest})
+	wantMove := inputState{mouseX: int16(-float64(fieldCenterX) * walkSpeed), mouseY: int16(float64(fieldCenterY) * walkSpeed), mouseDown: true}
+	if got := primarySession.input.latestSnapshot(); got != wantMove {
+		t.Fatalf("macro direction = %+v, want %+v", got, wantMove)
+	}
 	legacyMacroMovePlayer(legacyMacroMove{Direction: legacyMacroMoveStop})
 	if !legacyMacroMovedThisFrame() {
 		t.Fatal("macro movement was not marked for the current input frame")
@@ -790,10 +794,9 @@ func TestLegacyMacroMovePlayerQueuesReferenceInput(t *testing.T) {
 	primarySession.input.mu.Lock()
 	got := append([]inputState(nil), primarySession.input.queue...)
 	primarySession.input.mu.Unlock()
-	want := []inputState{
-		{mouseX: int16(-float64(fieldCenterX) * walkSpeed), mouseY: int16(float64(fieldCenterY) * walkSpeed), mouseDown: true},
-		{mouseX: 12, mouseY: -7},
-	}
+	// Both macro actions occurred before a send. The stop supersedes the
+	// unsent direction, just as a manual release does while already moving.
+	want := []inputState{{mouseX: 12, mouseY: -7}}
 	if len(got) != len(want) {
 		t.Fatalf("queued input = %#v, want %#v", got, want)
 	}

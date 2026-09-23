@@ -9,7 +9,6 @@ import (
 
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
-		"fade obscuring pictures":          gsdef.FadeObscuringPictures,
 		"smooth movement":                  gsdef.MotionSmoothing,
 		"floating-point coordinates":       gsdef.FloatingPointSpriteCoords,
 		"world animation blending":         gsdef.BlendPicts,
