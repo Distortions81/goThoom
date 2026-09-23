@@ -194,7 +194,7 @@ macros accept MacRoman files.
 
 ## Bard tunes
 
-Open **Tools → Bard Tools** to create, import, and edit UTF-8 `.gttune` files in `Tunes/`.
+Open **Tools → Palette** and choose **Window: Bard** to create, import, and edit UTF-8 `.gttune` files in `Tunes/`.
 Existing `.tune` and `.txt` notation files remain supported. Import saves a new
 `.gttune` copy and leaves the original untouched.
 Choose **Help** for the built-in guide to bard controls, notation, and performing

@@ -1,31 +1,25 @@
 goThoom 61 changes since test60.
 
+Movement and networking:
+- Direction changes and stopping respond more promptly with motion smoothing on or off. Smoothing off follows classic-client movement behavior; smoothing on preserves short clicks.
+- NLSPT adapts more cautiously to slow or unstable connections, using original timing until conditions improve. Movement stays current during connection recovery.
+
 Editors:
-- Create and edit legacy macros and Go scripts in the client, with syntax highlighting, search, clipboard shortcuts, undo/redo, and indentation controls.
-- Format drafts on opening or saving, or use Format at any time. Formatting preserves the selection and can be undone.
-- Check drafts before applying them, including advisory lint warnings for legacy macros. Save & Reload updates the selected session, and unsaved drafts are protected when closing an editor or quitting.
-- Syntax colors follow the active color theme or a saved custom palette. The editor's gear shortcut opens Settings → Text for Editor Colors and the shared Editor Text Size slider. Text size is saved across sessions and can also be adjusted with Ctrl+plus/minus or Ctrl+scroll.
-- Edit TTS pronunciation substitutions from Settings → TTS and apply them to future speech.
-- Edit color and style themes from Settings → Display. Click inline color swatches to open the color picker, preview transparency, and change colors with undo support. Save & Apply selects the edited theme.
-- Legacy macros retain MacRoman compatibility. Go scripts, notes, TTS substitutions, and theme/style files use Unicode (UTF-8).
+- Create and edit legacy macros and Go scripts directly in the client, with syntax highlighting, search, word wrap, clipboard shortcuts, undo/redo, and formatting.
+- Check drafts before applying them, then Save & Reload in the selected session. Unsaved drafts are protected when closing editors or quitting.
+- Customize syntax colors and editor text size. Editor toolbars wrap to fit narrow windows.
+- Edit TTS pronunciation substitutions, color themes, and style themes in Settings. Theme editors include color pickers, transparency previews, and undo support.
 
 Personal notes:
-- Tools → Personal Notes stores global or player-specific notes with subjects, tags, and a plain-text body.
-- Filter notes by player and scope, search subjects and tags, and edit their details or text. Trashed notes remain recoverable in the user data folder.
+- Tools → Personal Notes stores global or player-specific notes with subjects, tags, and searchable text.
+- Filter notes by player or scope. Deleted notes remain recoverable from the user data folder.
 
-Bard tunes:
-- Includes Three Lanterns, an original 48-second trio for Pine Flute, Starbuck Harp, and Gutbucket Bass, with staggered entrances and a shared ending for practice and testing.
-- Tools → Bard Tools manages a shared Tunes folder with new/import actions and tune search. Choose your part and its saved instrument together in the main window; instrument changes apply to the song shared by all your characters.
-- Edit tunes with syntax colors and notation checks, preview drafts locally, or perform saved tunes using an instrument from the selected character's inventory or instrument case. Long songs split into game commands automatically.
-- When retrieving an instrument with a full pack, Bard Tools puts one carried instrument away to make room. More… → Put All Instruments Away returns carried instruments to the case. More… also holds file actions and Delete Song, which asks for confirmation.
-- Duet / Trio sets up partners and sends assigned music parts as readable, numbered private sunstone messages with song and instrument details. Players on other clients can copy the segments together. Optional receiving accepts parts only from listed partners and saves them as new tunes without starting playback.
-- Tune files use Clan Lord comments for song details, instruments, and named parts. Existing semicolon comments and metadata remain supported.
-- Bard Tools follows the active session and remembers each character's song, part, partners, and receiving choice. Performances, instrument transfers, and part messages continue when switching tabs, so one client can perform every part of a duet or trio.
-- Listen and Perform group local preview and in-game playback, with separate stop controls. Play in Game reviews the song, character, part, and instrument before performing.
+Movies and visuals:
+- Improved lighting and shadow compatibility with classic-client movies, including the starting state of new recordings.
+- Removed automatic fading of objects that cover characters.
 
 Interface:
 - Spelling corrections open only when right-clicking an underlined word and dismiss when the pointer moves away.
-- The main session tab's X disconnects and returns to login while keeping the tab open. The last remaining tab behaves the same way, including during login or reconnect attempts.
-- Single-button script toolbars omit a group label that repeats the button name.
-- Floating-window resize handles respond consistently at the edges and corners, including beside tiled-window dividers.
-- Editor toolbars wrap to fit narrow windows, and Text settings group font sizes in two columns.
+- Closing the main or last session disconnects and returns it to login while keeping the tab open.
+- Floating-window resize handles respond consistently at edges and corners, including beside tiled-window dividers.
+- Single-button script toolbars omit redundant group labels, and Text settings group font sizes in two columns.

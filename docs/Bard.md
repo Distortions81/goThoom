@@ -1,6 +1,6 @@
 # Bard tunes
 
-Open **Tools → Bard Tools** to manage tunes shared by all your characters.
+Open **Tools → Palette** and choose **Window: Bard** to manage tunes shared by all your characters.
 Choose **Help** for an offline, topic-by-topic guide to the controls, tune
 notation, instruments, group performances, sharing parts, and troubleshooting.
 
