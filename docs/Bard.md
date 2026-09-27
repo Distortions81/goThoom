@@ -231,10 +231,15 @@ Write notation directly, without `/use` commands or a macro wrapper:
 
 - `a` through `g` are eighth notes; uppercase letters are quarter notes.
 - A digit from `1` through `9` overrides a note's length in sixteenth notes.
-- `p` is a rest, `#` is sharp, and `.` is flat.
+- `p` is a rest, `#` is sharp, and `.` is flat. Modifiers can follow a length
+  digit and include spaces: `c4#`, `c # 4`, and `c#4` mean the same note.
+- `_` lets a note sound for its full written length, removing the usual gap
+  before the next note. For example, `c4_ d4` connects C to D.
 - `/` selects the high octave, `\` the low octave, and `=` resets it.
 - Parentheses repeat a phrase; `(cde)2` plays it twice.
-- `[ceg]` adds a chord on instruments that support chords.
+- `[ceg]` adds a chord on instruments that support chords. A finite chord can
+  play by itself or ring beyond the melody; notes and rests advance the position
+  before the next chord.
 - `@120` sets the tempo.
 
 MIDI files must be converted to CL tune notation before importing. Native

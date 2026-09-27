@@ -571,6 +571,14 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	if session == nil {
 		return false
 	}
+	// Server text is NUL-terminated. Movie indexing may pass the rest of the
+	// frame as well, including later messages and non-text packet fields.
+	if end := strings.IndexByte(s, 0); end >= 0 {
+		s = s[:end]
+	}
+	if end := bytes.IndexByte(raw, 0); end >= 0 {
+		raw = raw[:end]
+	}
 	orig := s
 	debugMusic := musicDebug
 	debug := func(msg string) {
@@ -751,7 +759,8 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 			}
 		}
 	}
-	notes = strings.Trim(notes, "/")
+	// Slashes after /N or /notes are octave instructions, including at a
+	// multipart boundary; they are part of the notation, not separators.
 
 	if stop {
 		handleSessionMusicParams(session, MusicParams{Stop: true, Who: who})

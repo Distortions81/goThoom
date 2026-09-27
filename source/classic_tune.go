@@ -1,44 +1,84 @@
 package main
 
-// Emulation details:
-// - We mirror CTuneBuilder’s tick math: a sixteenth = floor(9000/tempo) ticks
-//   (1/600s per tick). Non‑tied notes sound for ((beats-1)*sixteenth) + 90% of
-//   a sixteenth; ties sound for the full duration (beats*sixteenth). All note
-//   starts and durations are computed in ticks and converted to time at the end.
-// - Chords are scheduled at the current melody cursor without advancing it.
-//   Only rests/notes advance time. Chords require a melody timeline to exist
-//   (gating), but may ring across melody rests. Long-chord notes occupy voices
-//   until the same pitch toggles them off or the melody timeline ends.
-// - Instrument rules are enforced (melody/chord capability, 3‑octave ranges,
-//   Orga drum G/B restriction, polyphony), and volume uses linear 0–10 steps.
-
 import (
-	"strings"
 	"time"
 	"unicode"
 )
 
+// The classic clock uses 600 ticks/second and floor(9000/tempo) ticks per
+// sixteenth. Only melody notes and rests advance the cursor. Finite chords
+// retain their own durations; sustained chords end on a matching pitch or at
+// the end of the notation's timeline.
 type tuneParseErrorCode string
 
 const (
-	tuneErrorInvalidChord          tuneParseErrorCode = "invalid_chord"
-	tuneErrorPolyphonyOverflow     tuneParseErrorCode = "polyphony_overflow"
-	tuneErrorUnsupportedInstrument tuneParseErrorCode = "unsupported_instrument"
+	tuneErrorInvalidNote            tuneParseErrorCode = "invalid_note"
+	tuneErrorToneOverflow           tuneParseErrorCode = "tone_overflow"
+	tuneErrorInvalidChord           tuneParseErrorCode = "invalid_chord"
+	tuneErrorPolyphonyOverflow      tuneParseErrorCode = "polyphony_overflow"
+	tuneErrorUnsupportedInstrument  tuneParseErrorCode = "unsupported_instrument"
+	tuneErrorInvalidTempo           tuneParseErrorCode = "invalid_tempo"
+	tuneErrorInvalidTempoChange     tuneParseErrorCode = "invalid_tempo_change"
+	tuneErrorModifierNeedValue      tuneParseErrorCode = "modifier_need_value"
+	tuneErrorDuplicateEnding        tuneParseErrorCode = "duplicate_ending"
+	tuneErrorDuplicateDefaultEnding tuneParseErrorCode = "duplicate_default_ending"
+	tuneErrorEndingInChord          tuneParseErrorCode = "ending_in_chord"
+	tuneErrorEndingOutsideLoop      tuneParseErrorCode = "ending_outside_loop"
+	tuneErrorInvalidEndingIndex     tuneParseErrorCode = "invalid_ending_index"
+	tuneErrorTooManyLoops           tuneParseErrorCode = "too_many_marks"
+	tuneErrorUnmatchedLoop          tuneParseErrorCode = "unmatched_mark"
+	tuneErrorUnterminatedLoop       tuneParseErrorCode = "unterminated_loop"
+	tuneErrorUnterminatedChord      tuneParseErrorCode = "unterminated_chord"
+	tuneErrorUnmatchedComment       tuneParseErrorCode = "unmatched_comment"
+	tuneErrorUnterminatedComment    tuneParseErrorCode = "unterminated_comment"
+	tuneErrorTooLarge               tuneParseErrorCode = "tune_too_large"
 )
 
 type tuneParseError struct {
 	Code     tuneParseErrorCode
-	Position int
+	Position int // byte offset in the original notation, before loop expansion
 }
 
 func (e *tuneParseError) Error() string {
 	switch e.Code {
-	case tuneErrorInvalidChord:
-		return "too many chord notes are playing for this instrument"
-	case tuneErrorPolyphonyOverflow:
+	case tuneErrorInvalidNote:
+		return "invalid note or misplaced modifier"
+	case tuneErrorToneOverflow:
+		return "a sharp or flat puts this note outside the instrument's range"
+	case tuneErrorInvalidChord, tuneErrorPolyphonyOverflow:
 		return "too many chord notes are playing for this instrument"
 	case tuneErrorUnsupportedInstrument:
 		return "long chords are not supported on this instrument"
+	case tuneErrorInvalidTempo:
+		return "tempo must be between 60 and 180"
+	case tuneErrorInvalidTempoChange:
+		return "the tempo cannot change while chords are playing"
+	case tuneErrorModifierNeedValue:
+		return "a relative tempo change needs a value"
+	case tuneErrorDuplicateEnding:
+		return "a loop has duplicate numbered endings"
+	case tuneErrorDuplicateDefaultEnding:
+		return "a loop has more than one default ending"
+	case tuneErrorEndingInChord:
+		return "a chord cannot contain a loop ending"
+	case tuneErrorEndingOutsideLoop:
+		return "a loop ending must be inside a loop"
+	case tuneErrorInvalidEndingIndex:
+		return "use |1 through |9 for a loop ending"
+	case tuneErrorTooManyLoops:
+		return "too many nested loops (maximum six)"
+	case tuneErrorUnmatchedLoop:
+		return "unmatched loop ending"
+	case tuneErrorUnterminatedLoop:
+		return "unclosed loop"
+	case tuneErrorUnterminatedChord:
+		return "unclosed chord"
+	case tuneErrorUnmatchedComment:
+		return "unmatched comment ending"
+	case tuneErrorUnterminatedComment:
+		return "unclosed comment"
+	case tuneErrorTooLarge:
+		return "the expanded tune is too large"
 	default:
 		return "invalid tune"
 	}
@@ -50,21 +90,11 @@ type activeChordNote struct {
 	long       bool
 }
 
-// classicNotesFromTune parses a Clan Lord tune using logic modeled after the
-// classic client's CTuneBuilder. It returns absolute-scheduled notes with
-// durations in milliseconds based on the provided tempo and instrument.
-// This implementation aims to be faithful enough for playback parity:
-// - Digits 1..9 are beat-units; quarter note = 4 units; lowercase default 2, uppercase 4
-// - Note length is ~90% of the event duration (ratio_NoteRest=90)
-// - Rests (p) advance time by their duration (default 2)
-// - Chords [..] may have an optional duration digit; default 4; optional '$' for long-chord
-// - Ties '_' on single notes remove the inter-note gap by merging durations
-// - Octave modifiers + - = / \ as in classic builder (central=0, hi=/, low=\)
-// - Accidentals '#' (sharp) and '.' (flat)
-// - Tempo change @ [+|-|=][value]; bare '@' resets to 120
-// - Loops with alternate endings are expanded textually: (body|1end1|2end2!def)N
-// - Comments <...> are ignored; nested is allowed
 var strictCLTF = true
+
+func tuneTicksDuration(ticks int) time.Duration {
+	return time.Duration((int64(ticks)*int64(time.Second) + 300) / 600)
+}
 
 func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int) []Note {
 	notes, _ := parseClassicTune(tune, inst, tempo, velocity)
@@ -77,475 +107,259 @@ func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]
 }
 
 func parseClassicTuneTimeline(tune string, inst instrument, tempo int, velocity int) ([]Note, time.Duration, *tuneParseError) {
+	tokens, err := readTuneTokens(tune)
+	if err != nil {
+		return nil, 0, err
+	}
+	tokens = expandTuneTokens(tokens)
 	if tempo <= 0 {
 		tempo = 120
 	}
-	s := stripComments(tune)
-	s = expandLoopsClassic(s)
-	// State
-	octave := 0      // central octave
-	volMel10 := 10   // melody line volume 0..10
-	volCh10 := 10    // chord line volume 0..10 (set inside chords)
-	curMelTicks := 0 // melody timeline cursor in 1/600s ticks
-
-	// helper: classic sixteenth-note unit in 1/600s ticks (integer trunc like classic)
-	unitTicks := func() int { return int(9000.0 / float64(tempo)) }
-	// convert ticks to time.Duration
-	// Convert ticks -> duration with rounding (minimize cumulative drift)
-	ticksToDur := func(t int) time.Duration {
-		num := int64(t) * int64(time.Second)
-		return time.Duration((num + 600/2) / 600)
-	}
-
-	// Output notes and helpers for long-chord sustain and chord gating
+	octave, volMel10, volCh10, cursor := 0, 10, 10, 0
 	var notes []Note
-	chordIdx := []int{}                      // indices of notes that came from chord line (for gating)
-	activeChord := map[int]activeChordNote{} // MIDI key to occupied chord voice
-	// Tie-merge state for single-note melodies
-	lastMelIdx := -1
-	lastMelKey := -1
-	lastMelEnd := 0
-
-	i := 0
-	getDur := func(def float64) float64 {
-		if i < len(s) && s[i] >= '1' && s[i] <= '9' {
-			d := float64(s[i] - '0')
-			i++
-			return d
-		}
-		return def
+	active := map[int]activeChordNote{}
+	var chord []int
+	var chordStart tuneToken
+	inChord := false
+	fail := func(err *tuneParseError) ([]Note, time.Duration, *tuneParseError) {
+		return notes, tuneTicksDuration(cursor), err
 	}
-
-	for i < len(s) {
-		c := s[i]
-		// whitespace
-		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-			i++
-			continue
+	for _, token := range tokens {
+		for key, voice := range active {
+			if !voice.long && voice.logicalEnd <= cursor {
+				delete(active, key)
+			}
 		}
-		// octave
+		text, c := token.text, token.text[0]
+		unit := 9000 / tempo
 		switch c {
-		case '+':
-			if octave < 1 {
-				octave++
+		case '+', '-', '=', '/', '\\':
+			if token.silent {
+				continue
 			}
-			i++
-			continue
-		case '-':
-			if octave > -1 {
-				octave--
+			switch c {
+			case '+':
+				octave = min(octave+1, 1)
+			case '-':
+				octave = max(octave-1, -1)
+			case '=':
+				octave = 0
+			case '/':
+				octave = 1
+			case '\\':
+				octave = -1
 			}
-			i++
-			continue
-		case '=':
-			octave = 0
-			i++
-			continue
-		case '/':
-			octave = 1
-			i++
-			continue
-		case '\\':
-			octave = -1
-			i++
-			continue
-		}
-		// tempo change
-		if c == '@' {
-			i++
-			sign := byte(0)
-			if i < len(s) && (s[i] == '+' || s[i] == '-' || s[i] == '=') {
-				sign = s[i]
-				i++
+		case '%', '{', '}':
+			if token.silent {
+				continue
 			}
-			val := 0
-			for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-				val = val*10 + int(s[i]-'0')
-				i++
+			volume := &volMel10
+			if inChord {
+				volume = &volCh10
 			}
-			if val == 0 && sign == 0 {
-				tempo = 120
-			} else {
-				newTempo := tempo
-				switch sign {
-				case '+':
-					newTempo += val
-				case '-':
-					newTempo -= val
-				default:
-					newTempo = val
-				}
-				// Clamp per CLTF spec to 60..180
-				if newTempo < 60 {
-					newTempo = 60
-				}
-				if newTempo > 180 {
-					newTempo = 180
-				}
-				tempo = newTempo
-			}
-			continue
-		}
-		// volume modifiers (% {}): outside chords affect melody volume only
-		if c == '%' || c == '{' || c == '}' {
-			i++
-			d := 0
-			if i < len(s) && s[i] >= '1' && s[i] <= '9' {
-				d = int(s[i] - '0')
-				i++
+			digit := 0
+			if len(text) > 1 {
+				digit = int(text[1] - '0')
 			}
 			switch c {
 			case '%':
-				if d == 0 {
-					volMel10 = 10
-				} else {
-					volMel10 = d
+				*volume = digit
+				if digit == 0 {
+					*volume = 10
 				}
 			case '{':
-				if d == 0 {
-					volMel10 -= 1
-				} else {
-					volMel10 -= d
-				}
+				*volume -= max(digit, 1)
 			case '}':
-				if d == 0 {
-					volMel10 += 1
+				*volume += max(digit, 1)
+			}
+			*volume = max(1, min(*volume, 10))
+		case '@':
+			if !token.silent && (inChord || len(active) > 0) {
+				return fail(token.failure(tuneErrorInvalidTempoChange, 0))
+			}
+			nextTempo, parseErr := classicTempo(token, tempo)
+			if parseErr != nil {
+				return fail(parseErr)
+			}
+			tempo = nextTempo
+		case 'p':
+			if token.silent {
+				continue
+			}
+			units := 2
+			if len(text) > 1 {
+				units = int(text[1] - '0')
+			}
+			cursor += units * unit
+		case '[':
+			inChord, chordStart, chord = true, token, nil
+		case ']':
+			inChord = false
+			units, long := 4, false
+			if len(text) > 1 {
+				if text[1] == '$' {
+					long = true
 				} else {
-					volMel10 += d
+					units = int(text[1] - '0')
 				}
 			}
-			if volMel10 < 0 {
-				volMel10 = 0
+			if strictCLTF && long && !inst.longChord {
+				return fail(token.failure(tuneErrorUnsupportedInstrument, 1))
 			}
-			if volMel10 > 10 {
-				volMel10 = 10
+			if token.silent || len(chord) == 0 || inst.chord == 0 {
+				continue
 			}
-			continue
-		}
-		// rest
-		if c == 'p' {
-			i++
-			b := getDur(2)
-			durTicks := int(b) * unitTicks()
-			// rest advances melody time; clears tie context
-			curMelTicks += durTicks
-			lastMelIdx = -1
-			lastMelKey = -1
-			lastMelEnd = 0
-			continue
-		}
-		// chord
-		if c == '[' {
-			chordStart := i
-			i++
-			ks := []int{}
-			// chord-local: allow volume controls to set chord-line volume (persistent)
-			for i < len(s) && s[i] != ']' {
-				if s[i] == '+' || s[i] == '-' || s[i] == '=' || s[i] == '/' || s[i] == '\\' {
-					switch s[i] {
-					case '+':
-						if octave < 1 {
-							octave++
-						}
-					case '-':
-						if octave > -1 {
-							octave--
-						}
-					case '=':
-						octave = 0
-					case '/':
-						octave = 1
-					case '\\':
-						octave = -1
-					}
-					i++
+			// Reuse the classic pitch slot without erasing finite note events.
+			// A repeated sustained pitch instead ends the earlier long note.
+			occupied := make(map[int]bool, len(active))
+			for key, voice := range active {
+				occupied[key] = voice.long
+			}
+			for _, key := range chord {
+				if strictCLTF && !allowedNoteForInst(inst, key) {
 					continue
 				}
-				// chord-line volume controls
-				if s[i] == '%' || s[i] == '{' || s[i] == '}' {
-					tok := s[i]
-					i++
-					d := 0
-					if i < len(s) && s[i] >= '1' && s[i] <= '9' {
-						d = int(s[i] - '0')
-						i++
-					}
-					switch tok {
-					case '%':
-						if d == 0 {
-							volCh10 = 10
-						} else {
-							volCh10 = d
-						}
-					case '{':
-						if d == 0 {
-							volCh10 -= 1
-						} else {
-							volCh10 -= d
-						}
-					case '}':
-						if d == 0 {
-							volCh10 += 1
-						} else {
-							volCh10 += d
-						}
-					}
-					if volCh10 < 0 {
-						volCh10 = 0
-					}
-					if volCh10 > 10 {
-						volCh10 = 10
-					}
-					continue
-				}
-				if isNoteLetter(s[i]) {
-					key, _ := parseNotePitch(s, &i, octave)
-					if key >= 0 {
-						ks = append(ks, key)
-					}
-					continue
-				}
-				// skip unknown within chord
-				i++
-			}
-			if i < len(s) && s[i] == ']' {
-				i++
-			}
-			b := getDur(4)
-			long := false
-			if i < len(s) && s[i] == '$' {
-				long = true
-				i++
-			}
-			if len(ks) > 0 {
-				if strictCLTF && (!inst.hasChords || len(ks) > inst.polyphony) {
-					return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorInvalidChord, Position: chordStart}
-				}
-				if strictCLTF && long && !inst.longChord {
-					return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorUnsupportedInstrument, Position: i - 1}
-				}
-
-				// Finite chord voices become reusable after their logical duration,
-				// while long-chord voices remain occupied until the same note toggles
-				// them off or the song ends.
-				for key, active := range activeChord {
-					if !active.long && active.logicalEnd <= curMelTicks {
-						delete(activeChord, key)
-					}
-				}
-				// schedule chord notes at current melody time without advancing melody timeline
-				u := unitTicks()
-				// compute audible note duration with classic 90% rule
-				noteTicks := 0
-				if int(b) > 1 {
-					noteTicks = (int(b)-1)*u + (u*90)/100
-				} else {
-					noteTicks = (u * 90) / 100
-				}
-				baseVel := velocity * inst.chord / 100
-				// Linear mapping per classic: 0..10 => 0%..100% of base
-				v := (baseVel * volCh10) / 10
-				if v < 1 {
-					v = 1
-				} else if v > 127 {
-					v = 127
-				}
-				// Preflight the voice allocation. A chord can replace an active note;
-				// repeating a long note in another long chord toggles it off.
-				if strictCLTF {
-					occupied := make(map[int]bool, len(activeChord))
-					for key, active := range activeChord {
-						occupied[key] = active.long
-					}
-					for _, k := range ks {
-						key := k + inst.octave*12
-						if !allowedNoteForInst(inst, key) {
-							continue
-						}
-						if wasLong, exists := occupied[key]; exists {
-							delete(occupied, key)
-							if wasLong && long {
-								continue
-							}
-						}
-						if len(occupied) >= inst.polyphony {
-							return notes, ticksToDur(curMelTicks), &tuneParseError{Code: tuneErrorPolyphonyOverflow, Position: chordStart}
-						}
-						occupied[key] = long
-					}
-				}
-
-				for _, k := range ks {
-					key := k + inst.octave*12
-					if strictCLTF && !allowedNoteForInst(inst, key) {
+				if wasLong, found := occupied[key]; found {
+					delete(occupied, key)
+					if wasLong && long {
 						continue
 					}
-					if active, exists := activeChord[key]; exists {
-						if elapsed := ticksToDur(curMelTicks) - notes[active.noteIndex].Start; elapsed < notes[active.noteIndex].Duration {
-							notes[active.noteIndex].Duration = max(elapsed, 0)
-						}
-						delete(activeChord, key)
-						if active.long && long {
-							continue
-						}
+				}
+				if strictCLTF && len(occupied) >= inst.polyphony {
+					return fail(chordStart.failure(tuneErrorPolyphonyOverflow, 0))
+				}
+				occupied[key] = long
+			}
+			for _, key := range chord {
+				if strictCLTF && !allowedNoteForInst(inst, key) {
+					continue
+				}
+				if voice, found := active[key]; found {
+					if voice.long {
+						notes[voice.noteIndex].Duration = tuneTicksDuration(cursor) - notes[voice.noteIndex].Start
 					}
-					n := Note{Key: key, Velocity: v, Start: ticksToDur(curMelTicks), Duration: ticksToDur(noteTicks)}
-					notes = append(notes, n)
-					chordIdx = append(chordIdx, len(notes)-1)
-					activeChord[key] = activeChordNote{
-						noteIndex:  len(notes) - 1,
-						logicalEnd: curMelTicks + int(b)*u,
-						long:       long && inst.longChord,
+					delete(active, key)
+					if voice.long && long {
+						continue
 					}
 				}
+				notes = append(notes, Note{Key: key, Velocity: max(0, min(127, (velocity*inst.chord/100)*volCh10/10)), Start: tuneTicksDuration(cursor), Duration: tuneTicksDuration((units-1)*unit + unit*90/100)})
+				active[key] = activeChordNote{noteIndex: len(notes) - 1, logicalEnd: cursor + units*unit, long: long && inst.longChord}
 			}
-			continue
-		}
-		// single note
-		if isNoteLetter(c) {
-			key, tied := parseNotePitch(s, &i, octave)
-			b := 2.0
-			if unicode.IsUpper(rune(c)) {
-				b = 4.0
+		default: // The shared reader permits only note tokens here.
+			key, units, linked, parseErr := classicNote(token, inst, octave)
+			if parseErr != nil {
+				return fail(parseErr)
 			}
-			// optional duration override
-			if i < len(s) && s[i] >= '1' && s[i] <= '9' {
-				b = float64(s[i] - '0')
-				i++
-			}
-			// schedule melody note at current time, advance melody time
-			durTicks := int(b) * unitTicks()
-			// compute audible note duration per classic: tied => full else add 90% of the last unit
-			noteTicks := 0
-			if tied && lastMelIdx >= 0 && lastMelKey == (key+inst.octave*12) && lastMelEnd == curMelTicks {
-				// extend previous note fully by event duration
-				notes[lastMelIdx].Duration += ticksToDur(durTicks)
-				lastMelEnd = curMelTicks + durTicks
-				curMelTicks += durTicks
-				continue
-			} else {
-				u := unitTicks()
-				if int(b) > 1 {
-					noteTicks = (int(b)-1)*u + (u*90)/100
-				} else {
-					noteTicks = (u * 90) / 100
+			if inChord {
+				chord = append(chord, key)
+				if strictCLTF && (!inst.hasChords || len(chord) > inst.polyphony) {
+					return fail(chordStart.failure(tuneErrorInvalidChord, 0))
 				}
-			}
-			// Enforce instrument melody capability
-			if strictCLTF && !inst.hasMelody {
-				curMelTicks += durTicks
-				lastMelIdx = -1
-				lastMelKey = -1
-				lastMelEnd = 0
 				continue
 			}
-			// Range and instrument-specific restrictions
-			midiKey := key + inst.octave*12
-			if strictCLTF && !allowedNoteForInst(inst, midiKey) {
-				curMelTicks += durTicks
-				lastMelIdx = -1
-				lastMelKey = -1
-				lastMelEnd = 0
+			if token.silent {
 				continue
 			}
-			baseVel := velocity * inst.melody / 100
-			// Linear mapping per classic
-			v := (baseVel * volMel10) / 10
-			if v < 1 {
-				v = 1
-			} else if v > 127 {
-				v = 127
+			if !strictCLTF || inst.hasMelody && allowedNoteForInst(inst, key) {
+				ticks := (units-1)*unit + unit*90/100
+				if linked {
+					ticks = units * unit
+				}
+				notes = append(notes, Note{Key: key, Velocity: max(0, min(127, (velocity*inst.melody/100)*volMel10/10)), Start: tuneTicksDuration(cursor), Duration: tuneTicksDuration(ticks)})
 			}
-			n := Note{Key: midiKey, Velocity: v, Start: ticksToDur(curMelTicks), Duration: ticksToDur(noteTicks)}
-			notes = append(notes, n)
-			lastMelIdx = len(notes) - 1
-			lastMelKey = midiKey
-			lastMelEnd = curMelTicks + durTicks
-			curMelTicks += durTicks
-			continue
-		}
-		// unknown: skip
-		i++
-	}
-	// finalize any active long-chord notes at end-of-song (melody end)
-	if len(activeChord) > 0 {
-		for _, active := range activeChord {
-			if !active.long {
-				continue
-			}
-			idx := active.noteIndex
-			end := curMelTicks
-			if end < int(notes[idx].Start.Milliseconds()) {
-				end = int(notes[idx].Start.Milliseconds())
-			}
-			notes[idx].Duration = ticksToDur(end) - notes[idx].Start
+			cursor += units * unit
 		}
 	}
-
-	// chord–melody gating: if there is no melody timeline at all, drop all chord notes;
-	// otherwise, truncate chord notes to the melody end time.
-	if curMelTicks == 0 {
-		// filter out chord-originated notes
-		if len(chordIdx) == 0 {
-			return notes, ticksToDur(curMelTicks), nil
+	for _, voice := range active {
+		if voice.long {
+			notes[voice.noteIndex].Duration = tuneTicksDuration(cursor) - notes[voice.noteIndex].Start
 		}
-		keep := make([]bool, len(notes))
-		for i := range keep {
-			keep[i] = true
-		}
-		for _, idx := range chordIdx {
-			if idx >= 0 && idx < len(keep) {
-				keep[idx] = false
-			}
-		}
-		out := make([]Note, 0, len(notes)-len(chordIdx))
-		for i, n := range notes {
-			if keep[i] {
-				out = append(out, n)
-			}
-		}
-		return out, ticksToDur(curMelTicks), nil
 	}
-	// Otherwise clip chord notes that exceed melody end
-	for _, idx := range chordIdx {
-		if idx < 0 || idx >= len(notes) {
-			continue
-		}
-		st := int(notes[idx].Start.Milliseconds())
-		en := st + int(notes[idx].Duration.Milliseconds())
-		melEndMS := int((time.Duration(curMelTicks) * time.Second / 600).Milliseconds())
-		if en > melEndMS {
-			en = melEndMS
-		}
-		if en < st {
-			en = st
-		}
-		notes[idx].Duration = ms(en - st)
-	}
-	// Drop any zero-duration notes (edge cases after clipping)
+	// Keep explicit rests in the reported duration, and include finite chord
+	// tails even when there is no melody or the last melody note ends earlier.
+	duration := tuneTicksDuration(cursor)
 	out := notes[:0]
-	for _, n := range notes {
-		if n.Duration <= 0 {
+	for _, note := range notes {
+		if note.Duration <= 0 {
 			continue
 		}
-		out = append(out, n)
+		out = append(out, note)
+		duration = max(duration, note.Start+note.Duration)
 	}
-	return out, ticksToDur(curMelTicks), nil
+	return out, duration, nil
 }
 
-func ms(x int) time.Duration { return time.Duration(int64(x)) * time.Millisecond }
+func classicTempo(token tuneToken, current int) (int, *tuneParseError) {
+	value, sign := 0, byte(0)
+	for i := 1; i < len(token.text); i++ {
+		c := token.text[i]
+		if c == '+' || c == '-' || c == '=' {
+			sign = c
+			continue
+		}
+		value = value*10 + int(c-'0')
+		if value > 180 {
+			return 0, token.failure(tuneErrorInvalidTempo, i)
+		}
+	}
+	if token.silent {
+		return current, nil
+	}
+	if value == 0 {
+		if sign == '=' {
+			return 0, token.failure(tuneErrorInvalidTempo, 0)
+		}
+		if sign != 0 {
+			return 0, token.failure(tuneErrorModifierNeedValue, 0)
+		}
+		return 120, nil
+	}
+	switch sign {
+	case '+':
+		return min(180, current+value), nil
+	case '-':
+		return max(60, current-value), nil
+	}
+	if value < 60 {
+		return 0, token.failure(tuneErrorInvalidTempo, 0)
+	}
+	return value, nil
+}
 
-// allowedNoteForInst enforces classic instrument note-range and special-case
-// restrictions. Range: 3 octaves centered at instrument.octave offset.
-// Instrument-specific pitch-class restrictions are stored in the definition.
+func classicNote(token tuneToken, inst instrument, octave int) (key, units int, linked bool, err *tuneParseError) {
+	key = 60 + noteOffsetClassic(rune(token.text[0])) + (octave+inst.octave)*12
+	units = 2
+	if token.text[0] >= 'A' && token.text[0] <= 'G' {
+		units = 4
+	}
+	for i := 1; i < len(token.text); i++ {
+		switch token.text[i] {
+		case '#':
+			key++
+			if strictCLTF && (key > 60+inst.octave*12+24 || key >= 96) {
+				return 0, 0, false, token.failure(tuneErrorToneOverflow, i)
+			}
+		case '.':
+			key--
+			if strictCLTF && key < 60+inst.octave*12-12 {
+				return 0, 0, false, token.failure(tuneErrorToneOverflow, i)
+			}
+		case '_':
+			linked = true
+		default:
+			units = int(token.text[i] - '0')
+		}
+	}
+	return
+}
+
 func allowedNoteForInst(inst instrument, midi int) bool {
 	if !strictCLTF {
 		return true
 	}
 	base := 60 + inst.octave*12
-	min := base - 12
-	max := base + 24
-	if midi < min || midi > max {
+	if midi < base-12 || midi > base+24 {
 		return false
 	}
 	if inst.allowedNoteClass != 0 {
@@ -555,10 +369,7 @@ func allowedNoteForInst(inst instrument, midi int) bool {
 	return true
 }
 
-// map cdefgab to semitone offset from C (0)
-func isNoteLetter(b byte) bool {
-	return (b >= 'a' && b <= 'g') || (b >= 'A' && b <= 'G')
-}
+func isNoteLetter(b byte) bool { return b >= 'a' && b <= 'g' || b >= 'A' && b <= 'G' }
 
 func noteOffsetClassic(r rune) int {
 	switch unicode.ToLower(r) {
@@ -578,170 +389,4 @@ func noteOffsetClassic(r rune) int {
 		return 11
 	}
 	return -1
-}
-
-func parseNotePitch(s string, i *int, octave int) (int, bool) {
-	// starting at *i points to note letter
-	if *i >= len(s) {
-		return -1, false
-	}
-	c := rune(s[*i])
-	off := noteOffsetClassic(c)
-	if off < 0 {
-		return -1, false
-	}
-	*i = *i + 1
-	// accidental / tie / duration parsed outside except tie here
-	// handle immediate modifiers: '#' sharp, '.' flat, '_' tie marker recorded via return bool
-	tied := false
-	// consume chain of # . _ modifiers until non-mod char
-	for *i < len(s) {
-		ch := s[*i]
-		switch ch {
-		case '#':
-			off++
-			*i++
-		case '.':
-			off--
-			*i++
-		case '_':
-			tied = true
-			*i++
-		default:
-			goto done
-		}
-	}
-done:
-	// base MIDI middle C=60, octave 0 is central (C4)
-	midi := 60 + off + octave*12
-	return midi, tied
-}
-
-// stripComments removes <...> (nested) from s
-func stripComments(s string) string {
-	b := strings.Builder{}
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '<' {
-			depth++
-			continue
-		}
-		if c == '>' {
-			if depth > 0 {
-				depth--
-			}
-			continue
-		}
-		if depth == 0 {
-			b.WriteByte(c)
-		}
-	}
-	return b.String()
-}
-
-// expandLoopsClassic expands ( ... )N with optional indexed endings |1..|9 and default !
-func expandLoopsClassic(s string) string {
-	// recursive descent
-	var out strings.Builder
-	for i := 0; i < len(s); {
-		if s[i] != '(' {
-			out.WriteByte(s[i])
-			i++
-			continue
-		}
-		// find matching ) at same depth
-		i++
-		start := i
-		depth := 1
-		for i < len(s) && depth > 0 {
-			if s[i] == '(' {
-				depth++
-			} else if s[i] == ')' {
-				depth--
-			}
-			if depth == 0 {
-				break
-			}
-			i++
-		}
-		if i >= len(s) { // unmatched, write rest
-			out.WriteString(s[start-1:])
-			break
-		}
-		content := s[start:i]
-		i++ // skip ')'
-		// optional count digit
-		count := 1
-		if i < len(s) && s[i] >= '1' && s[i] <= '9' {
-			count = int(s[i] - '0')
-			i++
-		}
-		// split content at top-level endings
-		mainBody, endings, defEnd := splitEndings(content)
-		// expand
-		for iter := 1; iter <= count; iter++ {
-			out.WriteString(expandLoopsClassic(mainBody))
-			if e, ok := endings[iter]; ok {
-				out.WriteString(expandLoopsClassic(e))
-			} else if defEnd != "" {
-				out.WriteString(expandLoopsClassic(defEnd))
-			}
-		}
-	}
-	return out.String()
-}
-
-func splitEndings(content string) (main string, endings map[int]string, def string) {
-	endings = map[int]string{}
-	// scan content at depth 0 to locate |digit and !
-	type seg struct {
-		idx   int
-		kind  byte
-		label int
-	}
-	splits := []seg{}
-	depth := 0
-	for i := 0; i < len(content); i++ {
-		c := content[i]
-		if c == '[' || c == '<' || c == '(' {
-			depth++
-		}
-		if c == ']' || c == '>' || c == ')' {
-			if depth > 0 {
-				depth--
-			}
-		}
-		if depth == 0 && (c == '|' || c == '!') {
-			if c == '|' && i+1 < len(content) && content[i+1] >= '1' && content[i+1] <= '9' {
-				splits = append(splits, seg{idx: i, kind: '|', label: int(content[i+1] - '0')})
-			} else if c == '!' {
-				splits = append(splits, seg{idx: i, kind: '!'})
-			}
-		}
-	}
-	if len(splits) == 0 {
-		return content, endings, ""
-	}
-	main = content[:splits[0].idx]
-	for si := 0; si < len(splits); si++ {
-		start := splits[si].idx
-		// skip marker and label
-		if splits[si].kind == '|' {
-			start += 2
-		} else {
-			start += 1
-		}
-		end := len(content)
-		if si+1 < len(splits) {
-			end = splits[si+1].idx
-		}
-		segTxt := content[start:end]
-		if splits[si].kind == '|' {
-			endings[splits[si].label] = segTxt
-		} else {
-			def = segTxt
-		}
-	}
-	return
 }

@@ -23,14 +23,10 @@ func validateBardEnsembleScore(score bardScore, partners string) error {
 }
 
 func bardPartDuration(part bardPart) (time.Duration, error) {
-	tokens, err := bardNoteTokens(part.Text)
-	if err != nil {
-		return 0, err
-	}
 	if part.Instrument < 0 || part.Instrument >= len(instruments) {
 		return 0, fmt.Errorf("Choose an instrument.")
 	}
-	_, duration, parseErr := parseClassicTuneTimeline(strings.Join(tokens, ""), instruments[part.Instrument], 120, 100)
+	_, duration, parseErr := parseClassicTuneTimeline(part.Text, instruments[part.Instrument], 120, 100)
 	if parseErr != nil {
 		return 0, parseErr
 	}

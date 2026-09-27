@@ -139,10 +139,10 @@ c1: a sixteenth note.
 c6: a dotted quarter note.
 c8: a half note.
 p4: a quarter-note rest. Use lowercase p.
-At @120, c4 lasts half a second; c8 lasts one second. Length digits run from 1 through 9, so a whole-bar rest in 4/4 is p8 p8, not p16.
+At @120, c4 occupies half a second; c8 occupies one second. Notes normally end slightly before the next beat. Add _ to sound the full written length: c4_ d4 connects the C to the D without that gap. Length digits run from 1 through 9, so a whole-bar rest in 4/4 is p8 p8, not p16.
 
 Pitches and octaves:
-c# is C sharp; b. is B flat.
+c# is C sharp; b. is B flat. Modifiers can follow the length digit and have spaces: c4#, c # 4, and c#4 mean the same note.
 /c selects high C; following notes stay high until another octave instruction.
 \c selects low C; =c returns to middle C for the instrument.
 For example, =c /c =c \c =c plays middle, high, middle, low, middle.
@@ -160,17 +160,17 @@ For the complete Clan Lord notation reference, including relative tempo, volume,
 https://www.donaldsonworkshop.com/baraboo/cltf.html
 
 # Chords and volume
-A chord needs time supplied by the melody or a rest after it. On Starbuck Harp, try this complete tune:
+A chord starts at the current position. Notes or rests advance that position before the next chord. On Starbuck Harp, try this complete tune:
 
 <@title: Chord practice>
 <@instrument: Starbuck Harp>
 @120 [ceg]4 p4 [dfa]4 p4
 
-You should hear two half-second chords. [ceg]4 describes the first chord; p4 lets it sound while the melody rests. A bare [ceg] at the end of a tune has no following melody time. Use Check to catch missing time or instrument restrictions. Pine Flute cannot play this chord example; use a chord-capable instrument.
+The chords start half a second apart. [ceg]4 describes the first chord; p4 advances to the second chord while the melody rests. A finite chord keeps its duration at the end of a tune, so [ceg] also works by itself. Wait for chord notes to finish before changing tempo.
 
 For a melody over a chord, try [ceg]4 /c4 =. The high C sounds while the middle C-E-G chord plays; = restores the middle octave afterward. The chord and melody share that half-second rather than taking turns.
 
-%8 sets melody volume to 8 out of 10. Put the volume inside a chord to set the chord line separately: [%6ceg]4 p4. The volume setting continues until changed; %0 silences that line. Changing the Audio mixer's music volume affects what you hear locally, not the volume written into the song.
+%8 sets melody volume to 8 out of 10. Put the volume inside a chord to set the chord line separately: [%6ceg]4 p4. The volume setting continues until changed. Use %1 through %9 for quieter levels, or % to restore full volume. { lowers the level and } raises it, within 1 through 10. Changing the Audio mixer's music volume affects what you hear locally, not the volume written into the song.
 
 # Write an arrangement and song details
 Start with New, then replace the starter text with the example below. Choose Check, Preview, and Save. Both parts last four seconds at 120 BPM; the bass enters after two seconds.
@@ -228,7 +228,7 @@ Closing Duet / Trio keeps that session's receiving choice active. Closing the ma
 
 # Troubleshoot a specific problem
 Preview is silent:
-Check that music is enabled and audible in the Audio mixer. Then use Check in the editor. For a chord, make sure a note or rest follows it; [ceg]4 p4 gives a chord time to sound. If only the opening is silent, inspect starting rests: Three Lanterns' flute intentionally waits four seconds.
+Check that music is enabled and audible in the Audio mixer. Then use Check in the editor. If only the opening is silent, inspect starting rests: Three Lanterns' flute intentionally waits four seconds.
 
 Preview sounds like the old version:
 The main window reads the saved file. Save the editor draft, or use Preview inside the editor to hear unsaved changes. A changed Instrument choice also needs a new preview to hear it.

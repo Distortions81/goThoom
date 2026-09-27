@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package main
 
 import (
@@ -14,13 +11,13 @@ func TestInlineTempoIncrease(t *testing.T) {
 	if len(ns) != 2 {
 		t.Fatalf("expected 2 notes, got %d", len(ns))
 	}
-	// First note at 120 BPM: 237ms
-	if ns[0].Duration != 237*time.Millisecond {
-		t.Fatalf("first note dur=%v want 237ms", ns[0].Duration)
+	// First note at 120 BPM: 142 ticks.
+	if ns[0].Duration != classicTestDuration(142) {
+		t.Fatalf("first note dur=%v want 142 ticks", ns[0].Duration)
 	}
-	// Second note at 180 BPM: durMS=(2/4)*(60000/180)=166ms, gap=round(1500/180)=8ms => 158ms
-	if ns[1].Duration != 158*time.Millisecond {
-		t.Fatalf("second note dur=%v want 158ms", ns[1].Duration)
+	// Second note at 180 BPM: 100 ticks, with a 5-tick gap.
+	if ns[1].Duration != classicTestDuration(95) {
+		t.Fatalf("second note dur=%v want 95 ticks", ns[1].Duration)
 	}
 	// Start times: second note begins after first event's durMS=250ms
 	if ns[1].Start != 250*time.Millisecond {
@@ -34,9 +31,9 @@ func TestInlineTempoAbsolute(t *testing.T) {
 	if len(ns) != 2 {
 		t.Fatalf("expected 2 notes, got %d", len(ns))
 	}
-	// First note at 120 BPM: 237ms
-	if ns[0].Duration != 237*time.Millisecond {
-		t.Fatalf("first note dur=%v want 237ms", ns[0].Duration)
+	// First note at 120 BPM: 142 ticks.
+	if ns[0].Duration != classicTestDuration(142) {
+		t.Fatalf("first note dur=%v want 142 ticks", ns[0].Duration)
 	}
 	// Second note at 60 BPM: durMS=500ms, gap=25ms => 475ms
 	if ns[1].Duration != 475*time.Millisecond {
@@ -54,8 +51,8 @@ func TestInlineTempoResetDefault(t *testing.T) {
 	if ns[0].Duration != 475*time.Millisecond {
 		t.Fatalf("first note dur=%v want 475ms", ns[0].Duration)
 	}
-	// Second note after reset to default 120 BPM: 237ms
-	if ns[1].Duration != 237*time.Millisecond {
-		t.Fatalf("second note dur=%v want 237ms", ns[1].Duration)
+	// Second note after reset to 120 BPM: 142 ticks.
+	if ns[1].Duration != classicTestDuration(142) {
+		t.Fatalf("second note dur=%v want 142 ticks", ns[1].Duration)
 	}
 }

@@ -1,0 +1,8 @@
+goThoom 62 changes since test61.
+
+Bard music:
+- Corrected note and chord timing to follow classic notation more closely, including full-length _ notes and sustained chords.
+- Chords with a set duration can play on their own and finish ringing after the melody ends.
+- Note modifiers work in any order, with spaces or comments between them. Volume changes, tempo limits, and alternate loop endings follow classic-client rules.
+- Bard checking and playback report invalid notation consistently, including malformed chords, duplicate loop endings, out-of-range notes, and unclosed comments.
+- Long tunes and recorded concerts preserve octave changes and notation split across music messages.

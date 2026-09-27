@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestClassicInstrumentTable(t *testing.T) {
@@ -141,5 +142,126 @@ func TestChordOctaveChangePersistsIntoMelody(t *testing.T) {
 	}
 	if got := notes[2].Key - notes[0].Key; got != 12 {
 		t.Fatalf("melody octave change after chord = %d semitones, want 12", got)
+	}
+}
+
+func TestClassicTuneRepeatedChordNotes(t *testing.T) {
+	// CTuneBuilder::StuffChord (classic client 6ba334c) reuses the pitch's
+	// bookkeeping slot but appends another finite note event. Only long notes
+	// have their previously written duration changed by a repeated pitch.
+	const twoUnits = 250 * time.Millisecond
+	tests := []struct {
+		name string
+		tune string
+		want []Note
+	}{
+		{
+			name: "double chord with melody",
+			tune: "[=cc]2e",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: 236666667 * time.Nanosecond},
+				{Key: 48, Velocity: 100, Duration: 236666667 * time.Nanosecond},
+				{Key: 52, Velocity: 100, Duration: 236666667 * time.Nanosecond},
+			},
+		},
+		{
+			name: "adjacent chords",
+			tune: "[c]2[c]4p4",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: 236666667 * time.Nanosecond},
+				{Key: 48, Velocity: 100, Duration: 486666667 * time.Nanosecond},
+			},
+		},
+		{
+			name: "overlapping chords",
+			tune: "[c]8p2[c]2p8",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: 986666667 * time.Nanosecond},
+				{Key: 48, Velocity: 100, Start: twoUnits, Duration: 236666667 * time.Nanosecond},
+			},
+		},
+		{
+			name: "finite chord followed by sustained chord",
+			tune: "[c]8p2[c]$p2[c]$p8",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: 986666667 * time.Nanosecond},
+				{Key: 48, Velocity: 100, Start: twoUnits, Duration: twoUnits},
+			},
+		},
+		{
+			name: "sustained chord toggled off",
+			tune: "[c]$p8[c]$p2",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: time.Second},
+			},
+		},
+		{
+			name: "sustained chord followed by finite chord",
+			tune: "[c]$p8[cc]2p2",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: time.Second},
+				{Key: 48, Velocity: 100, Start: time.Second, Duration: 236666667 * time.Nanosecond},
+				{Key: 48, Velocity: 100, Start: time.Second, Duration: 236666667 * time.Nanosecond},
+			},
+		},
+		{
+			name: "duplicate sustained pitches toggle off immediately",
+			tune: "[cc]$p2",
+			want: []Note{},
+		},
+		{
+			name: "third sustained pitch toggles back on",
+			tune: "[ccc]$p2",
+			want: []Note{
+				{Key: 48, Velocity: 100, Duration: twoUnits},
+			},
+		},
+		{
+			name: "late sustained chord ends with song",
+			tune: "p8p8[c]$p2",
+			want: []Note{
+				{Key: 48, Velocity: 100, Start: 2 * time.Second, Duration: twoUnits},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			notes, err := parseClassicTune(test.tune, instruments[7], 120, 100)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(notes, test.want) {
+				t.Fatalf("%q notes =\n%+v\nwant:\n%+v", test.tune, notes, test.want)
+			}
+		})
+	}
+}
+
+func TestClassicTuneDuplicateChordPolyphony(t *testing.T) {
+	for index, inst := range instruments {
+		if !inst.hasChords {
+			continue
+		}
+		for _, count := range []int{inst.polyphony, inst.polyphony + 1} {
+			tune := "[" + strings.Repeat("c", count) + "]2p2"
+			notes, err := parseClassicTune(tune, inst, 120, 100)
+			if count > inst.polyphony {
+				if err == nil || err.Code != tuneErrorInvalidChord {
+					t.Errorf("instrument %d accepted %d repeated notes: %v", index, count, err)
+				}
+			} else if err != nil || len(notes) != count {
+				t.Errorf("instrument %d with %d repeated notes: got %d notes, error %v", index, count, len(notes), err)
+			}
+		}
+	}
+
+	// Repeating a pitch reuses its classic bookkeeping slot, even while an
+	// earlier finite event for that pitch is still audible.
+	notes, err := parseClassicTune("[c]8p2[c]2p2[d]2p8", instruments[8], 120, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(notes) != 3 || notes[0].Duration != 986666667*time.Nanosecond || notes[2].Start != 500*time.Millisecond {
+		t.Fatalf("reused chord slot: got %+v", notes)
 	}
 }

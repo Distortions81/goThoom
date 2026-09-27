@@ -185,7 +185,7 @@ func TestBardValidationAndMultipartPreservesMusic(t *testing.T) {
 			t.Fatalf("valid %q: %v", value, err)
 		}
 	}
-	for _, value := range []string{"", "<unfinished", "(cde", "[ceg", "c\n/use /give all", "C\x00", "|1c", "((((((((c)9)9)9)9)9)9)9)9", "((" + strings.Repeat(" ", 20000) + ")9)9c"} {
+	for _, value := range []string{"", "<unfinished", "(cde", "[ceg", "c\n/use /give all", "C\x00", "|1c", "((((((((c)9)9)9)9)9)9)9)9", "((" + strings.Repeat("c", 20000) + ")9)9c"} {
 		if _, err := validateBardTune(value, 0); err == nil {
 			t.Fatalf("accepted %q", value[:min(len(value), 80)])
 		}

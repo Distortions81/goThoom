@@ -324,8 +324,10 @@ func TestConcertSeekAtTwentyNineFortySevenUsesOneMusicKeyframe(t *testing.T) {
 			t.Errorf("duo job %d program = %d, want %d", i, job.program, wantPrograms[i])
 		}
 	}
-	if duration := movieMusicJobsDuration(active[0].jobs); duration < 2*time.Minute || duration > 3*time.Minute {
-		t.Fatalf("duo duration = %v, want about two minutes", duration)
+	// The classic parser's last note ends at 71853 ticks, before its final
+	// playback pause. The music index records note ends without that pause.
+	if duration, want := movieMusicJobsDuration(active[0].jobs), tuneTicksDuration(71853); duration != want {
+		t.Fatalf("duo duration = %v, want %v", duration, want)
 	}
 }
 

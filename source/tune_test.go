@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package main
 
 import (
@@ -17,9 +14,9 @@ func TestParseClanLordTuneDurations(t *testing.T) {
 		input        string
 		wantDuration time.Duration
 	}{
-		{"c", 142 * time.Second / 600},
-		{"C", 292 * time.Second / 600},
-		{"c1", 67 * time.Second / 600},
+		{"c", classicTestDuration(142)},
+		{"C", classicTestDuration(292)},
+		{"c1", classicTestDuration(67)},
 	}
 	for _, tt := range tests {
 		notes := classicNotesFromTune(tt.input, instruments[0], 120, 100)
@@ -159,18 +156,17 @@ func TestAltEndingsSimple(t *testing.T) {
 	}
 }
 
-// TestLongChordSustain ensures that a long chord marked with '$' sustains until
-// the next chord without consuming time at its own event.
+// TestLongChordSustain checks sustained notes at the melody endpoint while
+// the final finite chord retains its own duration.
 func TestLongChordSustain(t *testing.T) {
-	// Start the melody before the chord because classic chord scheduling is
-	// gated until a melody timeline exists.
 	inst := instruments[0]
 	inst.longChord = true
 	notes := classicNotesFromTune("a [ce]$ aa [df]", inst, 120, 100)
-	// The final chord marks the boundary but starts at the end of the melody,
-	// so classic gating drops its zero-duration notes.
-	if len(notes) != 5 {
-		t.Fatalf("expected 5 notes, got %d", len(notes))
+	if len(notes) != 7 {
+		t.Fatalf("expected 7 notes, got %d", len(notes))
+	}
+	if notes[5].Start != 750*time.Millisecond || notes[5].Duration != classicTestDuration(292) {
+		t.Fatalf("trailing chord = %+v", notes[5:])
 	}
 	if notes[1].Start != 250*time.Millisecond || notes[2].Start != 250*time.Millisecond {
 		t.Fatalf("long chord should start at 250ms")
@@ -209,8 +205,8 @@ func TestNoteDurationsUncommonTempos(t *testing.T) {
 		tempo int
 		want  time.Duration
 	}{
-		{95, 457 * time.Millisecond},
-		{177, 246 * time.Millisecond},
+		{95, classicTestDuration(272)},
+		{177, classicTestDuration(145)},
 	}
 	for _, c := range cases {
 		notes := classicNotesFromTune("c3", inst, c.tempo, 100)
@@ -233,16 +229,13 @@ func TestParseNoteLowestClassicOctavePreserved(t *testing.T) {
 	}
 }
 
-// TestTieMergeIdenticalNotes ensures that tied identical notes become a single
-// sustained note without re-attack.
-func TestTieMergeIdenticalNotes(t *testing.T) {
-	inst := instruments[0]
-	notes := classicNotesFromTune("c_c", inst, 120, 100)
-	if len(notes) != 1 {
-		t.Fatalf("expected 1 merged note, got %d", len(notes))
+// Repeated pitches remain separate events; '_' gives its own note full length.
+func TestLinkedNotesKeepSeparateEvents(t *testing.T) {
+	notes := classicNotesFromTune("c_c", instruments[0], 120, 100)
+	if len(notes) != 2 {
+		t.Fatalf("expected 2 notes, got %d", len(notes))
 	}
-	// Two lowercase c notes at 120 BPM: each 250ms base. Tied merge => 500ms total.
-	if notes[0].Duration != 500*time.Millisecond {
-		t.Fatalf("merged tie duration = %v; want 500ms", notes[0].Duration)
+	if notes[0].Duration != 250*time.Millisecond || notes[1].Start != 250*time.Millisecond || notes[1].Duration != classicTestDuration(142) {
+		t.Fatalf("linked notes = %+v", notes)
 	}
 }

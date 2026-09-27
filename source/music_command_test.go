@@ -245,7 +245,6 @@ func TestParseMusicCommandFromMovie(t *testing.T) {
 	} else {
 		notes = s
 	}
-	notes = strings.Trim(notes, "/")
 	expected := "/play " + inst + " " + notes
 
 	consoleLog.entries = nil
@@ -281,12 +280,15 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 		notes     string
 		frame     int32
 	}
-	want := map[int]int{
-		227574197: 16, // Aurelie: viol
-		227864012: 8,  // Xepel: conch
-		227630059: 0,  // Coriakin: lucky lyra
+	// Counts and final note ends come from the classic CTuneBuilder, using
+	// each bard's complete notation without the player's surrounding pauses.
+	want := map[int]struct{ inst, notes, endTicks int }{
+		227574197: {16, 450, 140017}, // Aurelie: viol
+		227864012: {8, 190, 140700},  // Xepel: conch
+		227630059: {0, 906, 142867},  // Coriakin: lucky lyra
 	}
 	got := make(map[int]track)
+	pending := make(map[int]string)
 	for _, frame := range frames {
 		if frame.index < 4050 || frame.index > 4200 {
 			continue
@@ -299,16 +301,11 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 		if end := strings.IndexByte(s, 0); end >= 0 {
 			s = s[:end]
 		}
-		// The first two messages per bard carry /M (more follows). The final
-		// message is the one that starts the assembled track.
-		if strings.Contains(s, "/M/") {
-			continue
-		}
 		var who, inst int
 		if _, err := fmt.Sscanf(s, "/music/W%d/P/", &who); err != nil {
 			continue
 		}
-		if expectedInst, ok := want[who]; ok {
+		if expected, ok := want[who]; ok {
 			if _, err := fmt.Sscanf(s[strings.Index(s, "/inst"):], "/inst%d", &inst); err != nil {
 				t.Fatalf("frame %d: instrument: %v", frame.index, err)
 			}
@@ -316,9 +313,15 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 			if noteStart < 0 {
 				t.Fatalf("frame %d: no notes", frame.index)
 			}
-			got[who] = track{who: who, inst: inst, notes: s[noteStart+2:], frame: frame.index}
-			if inst != expectedInst {
-				t.Errorf("frame %d: bard %d instrument = %d, want %d", frame.index, who, inst, expectedInst)
+			if inst != expected.inst {
+				t.Errorf("frame %d: bard %d instrument = %d, want %d", frame.index, who, inst, expected.inst)
+			}
+			// A part may split a chord, loop, or even a note's modifiers.
+			// Validate only after the last message completes the notation.
+			pending[who] += s[noteStart+2:]
+			if !strings.Contains(s, "/M/") {
+				got[who] = track{who: who, inst: inst, notes: pending[who], frame: frame.index}
+				delete(pending, who)
 			}
 		}
 	}
@@ -326,8 +329,20 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 		t.Fatalf("found %d complete trio tracks, want %d", len(got), len(want))
 	}
 	for who, tr := range got {
-		if ns := classicNotesFromTune(tr.notes, instruments[tr.inst], 120, 127); len(ns) == 0 {
-			t.Errorf("frame %d: bard %d has no playable notes", tr.frame, who)
+		ns, err := parseClassicTune(tr.notes, instruments[tr.inst], 120, 100)
+		if err != nil {
+			t.Errorf("frame %d: bard %d: %v at byte %d", tr.frame, who, err, err.Position)
+			continue
+		}
+		if len(ns) != want[who].notes {
+			t.Errorf("frame %d: bard %d has %d notes, want %d", tr.frame, who, len(ns), want[who].notes)
+		}
+		var end time.Duration
+		for _, note := range ns {
+			end = max(end, note.Start+note.Duration)
+		}
+		if expected := tuneTicksDuration(want[who].endTicks); absDuration(end-expected) > time.Nanosecond {
+			t.Errorf("frame %d: bard %d ends at %v, want %v", tr.frame, who, end, expected)
 		}
 	}
 }
@@ -477,5 +492,38 @@ func TestMultipartSongExpiresAfterClassicTimeout(t *testing.T) {
 	primarySession.music.mu.Unlock()
 	if staleExists || !currentExists {
 		t.Fatalf("pending after timeout: stale=%v current=%v, want false/true", staleExists, currentExists)
+	}
+}
+
+func TestMusicCommandPreservesNotationAndStopsAtTerminator(t *testing.T) {
+	for _, test := range []struct {
+		name, first, last string
+		keys              [2]int
+		firstDuration     time.Duration
+	}{
+		{"leading octave and split comment", "/c4<split", ">_d2#", [2]int{72, 75}, 500 * time.Millisecond},
+		{"octave at part boundary", "c4/", "d", [2]int{60, 74}, classicTestDuration(292)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			session := mustNewSession(1)
+			oldCapture, oldBlock := movieMusicIndexCapture, blockMusic
+			blockMusic = false
+			var captured []tuneJob
+			movieMusicIndexCapture = func(jobs []tuneJob) { captured = append(captured, jobs...) }
+			t.Cleanup(func() { movieMusicIndexCapture, blockMusic = oldCapture, oldBlock })
+			// One raw packet and one decoded packet exercise both ingress paths.
+			first := "/music/W7/P/I2/M/N" + test.first + "\x00\x01binary /stop"
+			last := "/music/W7/P/I2/N" + test.last + "\x00\x01someone else's message"
+			if !parseSessionMusicCommand(session, "", []byte(first)) || !parseSessionMusicCommand(session, last, nil) {
+				t.Fatal("unhandled music command")
+			}
+			if len(captured) != 1 || len(captured[0].notes) != 2 {
+				t.Fatalf("captured = %+v", captured)
+			}
+			notes := captured[0].notes
+			if notes[0].Key != test.keys[0] || notes[1].Key != test.keys[1] || notes[0].Duration != test.firstDuration {
+				t.Fatalf("packet decoding changed notation: %+v", notes)
+			}
+		})
 	}
 }

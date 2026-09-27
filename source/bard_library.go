@@ -212,118 +212,20 @@ func bardNoteTokens(value string) ([]string, error) {
 	if !utf8.ValidString(value) || len(value) > bardMaxFileSize {
 		return nil, fmt.Errorf("Tunes must be UTF-8 text, up to 256 KiB.")
 	}
-	// Strip comments before tokenizing, including comments inside a token.
-	depth := 0
-	for _, c := range value {
-		if c == '<' {
-			depth++
-		}
-		if c == '>' {
-			depth--
-			if depth < 0 {
-				return nil, fmt.Errorf("Unmatched comment ending.")
-			}
-		}
+	parsed, parseErr := readTuneTokens(value)
+	if parseErr != nil {
+		return nil, fmt.Errorf("%s at byte %d.", parseErr.Error(), parseErr.Position+1)
 	}
-	if depth != 0 {
-		return nil, fmt.Errorf("Unclosed comment.")
-	}
-	value = stripComments(value)
 	var tokens []string
-	var stack []byte
-	costs := []int{0}
-	for i := 0; i < len(value); {
-		start := i
-		c := value[i]
-		if strings.ContainsRune(" \t\r\n", rune(c)) {
+	for _, token := range parsed {
+		if token.spaceBefore {
 			tokens = append(tokens, " ")
-			costs[len(costs)-1]++
-			if costs[len(costs)-1] > 100000 {
-				return nil, fmt.Errorf("The expanded tune is too large.")
-			}
-			i++
-			continue
 		}
-		i++
-		switch {
-		case isNoteLetter(c):
-			for i < len(value) && strings.ContainsRune("#._", rune(value[i])) {
-				i++
-			}
-			if i < len(value) && value[i] >= '1' && value[i] <= '9' {
-				i++
-			}
-		case c == 'p' || c == '%' || c == '{' || c == '}':
-			if i < len(value) && value[i] >= '1' && value[i] <= '9' {
-				i++
-			}
-		case c == '@':
-			if i < len(value) && strings.ContainsRune("+-=", rune(value[i])) {
-				i++
-			}
-			digits := i
-			for i < len(value) && value[i] >= '0' && value[i] <= '9' {
-				i++
-			}
-			if i-digits > 3 {
-				return nil, fmt.Errorf("Tempo is too large at byte %d.", start+1)
-			}
-		case c == '(' || c == '[':
-			if len(stack) > 8 {
-				return nil, fmt.Errorf("Too many nested loops or chords.")
-			}
-			if len(stack) > 0 && stack[len(stack)-1] == '[' {
-				return nil, fmt.Errorf("A chord cannot contain a loop or another chord.")
-			}
-			stack = append(stack, c)
-			costs = append(costs, 0)
-		case c == ')' || c == ']':
-			want := byte('(')
-			if c == ']' {
-				want = '['
-			}
-			if len(stack) == 0 || stack[len(stack)-1] != want {
-				return nil, fmt.Errorf("Unmatched %c at byte %d.", c, start+1)
-			}
-			stack = stack[:len(stack)-1]
-			count := 1
-			if i < len(value) && value[i] >= '1' && value[i] <= '9' {
-				if c == ')' {
-					count = int(value[i] - '0')
-				}
-				i++
-			}
-			if c == ']' && i < len(value) && value[i] == '$' {
-				i++
-			}
-			cost := costs[len(costs)-1] * count
-			costs = costs[:len(costs)-1]
-			costs[len(costs)-1] += cost
-		case c == '|' || c == '!':
-			if len(stack) == 0 || stack[len(stack)-1] != '(' {
-				return nil, fmt.Errorf("Loop ending outside a loop at byte %d.", start+1)
-			}
-			if c == '|' {
-				if i >= len(value) || value[i] < '1' || value[i] > '9' {
-					return nil, fmt.Errorf("Use |1 through |9 for a loop ending.")
-				}
-				i++
-			}
-		case strings.ContainsRune("+-=/\\", rune(c)):
-		default:
-			return nil, fmt.Errorf("Unexpected character at byte %d. Use CL tune notation; put text inside <comments>.", start+1)
-		}
-		costs[len(costs)-1] += i - start
-		if costs[len(costs)-1] > 100000 {
-			return nil, fmt.Errorf("The expanded tune is too large.")
-		}
-		tokens = append(tokens, value[start:i])
-	}
-	if len(stack) > 0 {
-		return nil, fmt.Errorf("Unclosed loop or chord.")
+		tokens = append(tokens, token.text)
 	}
 	return tokens, nil
 }
+
 func validateBardTune(value string, inst int) ([]Note, error) {
 	score, err := parseBardScore(value, inst)
 	if err != nil {
@@ -333,14 +235,10 @@ func validateBardTune(value string, inst int) ([]Note, error) {
 		return nil, fmt.Errorf("Choose one part to perform in-game.")
 	}
 	inst = score.Parts[0].Instrument
-	tokens, err := bardNoteTokens(score.Parts[0].Text)
-	if err != nil {
-		return nil, err
-	}
 	if inst < 0 || inst >= len(instruments) {
 		return nil, fmt.Errorf("Choose an instrument.")
 	}
-	notes, parseErr := parseClassicTune(strings.Join(tokens, ""), instruments[inst], 120, 100)
+	notes, parseErr := parseClassicTune(score.Parts[0].Text, instruments[inst], 120, 100)
 	if parseErr != nil {
 		return nil, parseErr
 	}

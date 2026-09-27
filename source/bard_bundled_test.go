@@ -39,8 +39,7 @@ func TestBardBundledTrio(t *testing.T) {
 		if i == 0 {
 			ending = end
 		}
-		// Classic chord releases round to milliseconds; melody releases retain
-		// the 1/600-second clock. Their musical endpoints still agree.
+		// All parts use the same 1/600-second clock for melody and chords.
 		if end-ending > time.Millisecond || ending-end > time.Millisecond || end < 47*time.Second || end > 48*time.Second {
 			t.Fatalf("part %d ends at %v, ensemble at %v", i, end, ending)
 		}

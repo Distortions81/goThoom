@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package main
 
 import (
@@ -20,24 +17,24 @@ func noteEndTime(ns []Note) time.Duration {
 }
 
 func TestNoteDurations_DefaultLowercase(t *testing.T) {
-	// At 120 BPM, lowercase default (beats=2) -> durMS=250, gap=13 => 237ms
+	// Two sixteenths at 120 BPM: 150 ticks, with an 8-tick gap.
 	ns := classicNotesFromTune("c", instruments[0], 120, 100)
 	if len(ns) != 1 {
 		t.Fatalf("expected 1 note, got %d", len(ns))
 	}
-	if ns[0].Duration != 237*time.Millisecond {
-		t.Fatalf("lowercase note duration = %v, want 237ms", ns[0].Duration)
+	if ns[0].Duration != classicTestDuration(142) {
+		t.Fatalf("lowercase note duration = %v, want 142 ticks", ns[0].Duration)
 	}
 }
 
 func TestNoteDurations_DefaultUppercase(t *testing.T) {
-	// Uppercase default beats=4 -> durMS=500, gap=13 => 487ms
+	// Four sixteenths at 120 BPM: 300 ticks, with an 8-tick gap.
 	ns := classicNotesFromTune("C", instruments[0], 120, 100)
 	if len(ns) != 1 {
 		t.Fatalf("expected 1 note, got %d", len(ns))
 	}
-	if ns[0].Duration != 487*time.Millisecond {
-		t.Fatalf("uppercase note duration = %v, want 487ms", ns[0].Duration)
+	if ns[0].Duration != classicTestDuration(292) {
+		t.Fatalf("uppercase note duration = %v, want 292 ticks", ns[0].Duration)
 	}
 }
 
@@ -53,15 +50,10 @@ func TestRestAdvancesTimeline(t *testing.T) {
 	}
 }
 
-func TestTieMergesDuration(t *testing.T) {
-	// c_c at 120 BPM should merge to a single note of 500ms total
-	ns := classicNotesFromTune("c_c", instruments[0], 120, 100)
-	if len(ns) != 1 {
-		t.Fatalf("expected 1 merged note, got %d", len(ns))
-	}
-	// Two events of 250ms each, tie removes gap and extends by full 250ms
-	if ns[0].Duration != 500*time.Millisecond {
-		t.Fatalf("tied note duration = %v, want 500ms", ns[0].Duration)
+func TestLinkRemovesFirstGap(t *testing.T) {
+	notes := classicNotesFromTune("c_d", instruments[0], 120, 100)
+	if len(notes) != 2 || notes[0].Start+notes[0].Duration != notes[1].Start {
+		t.Fatalf("linked notes have a gap: %+v", notes)
 	}
 }
 
