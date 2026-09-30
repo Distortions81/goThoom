@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	meltysynth "github.com/Distortions81/go-meltysynth/meltysynth"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 const (
@@ -68,8 +68,11 @@ var (
 	missingProgramMu       sync.Mutex
 	missingProgramReported = make(map[programGainKey]struct{})
 
-	musicPlayers   = make(map[*audio.Player]musicTrack)
-	musicPlayersMu sync.Mutex
+	musicPlayers             = make(map[*audio.Player]musicTrack)
+	musicPlayersMu           sync.Mutex
+	musicPlaybackGeneration  uint64
+	musicSettingsGeneration  uint64
+	musicPerformerGeneration = make(map[int]uint64)
 )
 
 type musicTrack struct {
@@ -77,7 +80,76 @@ type musicTrack struct {
 	whos       map[int]struct{}
 	ctx        *audio.Context
 	parts      []musicPart
+	partWhos   []int
 	startFrame int
+}
+
+// A reservation is captured before launching a playback goroutine. Stops
+// invalidate it even while the stream is still rendering its initial buffer.
+type musicPlaybackReservation struct {
+	generation         uint64
+	settingsGeneration uint64
+	performers         map[int]uint64
+}
+
+func reserveMusicPlayback(whos []int) musicPlaybackReservation {
+	musicPlayersMu.Lock()
+	defer musicPlayersMu.Unlock()
+	return reserveMusicPlaybackLocked(whos)
+}
+
+func reserveMusicPlaybackLocked(whos []int) musicPlaybackReservation {
+	reservation := musicPlaybackReservation{generation: musicPlaybackGeneration, settingsGeneration: musicSettingsGeneration, performers: make(map[int]uint64, len(whos))}
+	for _, who := range whos {
+		reservation.performers[who] = musicPerformerGeneration[who]
+	}
+	return reservation
+}
+
+func musicPartOwners(parts []musicPart, whos []int) []int {
+	owners := make([]int, len(parts))
+	if len(whos) == len(parts) {
+		copy(owners, whos)
+	} else if len(whos) == 1 {
+		for i := range owners {
+			owners[i] = whos[0]
+		}
+	}
+	return owners
+}
+
+func reservedMusicPartsLocked(parts []musicPart, whos []int, reservation musicPlaybackReservation) ([]musicPart, []int) {
+	if reservation.generation != musicPlaybackGeneration {
+		return nil, nil
+	}
+	keptParts := make([]musicPart, 0, len(parts))
+	keptWhos := make([]int, 0, len(parts))
+	for i, part := range parts {
+		if reservation.performers[whos[i]] == musicPerformerGeneration[whos[i]] {
+			keptParts = append(keptParts, part)
+			keptWhos = append(keptWhos, whos[i])
+		}
+	}
+	return keptParts, keptWhos
+}
+
+type musicRestart struct {
+	ctx         *audio.Context
+	parts       []musicPart
+	whos        []int
+	frame       int
+	reservation musicPlaybackReservation
+}
+
+func startMusicRestarts(restarts []musicRestart, errorContext string) {
+	settings := currentMusicPlaybackSettings()
+	for _, restart := range restarts {
+		go func() {
+			if err := playReservedMusicGroup(restart.ctx, restart.parts, restart.whos, nil, nil, settings, restart.frame, nil, restart.reservation); err != nil {
+				log.Printf("%s: %v", errorContext, err)
+			}
+		}()
+	}
 }
 
 type programGainKey struct {
@@ -229,41 +301,25 @@ func restartMusicWithCurrentSettings() {
 }
 
 func restartActiveMusic(errorContext string) {
-	type restart struct {
-		ctx   *audio.Context
-		parts []musicPart
-		whos  []int
-		frame int
-	}
-	var restarts []restart
+	var restarts []musicRestart
 	musicPlayersMu.Lock()
+	musicSettingsGeneration++
 	for player, track := range musicPlayers {
-		if player == nil || track.ctx == nil {
+		if player == nil || track.ctx == nil || track.stream.isClosed() {
 			continue
 		}
-		whos := make([]int, 0, len(track.whos))
-		for who := range track.whos {
-			whos = append(whos, who)
-		}
+		whos := append([]int(nil), track.partWhos...)
 		parts := make([]musicPart, len(track.parts))
 		for i, part := range track.parts {
 			parts[i] = musicPart{program: part.program, notes: append([]Note(nil), part.notes...)}
 		}
 		frame := musicTrackPlaybackFrame(track, player.Position())
-		restarts = append(restarts, restart{ctx: track.ctx, parts: parts, whos: whos, frame: frame})
+		restarts = append(restarts, musicRestart{ctx: track.ctx, parts: parts, whos: whos, frame: frame, reservation: reserveMusicPlaybackLocked(whos)})
 		_ = track.stream.Close()
 	}
 	musicPlayersMu.Unlock()
 
-	settings := currentMusicPlaybackSettings()
-	for _, restart := range restarts {
-		restart := restart
-		go func() {
-			if err := playMusicGroupWithSettingsAtFrame(restart.ctx, restart.parts, restart.whos, nil, nil, settings, restart.frame); err != nil {
-				log.Printf("%s: %v", errorContext, err)
-			}
-		}()
-	}
+	startMusicRestarts(restarts, errorContext)
 }
 
 func musicTrackPlaybackFrame(track musicTrack, position time.Duration) int {
@@ -279,6 +335,8 @@ var newSynthesizer = func(sf *meltysynth.SoundFont, settings *meltysynth.Synthes
 
 func stopAllMusic() {
 	musicPlayersMu.Lock()
+	musicPlaybackGeneration++
+	musicPerformerGeneration = make(map[int]uint64)
 	for _, track := range musicPlayers {
 		_ = track.stream.Close()
 	}
@@ -286,14 +344,32 @@ func stopAllMusic() {
 }
 
 func stopMusicFor(who int) {
+	var restarts []musicRestart
 	musicPlayersMu.Lock()
-	for _, track := range musicPlayers {
+	musicPerformerGeneration[who]++
+	for player, track := range musicPlayers {
 		if _, ok := track.whos[who]; !ok {
 			continue
+		}
+		if track.stream.isClosed() {
+			continue
+		}
+		parts := make([]musicPart, 0, len(track.parts))
+		whos := make([]int, 0, len(track.parts))
+		for i, part := range track.parts {
+			if i < len(track.partWhos) && track.partWhos[i] != who {
+				parts = append(parts, part)
+				whos = append(whos, track.partWhos[i])
+			}
+		}
+		if len(parts) > 0 && player != nil && track.ctx != nil {
+			frame := musicTrackPlaybackFrame(track, player.Position())
+			restarts = append(restarts, musicRestart{ctx: track.ctx, parts: parts, whos: whos, frame: frame, reservation: reserveMusicPlaybackLocked(whos)})
 		}
 		_ = track.stream.Close()
 	}
 	musicPlayersMu.Unlock()
+	startMusicRestarts(restarts, "continue remaining bards")
 }
 
 func pauseAllMusic() {
@@ -442,7 +518,7 @@ type songRenderer struct {
 	syn          synthesizer
 	gain         float32
 	events       []songEvent
-	active       map[int]bool
+	active       map[int]int // channel/pitch -> event index + 1
 	pos          int
 	totalSamples int
 }
@@ -450,6 +526,7 @@ type songRenderer struct {
 type songEvent struct {
 	key, vel   int
 	start, end int
+	channel    int
 }
 
 func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
@@ -473,17 +550,25 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	syn.ProcessMidiMessage(ch, 0xC0, int32(program), 0)
 
 	events, maxEnd := buildSongEvents(program, notes)
+	configured := map[int]bool{0: true}
+	for _, event := range events {
+		if !configured[event.channel] {
+			syn.ProcessMidiMessage(int32(event.channel), 0xC0, int32(program), 0)
+			configured[event.channel] = true
+		}
+	}
 	return &songRenderer{
 		syn:          syn,
 		gain:         soundFontProgramGain(selected, generation, program),
 		events:       events,
-		active:       make(map[int]bool),
+		active:       make(map[int]int),
 		totalSamples: maxEnd + tailSamples,
 	}, nil
 }
 
 func buildSongEvents(program int, notes []Note) ([]songEvent, int) {
 	var events []songEvent
+	silentEnd := 0
 	for _, n := range notes {
 		durSamples := int((n.Duration.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
 		if durSamples <= 0 {
@@ -491,11 +576,19 @@ func buildSongEvents(program int, notes []Note) ([]songEvent, int) {
 		}
 		startSamples := int((n.Start.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
 		ev := songEvent{key: n.Key, vel: n.Velocity, start: startSamples, end: startSamples + durSamples}
+		if n.Velocity <= 0 {
+			// Silence still occupies its written position in the timeline.
+			silentEnd = max(silentEnd, (ev.end+block-1)/block*block)
+			continue
+		}
 		events = append(events, ev)
 	}
 	startsByKey := make(map[int][]int)
 	for i, ev := range events {
 		startsByKey[ev.key] = append(startsByKey[ev.key], i)
+	}
+	for _, indexes := range startsByKey {
+		sort.SliceStable(indexes, func(i, j int) bool { return events[indexes[i]].start < events[indexes[j]].start })
 	}
 	// Optional per-program release extension to avoid abrupt cuts on plucked
 	// instruments without affecting scheduling. Extend ends slightly but never
@@ -532,16 +625,15 @@ func buildSongEvents(program int, notes []Note) ([]songEvent, int) {
 	// Rendering advances the synth in fixed blocks. Round note-offs toward the
 	// next block so a note is never released early merely because its end lands
 	// between two render boundaries.
-	maxEnd := 0
+	maxEnd := silentEnd
 	for _, idxs := range startsByKey {
 		for j, idx := range idxs {
 			originalEnd := events[idx].end
 			if remainder := events[idx].end % block; remainder != 0 {
 				events[idx].end += block - remainder
 			}
-			// Preserve an existing same-key retrigger in the containing block.
-			// Rounding its preceding note past this start would suppress the
-			// retrigger entirely because the synth still considers the key active.
+			// Keep adjacent same-pitch notes on one channel when their shared
+			// boundary lands between render blocks.
 			if j+1 < len(idxs) {
 				nextStart := events[idxs[j+1]].start
 				if originalEnd <= nextStart && events[idx].end > nextStart {
@@ -550,6 +642,34 @@ func buildSongEvents(program int, notes []Note) ([]songEvent, int) {
 			}
 			if events[idx].end > maxEnd {
 				maxEnd = events[idx].end
+			}
+		}
+	}
+	// MIDI note-off addresses a channel and pitch, rather than an individual
+	// note. Give overlapping instances separate melodic channels so a melody
+	// can retrigger over a chord without releasing it. Channel 9 is percussion.
+	for _, indexes := range startsByKey {
+		var occupiedUntil [16]int
+		for _, index := range indexes {
+			event := &events[index]
+			event.channel = -1
+			for channel, until := range occupiedUntil {
+				if channel != 9 && until <= event.start {
+					event.channel = channel
+					occupiedUntil[channel] = event.end
+					break
+				}
+			}
+			if event.channel < 0 {
+				// When every melodic channel holds this pitch, replace the
+				// instance nearest its release instead of rejecting valid notation.
+				event.channel = 0
+				for channel, until := range occupiedUntil {
+					if channel != 9 && until < occupiedUntil[event.channel] {
+						event.channel = channel
+					}
+				}
+				occupiedUntil[event.channel] = event.end
 			}
 		}
 	}
@@ -583,17 +703,22 @@ func (r *songRenderer) renderInto(leftAll, rightAll []float32) error {
 		end := start + n
 		// First process all note-offs that land in this block so that a
 		// note retrigger (end and start in same block) can fire correctly.
-		for _, ev := range r.events {
-			if ev.end >= start && ev.end < end && r.active[ev.key] {
-				r.syn.NoteOff(0, int32(ev.key))
-				r.active[ev.key] = false
+		for index, ev := range r.events {
+			voice := ev.channel*128 + ev.key
+			if ev.end >= start && ev.end < end && r.active[voice] == index+1 {
+				r.syn.NoteOff(int32(ev.channel), int32(ev.key))
+				delete(r.active, voice)
 			}
 		}
 		// Then process note-ons for this block.
-		for _, ev := range r.events {
-			if ev.start >= start && ev.start < end && !r.active[ev.key] {
-				r.syn.NoteOn(0, int32(ev.key), int32(ev.vel))
-				r.active[ev.key] = true
+		for index, ev := range r.events {
+			voice := ev.channel*128 + ev.key
+			if ev.start >= start && ev.start < end {
+				if r.active[voice] != 0 {
+					r.syn.NoteOff(int32(ev.channel), int32(ev.key))
+				}
+				r.syn.NoteOn(int32(ev.channel), int32(ev.key), int32(ev.vel))
+				r.active[voice] = index + 1
 			}
 		}
 		// Always ask the synth to render a full block, then trim to the
@@ -797,8 +922,8 @@ func mixPCM(leftAll, rightAll []float32) []byte {
 
 	pcm := make([]byte, len(leftAll)*4)
 	for i := range leftAll {
-		l := int16(leftAll[i] * 32767)
-		r := int16(rightAll[i] * 32767)
+		l := musicPCMSample(leftAll[i])
+		r := musicPCMSample(rightAll[i])
 		binary.LittleEndian.PutUint16(pcm[4*i:], uint16(l))
 		binary.LittleEndian.PutUint16(pcm[4*i+2:], uint16(r))
 	}
@@ -1215,6 +1340,12 @@ func (s *musicStream) isPaused() bool {
 	return s.paused
 }
 
+func (s *musicStream) isClosed() bool {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	return s.closed
+}
+
 func (s *musicStream) waitForProducer() {
 	if s.producerDone != nil {
 		<-s.producerDone
@@ -1223,14 +1354,12 @@ func (s *musicStream) waitForProducer() {
 
 func (s *musicStream) playIfOpen(player musicPlaybackPlayer) bool {
 	s.lifecycleMu.Lock()
-	open := !s.closed
-	s.lifecycleMu.Unlock()
-	if !open {
+	defer s.lifecycleMu.Unlock()
+	if s.closed {
 		return false
 	}
-	// The playback owner is the only goroutine that closes player. A stop may
-	// close the stream after the check, but Play then observes clean EOF rather
-	// than racing a concurrent Player.Close call.
+	// Serialize starting the player with stream closure, so a stop cannot
+	// finish and then have this player begin consuming its buffered audio.
 	player.Play()
 	return true
 }
@@ -1251,12 +1380,26 @@ func mixPCMChunk(left, right []float32, final bool) []byte {
 	}
 	pcm := make([]byte, len(left)*4)
 	for i := range left {
-		l := int16(left[i] * 32767)
-		r := int16(right[i] * 32767)
+		l := musicPCMSample(left[i])
+		r := musicPCMSample(right[i])
 		binary.LittleEndian.PutUint16(pcm[4*i:], uint16(l))
 		binary.LittleEndian.PutUint16(pcm[4*i+2:], uint16(r))
 	}
 	return pcm
+}
+
+// Saturate after mixing, before integer conversion. An ensemble can exceed
+// full scale even when every instrument's calibration note is below it.
+func musicPCMSample(value float32) int16 {
+	if math.IsNaN(float64(value)) {
+		return 0
+	}
+	if value > 1 {
+		value = 1
+	} else if value < -1 {
+		value = -1
+	}
+	return int16(value * 32767)
 }
 
 // Play starts an independently buffered music stream. Rendering is done in
@@ -1374,6 +1517,21 @@ func playMusicGroupWithSettingsAtFrame(ctx *audio.Context, parts []musicPart, wh
 // playMusicGroupWithSettingsAtFrameIf discards a prepared stream when valid
 // reports that the movie seek which requested it has been superseded.
 func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings, startFrame int, valid func() bool) error {
+	owners := musicPartOwners(parts, whos)
+	reservation := reserveMusicPlayback(owners)
+	return playReservedMusicGroup(ctx, parts, owners, prepared, start, settings, startFrame, valid, reservation)
+}
+
+func playReservedMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings, startFrame int, valid func() bool, reservation musicPlaybackReservation) error {
+	var preparedOnce sync.Once
+	markPrepared := func() {
+		preparedOnce.Do(func() {
+			if prepared != nil {
+				prepared()
+			}
+		})
+	}
+	defer markPrepared()
 
 	if ctx == nil {
 		return errors.New("nil audio context")
@@ -1383,40 +1541,64 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 		return errors.New("music muted")
 	}
 
-	stream, err := newMixedMusicStreamWithSettingsAtFrame(parts, settings, startFrame)
-	if err != nil {
-		if prepared != nil {
-			prepared()
+	var stream *musicStream
+	var player *audio.Player
+	for {
+		if valid != nil && !valid() {
+			return nil
 		}
-		return err
-	}
-	if valid != nil && !valid() {
-		_ = stream.Close()
-		stream.waitForProducer()
-		if prepared != nil {
-			prepared()
+		musicPlayersMu.Lock()
+		parts, whos = reservedMusicPartsLocked(parts, whos, reservation)
+		settingsGeneration := musicSettingsGeneration
+		musicPlayersMu.Unlock()
+		if settingsGeneration != reservation.settingsGeneration {
+			settings = currentMusicPlaybackSettings()
+			reservation.settingsGeneration = settingsGeneration
 		}
-		return nil
-	}
-	player, err := ctx.NewPlayer(stream)
-	if err != nil {
-		_ = stream.Close()
-		stream.waitForProducer()
-		if prepared != nil {
-			prepared()
+		if len(parts) == 0 || !settings.enabled {
+			return nil
 		}
-		return err
+		var err error
+		stream, err = newMixedMusicStreamWithSettingsAtFrame(parts, settings, startFrame)
+		if err != nil {
+			return err
+		}
+		if valid != nil && !valid() {
+			_ = stream.Close()
+			stream.waitForProducer()
+			return nil
+		}
+		musicPlayersMu.Lock()
+		remainingParts, remainingWhos := reservedMusicPartsLocked(parts, whos, reservation)
+		settingsChanged := settingsGeneration != musicSettingsGeneration
+		if len(remainingParts) != len(parts) || settingsChanged {
+			musicPlayersMu.Unlock()
+			_ = stream.Close()
+			stream.waitForProducer()
+			parts, whos = remainingParts, remainingWhos
+			if settingsChanged {
+				settings = currentMusicPlaybackSettings()
+			}
+			continue
+		}
+		// Registration shares the stop lock: a stop either invalidates this
+		// reservation or sees the registered stream and closes it.
+		player, err = ctx.NewPlayer(stream)
+		if err != nil {
+			musicPlayersMu.Unlock()
+			_ = stream.Close()
+			stream.waitForProducer()
+			return err
+		}
+		player.SetBufferSize(musicPlayerBuffer)
+		player.SetVolume(settings.volume)
+		break
 	}
-	player.SetBufferSize(musicPlayerBuffer)
-
-	player.SetVolume(settings.volume)
-
-	musicPlayersMu.Lock()
 	trackWhos := make(map[int]struct{}, len(whos))
 	for _, who := range whos {
 		trackWhos[who] = struct{}{}
 	}
-	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos, ctx: ctx, parts: parts, startFrame: startFrame}
+	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos, ctx: ctx, parts: parts, partWhos: whos, startFrame: startFrame}
 	musicPlayersMu.Unlock()
 	defer func() {
 		_ = stream.Close()
@@ -1427,9 +1609,7 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 		player.PauseAndStopReading()
 	}()
 
-	if prepared != nil {
-		prepared()
-	}
+	markPrepared()
 	if valid != nil && !valid() {
 		return nil
 	}
@@ -1439,6 +1619,9 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 		case <-stream.done:
 			return nil
 		}
+	}
+	if valid != nil && !valid() {
+		return nil
 	}
 	if movieMode && movieMusicPaused.Load() {
 		stream.setPaused(true)

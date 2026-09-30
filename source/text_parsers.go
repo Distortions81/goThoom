@@ -651,21 +651,30 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	me := selfCommand
 	part := false
 	withIDs := []int{}
+	volumeSet := false
+	// Only the header contains parameters. Everything after /N or /notes is
+	// notation, including comments which may themselves mention commands.
+	params := s
+	for _, marker := range []string{"/notes", "/N"} {
+		if idx := strings.Index(params, marker); idx >= 0 {
+			params = params[:idx]
+		}
+	}
 
 	getInt := func(after string) (int, bool) {
-		idx := strings.Index(s, after)
+		idx := strings.Index(params, after)
 		// The first parameter immediately follows the stripped "/music/"
 		// prefix, so the sender is encoded as "W123" rather than "/W123".
 		if idx < 0 {
 			bare := strings.TrimPrefix(after, "/")
-			if strings.HasPrefix(s, bare) {
+			if strings.HasPrefix(params, bare) {
 				idx = 0
 			}
 		}
 		if idx >= 0 {
-			v := s[idx+len(after):]
-			if idx == 0 && !strings.HasPrefix(s, after) {
-				v = s[len(strings.TrimPrefix(after, "/")):]
+			v := params[idx+len(after):]
+			if idx == 0 && !strings.HasPrefix(params, after) {
+				v = params[len(strings.TrimPrefix(after, "/")):]
 			}
 			if len(v) > 0 && v[0] == '/' {
 				v = v[1:]
@@ -692,8 +701,10 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	}
 	if n, ok := getInt("/vol"); ok {
 		vol = n
+		volumeSet = true
 	} else if n, ok := getInt("/V"); ok {
 		vol = n
+		volumeSet = true
 	}
 	if n, ok := getInt("/who"); ok {
 		who = n
@@ -706,20 +717,20 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 		}
 		me = me || token == "me" || token == "E"
 	}
-	if strings.Contains(s, "/part") || strings.Contains(s, "/M") {
+	if strings.Contains(params, "/part") || strings.Contains(params, "/M") {
 		part = true
 	}
 	// Extract all /with or /H occurrences
 	scanWith := func(tag string) {
 		pos := 0
 		for {
-			idx := strings.Index(s[pos:], tag)
+			idx := strings.Index(params[pos:], tag)
 			if idx < 0 {
 				break
 			}
 			idx += pos + len(tag)
 			start := idx
-			v := s[idx:]
+			v := params[idx:]
 			if len(v) > 0 && v[0] == '/' {
 				v = v[1:]
 				idx++
@@ -734,7 +745,7 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 			if pos <= start {
 				pos = start + 1
 			}
-			if pos >= len(s) {
+			if pos >= len(params) {
 				break
 			}
 		}
@@ -784,7 +795,7 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 	// actual PCM rendering is started asynchronously by enqueueTunes; handing
 	// every small command to a separate goroutine can reorder /part chunks and
 	// leave a /with group permanently incomplete.
-	handleSessionMusicParams(session, MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
+	handleSessionMusicParams(session, MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, volumeSet: volumeSet, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
 	return true
 }
 

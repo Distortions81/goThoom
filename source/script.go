@@ -3997,15 +3997,8 @@ func classifyScriptChatForSession(session *Session, msg string) ChatEvent {
 		event.Kinds |= ChatCreature
 		return event
 	}
-	var player scriptapi.Player
-	known := false
-	for _, candidate := range scriptPlayersForSession(session) {
-		if strings.EqualFold(candidate.Name, speaker) {
-			player, known = candidate, true
-			break
-		}
-	}
-	if known && player.IsNPC || isNPCDescriptorForSession(session, speaker) {
+	isNPC, known := chatSpeakerPlayerKind(session, speaker)
+	if known && isNPC || isNPCDescriptorForSession(session, speaker) {
 		event.Kinds |= ChatNPC
 		return event
 	}
@@ -4015,6 +4008,33 @@ func classifyScriptChatForSession(session *Session, msg string) ChatEvent {
 		event.Kinds |= ChatCreature
 	}
 	return event
+}
+
+// Chat classification only needs presence and NPC status, not a detached copy
+// of every player and color palette in the directory.
+func chatSpeakerPlayerKind(session *Session, name string) (bool, bool) {
+	lookup := func(directory map[string]*Player) (bool, bool) {
+		if player := directory[name]; player != nil && strings.EqualFold(player.Name, name) {
+			return player.IsNPC, true
+		}
+		for _, player := range directory {
+			if strings.EqualFold(player.Name, name) {
+				return player.IsNPC, true
+			}
+		}
+		return false, false
+	}
+	if session == nil {
+		playersMu.RLock()
+		defer playersMu.RUnlock()
+		return lookup(players)
+	}
+	if session.players == nil {
+		return false, false
+	}
+	session.players.mu.RLock()
+	defer session.players.mu.RUnlock()
+	return lookup(session.players.players)
 }
 
 func scriptChatType(raw string) string {

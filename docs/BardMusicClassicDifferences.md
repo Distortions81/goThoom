@@ -77,9 +77,32 @@ Repeated sustained pitches follow the classic toggle rule: a second `$` note
 of the same pitch ends the first after its full elapsed duration. A finite note
 of that pitch ends the sustained note and starts a new finite event.
 
-Playback still suppresses overlapping events of the same pitch within a part,
-so preserving both events in the parser does not yet make doubled notes louder.
-QuickTime's audible handling of those duplicate events has not been verified.
+Playback assigns overlapping events of the same pitch to independent melodic
+MIDI channels. A melody note can retrigger over a chord without releasing the
+chord, and finite doubled notes receive separate note-ons and note-offs. Up to
+15 instances of one pitch can overlap; additional instances replace the voice
+nearest its release. QuickTime's audible handling of doubled notes has not
+been verified.
+
+## Music commands and ensembles
+
+Incoming `/vol` values are percentages of classic's default velocity 100.
+`/vol50` produces velocity 50, and `/vol0` is silent. Header tempos outside
+60–180 fall back to 120 BPM. A performer's multipart tune keeps its first
+part's tempo and volume; changing instruments starts a new tune.
+
+Command parameters end at `/N` or `/notes`. Command-looking text inside a
+notation comment does not change the instrument, performer, tempo, volume,
+or multipart state.
+
+An ensemble waits for every linked performer to finish sending their part,
+including when only one performer supplies `/with`. Stopping one performer
+keeps the other parts at their current playback position, including after a
+movie seek or a character-tab change. A stop or tab change also cancels music
+which is still preparing its playback buffer.
+
+The final music mix saturates samples outside the PCM range before conversion
+to prevent polarity wrap when loud chords or ensembles exceed full scale.
 
 ## Notation and timing
 

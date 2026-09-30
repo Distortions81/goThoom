@@ -203,12 +203,17 @@ func pictureExcludedFromShift(p framePicture) bool {
 }
 
 type pictureShiftScratch struct {
-	counts     map[[2]int]int
-	idxMap     map[[2]int]map[int]struct{}
-	curIdx     map[uint16][]int
-	curIDs     []uint16
-	pixelCache map[uint16]int
-	idxSetPool []map[int]struct{}
+	counts     map[uint64]int
+	curIdx     map[uint32][]int
+	curIDs     []uint32
+	pixelCache map[uint32]int
+	matches    []pictureShiftMatch
+	seen       []bool
+}
+
+type pictureShiftMatch struct {
+	offset uint64
+	index  int
 }
 
 type picturePositionMatch struct {
@@ -313,10 +318,9 @@ func cmpInt(a, b int) int {
 
 func newPictureShiftScratch() *pictureShiftScratch {
 	return &pictureShiftScratch{
-		counts:     make(map[[2]int]int),
-		idxMap:     make(map[[2]int]map[int]struct{}),
-		curIdx:     make(map[uint16][]int),
-		pixelCache: make(map[uint16]int),
+		counts:     make(map[uint64]int),
+		curIdx:     make(map[uint32][]int),
+		pixelCache: make(map[uint32]int),
 	}
 }
 
@@ -324,13 +328,7 @@ func (s *pictureShiftScratch) reset() {
 	for k := range s.counts {
 		delete(s.counts, k)
 	}
-	for key, inner := range s.idxMap {
-		for idx := range inner {
-			delete(inner, idx)
-		}
-		s.idxSetPool = append(s.idxSetPool, inner)
-		delete(s.idxMap, key)
-	}
+	s.matches = s.matches[:0]
 	for _, id := range s.curIDs {
 		s.curIdx[id] = s.curIdx[id][:0]
 	}
@@ -937,7 +935,6 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 	const maxWeight = 100000
 
 	counts := scratch.counts
-	idxMap := scratch.idxMap
 	curIdx := scratch.curIdx
 	pixelCache := scratch.pixelCache
 	total := 0
@@ -949,10 +946,11 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		if pictureExcludedFromShift(c) {
 			continue
 		}
-		if len(curIdx[c.PictID]) == 0 {
-			scratch.curIDs = append(scratch.curIDs, c.PictID)
+		id := uint32(c.PictID)
+		if len(curIdx[id]) == 0 {
+			scratch.curIDs = append(scratch.curIDs, id)
 		}
-		curIdx[c.PictID] = append(curIdx[c.PictID], i)
+		curIdx[id] = append(curIdx[id], i)
 	}
 
 	// Cache pixel counts locally so that each PictID is computed at most once
@@ -961,11 +959,12 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		if pictureExcludedFromShift(p) {
 			continue
 		}
+		id := uint32(p.PictID)
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
-		for _, j := range curIdx[p.PictID] {
+		for _, j := range curIdx[id] {
 			c := cur[j]
 			dx := int(c.H) - int(p.H)
 			dy := int(c.V) - int(p.V)
@@ -979,27 +978,19 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 			}
 		}
 		if matched {
-			pixels, ok := pixelCache[p.PictID]
+			pixels, ok := pixelCache[id]
 			if !ok {
 				pixels = nonTransparentPixels(p.PictID)
-				pixelCache[p.PictID] = pixels
+				pixelCache[id] = pixels
 			}
 			if pixels > maxWeight {
 				pixels = maxWeight
 			}
-			key := [2]int{bestDx, bestDy}
+			// Picture coordinates are int16, so both signed differences fit in
+			// int32. Pack them into one integer key for Go's fast map lookup.
+			key := uint64(uint32(bestDx))<<32 | uint64(uint32(bestDy))
 			counts[key] += pixels
-			set := idxMap[key]
-			if set == nil {
-				if n := len(scratch.idxSetPool); n > 0 {
-					set = scratch.idxSetPool[n-1]
-					scratch.idxSetPool = scratch.idxSetPool[:n-1]
-				} else {
-					set = make(map[int]struct{})
-				}
-				idxMap[key] = set
-			}
-			set[bestIdx] = struct{}{}
+			scratch.matches = append(scratch.matches, pictureShiftMatch{offset: key, index: bestIdx})
 			total += pixels
 		}
 	}
@@ -1008,8 +999,8 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		return 0, 0, idxs, false
 	}
 
-	best := [2]int{}
-	second := [2]int{}
+	best := uint64(0)
+	second := uint64(0)
 	bestCount := 0
 	secondCount := 0
 	for k, c := range counts {
@@ -1025,7 +1016,7 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 	}
 
 	usedSecond := false
-	if best == ([2]int{}) && secondCount >= int(secondBestShiftRatio*float64(total)) {
+	if best == 0 && secondCount >= int(secondBestShiftRatio*float64(total)) {
 		best = second
 		bestCount = secondCount
 		usedSecond = true
@@ -1036,8 +1027,9 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
 		return 0, 0, idxs, false
 	}
-	if best[0]*best[0]+best[1]*best[1] > max*max {
-		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
+	dx, dy := int(int32(best>>32)), int(int32(best))
+	if dx*dx+dy*dy > max*max {
+		logDebug("pictureShift: motion too large (%d,%d)", dx, dy)
 		return 0, 0, idxs, false
 	}
 
@@ -1047,11 +1039,24 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 	// maxWeight (100k) are clamped so a single large background doesn't
 	// dominate motion detection.
 	const minBackgroundPixels = 900
-	for idx := range idxMap[best] {
+	if cap(scratch.seen) < len(cur) {
+		scratch.seen = make([]bool, len(cur))
+	} else {
+		scratch.seen = scratch.seen[:len(cur)]
+		clear(scratch.seen)
+	}
+	// Only the winning movement needs a set of unique background indices.
+	// A reusable bitmap avoids building a separate map for every movement.
+	for _, match := range scratch.matches {
+		if match.offset != best || scratch.seen[match.index] {
+			continue
+		}
+		idx := match.index
+		scratch.seen[idx] = true
 		if idx >= 0 && idx < len(cur) {
 			// Use cached counts when possible; fall back to a fresh query.
 			pixels := 0
-			if p, ok := pixelCache[cur[idx].PictID]; ok {
+			if p, ok := pixelCache[uint32(cur[idx].PictID)]; ok {
 				pixels = p
 			} else {
 				pixels = nonTransparentPixels(cur[idx].PictID)
@@ -1064,7 +1069,7 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 			}
 		}
 	}
-	return best[0], best[1], idxs, true
+	return dx, dy, idxs, true
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be

@@ -1,6 +1,68 @@
 package main
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
+
+func TestCaptureDrawSnapshotReusesCrowdedBubbleStorage(t *testing.T) {
+	s := mustNewSession(2)
+	for i := range 32 {
+		s.draw.current.bubbles = append(s.draw.current.bubbles, bubble{
+			Index: uint8(i), DedupeID: uint16(300 + i), Far: true,
+			Text: "hello", LifeFrames: 1000,
+		})
+	}
+	var snap drawSnapshot
+	captureSessionDrawSnapshot(s, &snap)
+	if len(snap.bubbles) != 32 {
+		t.Fatalf("captured %d bubbles, want 32", len(snap.bubbles))
+	}
+	if allocs := testing.AllocsPerRun(100, func() {
+		captureSessionDrawSnapshot(s, &snap)
+	}); allocs != 0 {
+		t.Fatalf("crowded snapshot allocated %.1f times after warmup", allocs)
+	}
+}
+
+func TestCaptureDrawSnapshotBubbleDeduplicationAndExpiry(t *testing.T) {
+	s := mustNewSession(2)
+	s.draw.frame = 100
+	s.draw.current.bubbles = []bubble{
+		{Index: 1, Far: true, Text: "old", CreatedFrame: 99, LifeFrames: 50},
+		{Index: 2, Far: true, Text: "other", CreatedFrame: 99, LifeFrames: 50},
+		{Index: 7, DedupeID: 600, Far: true, Text: "custom old", CreatedFrame: 99, LifeFrames: 50},
+		{Index: 1, Far: true, Text: "latest", CreatedFrame: 99, LifeFrames: 50},
+		{Index: 3, Far: true, Text: "expired", LifeFrames: 50},
+		{Index: 8, DedupeID: 600, Far: true, Text: "custom latest", CreatedFrame: 99, LifeFrames: 50},
+	}
+	var snap drawSnapshot
+	captureSessionDrawSnapshot(s, &snap)
+	texts := func() []string {
+		result := make([]string, 0, len(snap.bubbles))
+		for _, b := range snap.bubbles {
+			result = append(result, b.Text)
+		}
+		return result
+	}
+	if got := texts(); !slices.Equal(got, []string{"other", "latest", "custom latest"}) {
+		t.Fatalf("deduplicated bubble order = %v", got)
+	}
+	// A later snapshot must use the new bubble positions, even for reused IDs.
+	s.draw.current.bubbles = []bubble{
+		{Index: 1, Far: true, Text: "replacement", CreatedFrame: 99, LifeFrames: 50},
+		{Index: 2, Far: true, Text: "replacement other", CreatedFrame: 99, LifeFrames: 50},
+	}
+	captureSessionDrawSnapshot(s, &snap)
+	if got := texts(); !slices.Equal(got, []string{"replacement", "replacement other"}) {
+		t.Fatalf("refreshed bubbles = %v", got)
+	}
+	s.draw.frame = 149
+	captureSessionDrawSnapshot(s, &snap)
+	if len(snap.bubbles) != 0 {
+		t.Fatalf("expired bubbles retained: %+v", snap.bubbles)
+	}
+}
 
 func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 	primarySession.draw.mu.Lock()

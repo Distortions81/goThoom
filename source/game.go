@@ -518,6 +518,7 @@ type drawSnapshot struct {
 	prevTime                    time.Time
 	curTime                     time.Time
 	bubbles                     []bubble
+	bubbleLast                  map[uint16]int
 	hp, hpMax                   int
 	sp, spMax                   int
 	balance, balanceMax         int
@@ -633,7 +634,12 @@ func captureSessionDrawSnapshot(session *Session, snap *drawSnapshot) {
 				kept = append(kept, b)
 			}
 		}
-		last := make(map[uint16]int, len(kept))
+		if snap.bubbleLast == nil {
+			snap.bubbleLast = make(map[uint16]int, len(kept))
+		} else {
+			clear(snap.bubbleLast)
+		}
+		last := snap.bubbleLast
 		for i, b := range kept {
 			key := uint16(b.Index)
 			if b.DedupeID != 0 {

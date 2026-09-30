@@ -20,10 +20,17 @@ func BenchmarkPictureShiftDense(b *testing.B) {
 	}
 
 	pixelCountMu.Lock()
+	oldPixels := pixelCountCache
+	pixelCountCache = make(map[uint16]int, len(prev))
 	for _, p := range prev {
 		pixelCountCache[p.PictID] = 2048
 	}
 	pixelCountMu.Unlock()
+	b.Cleanup(func() {
+		pixelCountMu.Lock()
+		pixelCountCache = oldPixels
+		pixelCountMu.Unlock()
+	})
 
 	if sx, sy, _, ok := pictureShift(prev, cur, maxInterpPixels); !ok || sx != dx || sy != dy {
 		b.Fatalf("unexpected warm-up shift (%d,%d) ok=%v", sx, sy, ok)

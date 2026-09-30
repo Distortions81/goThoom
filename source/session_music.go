@@ -87,22 +87,10 @@ func selectSessionAudioSource(id SessionID) bool {
 	return selectMusicSource(id)
 }
 
-func invalidateSessionMusicRestore(session *Session) {
-	if session == nil {
-		return
-	}
-	appMusicSource.mu.Lock()
-	if appMusicSource.source == session.ID() {
-		appMusicSource.generation++
-	}
-	appMusicSource.mu.Unlock()
-}
-
 func restoreSessionMusic(session *Session, generation uint64, now time.Time) {
 	if session == nil || session.music == nil {
 		return
 	}
-	tracks := session.music.activeTracks(now)
 	soundMu.Lock()
 	context := audioContext
 	soundMu.Unlock()
@@ -110,6 +98,10 @@ func restoreSessionMusic(session *Session, generation uint64, now time.Time) {
 	if context == nil || !settings.enabled {
 		return
 	}
+	// Snapshot tracks and reserve them under the stop lock. A command that
+	// removes a performer after this snapshot also invalidates that reservation.
+	musicPlayersMu.Lock()
+	tracks := session.music.activeTracks(now)
 	for _, track := range tracks {
 		parts := make([]musicPart, 0, len(track.jobs))
 		whos := make([]int, 0, len(track.jobs))
@@ -118,6 +110,7 @@ func restoreSessionMusic(session *Session, generation uint64, now time.Time) {
 			whos = append(whos, job.who)
 		}
 		startFrame := sessionMusicStartFrame(track.started, now)
+		reservation := reserveMusicPlaybackLocked(whos)
 		go func(parts []musicPart, whos []int, startFrame int) {
 			valid := func() bool {
 				appMusicSource.mu.RLock()
@@ -125,11 +118,12 @@ func restoreSessionMusic(session *Session, generation uint64, now time.Time) {
 				appMusicSource.mu.RUnlock()
 				return current
 			}
-			if err := playMusicGroupWithSettingsAtFrameIf(context, parts, whos, nil, nil, settings, startFrame, valid); err != nil {
+			if err := playReservedMusicGroup(context, parts, whos, nil, nil, settings, startFrame, valid, reservation); err != nil {
 				log.Printf("resume session music: %v", err)
 			}
 		}(parts, whos, startFrame)
 	}
+	musicPlayersMu.Unlock()
 }
 
 func sessionMusicStartFrame(started, now time.Time) int {

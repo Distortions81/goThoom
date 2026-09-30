@@ -6,12 +6,15 @@ Rendering:
 - Optional mobile light cone shadows skip calculations outside each character's shadow cone, reducing GPU work in scenes with many lights and characters.
 - The game view avoids drawing the same background repeatedly, both with and without shader lighting.
 - The game view reuses image resources during ordinary play, reducing per-frame memory allocations.
+- Camera-motion tracking and scene updates use less CPU time and temporary memory in scenes with many artwork sprites.
+- Scenes with many speech bubbles create less temporary render memory.
 - Shadow layering, sprite colors, and lighting retain their appearance across these optimizations.
 
 Movies and sessions:
 - Truncated movie headers are rejected safely.
 - Self-message text-to-speech uses the correct character in each session.
 - Recording frequent session events uses less processing time, and scripts can read the latest event without copying the full event history.
+- Chat and script chat triggers use less CPU time and temporary memory with large player directories.
 
 Inventory and server compatibility:
 - Inventory items retain their official names, custom labels, and correct instance numbers when added, removed, or renamed.
@@ -21,6 +24,17 @@ Inventory and server compatibility:
 - Hidden server replies still update player information and other session state.
 - Adding an experience-share recipient preserves existing recipients; full recipient-list updates still replace the list.
 
+Bard music:
+- Music uses classic note volumes and falls back to 120 BPM for invalid header tempos. Zero-volume tunes remain silent and keep their timing.
+- Multipart tunes retain their initial tempo and volume. Command text inside notation comments does not change playback settings.
+- Duets and trios start together when only one performer names their partners.
+- Stopping one bard keeps the other ensemble parts at their current position, including during movie playback and tab restoration.
+- Starting a new tune for one bard preserves the other playing ensemble parts.
+- Stops and tab changes cancel tunes that are still preparing to play.
+- Music settings and SoundFont changes apply to tunes that are still preparing, including mute changes.
+- Repeated pitches in chords and melody sound independently and retain their note lengths.
+- Loud chords and ensembles limit excess volume safely instead of wrapping audio samples into distortion.
+
 Measured optimization results:
 - Shadow drawing with 128 artwork receivers and four shadows: 1.623 ms to 0.459 ms per nearest-filtered draw, 71.7% less time. The smoothly filtered variant reduced GPU draw commands from 277 to 40, 85.6% fewer.
 - Mobile recoloring of a 768x512 real-artwork sprite grid with smooth filtering and animation blending: 0.218 ms to 0.185 ms per grid, 15.1% less time.
@@ -28,5 +42,10 @@ Measured optimization results:
 - Background fills per rendered game view: three to two when a separate lighting pass is needed, and two to one when drawing directly to the game view.
 - Recording an event with a full 1,000-event history: 701 ns to 38.9 ns per event, about 18 times faster.
 - Reading the latest chat or console text from a 1,000-event history: temporary memory allocation fell from 104 KiB to zero per lookup.
+- Camera-motion matching with 512 artwork sprites: 70.0 microseconds to 39.0 microseconds per update, 44% less time.
+- Processing a 31,908-update tour recording with render caches: 0.944 seconds to 0.765 seconds per replay, 19% less CPU time. A comparison in the opposite order measured 1.095 seconds to 0.832 seconds, 24% less time. Allocated memory fell from about 31.6 MB to 4.4 MB per replay, about 86% less.
+- Classifying a chat speaker with 1,000 known players: 135.9 microseconds to 0.234 microseconds for the main chat path, and 410.7 microseconds to 0.230 microseconds for the session path. Temporary allocation fell from 573 KB and 1.25 MB, respectively, to 96 bytes per message.
+- Capturing a busy scene with 146 artwork sprites and 30 mobiles: temporary allocation fell from 1,192 bytes in three allocations to zero after warmup.
 
 These are focused benchmark results on Linux with Go 1.27.1, Ebitengine 2.10.2, a Radeon RX 7900 XT, and a Ryzen 9 7950X. GPU timings include drawing and synchronized pixel readback. They measure the listed operations; overall frame-rate improvements depend on scene content, graphics settings, and hardware.
+Scene-update and chat timings are medians of three samples per case. Replay results were checked in both comparison orders.

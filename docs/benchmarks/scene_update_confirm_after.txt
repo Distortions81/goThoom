@@ -1,0 +1,11 @@
+goos: linux
+goarch: amd64
+pkg: gothoom
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkTourDrawState/StateUpdate-32         	       4	 570909583 ns/op	     31908 draw-packets/op	 4287884 B/op	  129119 allocs/op
+BenchmarkTourDrawState/StateUpdate-32         	       4	 530989502 ns/op	     31908 draw-packets/op	 4249908 B/op	  129012 allocs/op
+BenchmarkTourDrawState/StateUpdate-32         	       4	 537664200 ns/op	     31908 draw-packets/op	 4263390 B/op	  129111 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       3	 831999359 ns/op	     31908 draw-packets/op	 4359602 B/op	  129406 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       3	 834754966 ns/op	     31908 draw-packets/op	 4462677 B/op	  129673 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       3	 826875741 ns/op	     31908 draw-packets/op	 4391186 B/op	  129098 allocs/op
+PASS

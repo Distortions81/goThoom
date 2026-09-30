@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,16 +183,17 @@ func playSessionClanLordTune(session *Session, tune string) error {
 
 // Extended support for /music commands
 type MusicParams struct {
-	Inst   int
-	Notes  string
-	Tempo  int // BPM 60..180
-	VolPct int // 0..100
-	Part   bool
-	Stop   bool
-	Who    int
-	With   []int
-	Me     bool
-	debug  bool
+	Inst      int
+	Notes     string
+	Tempo     int // BPM 60..180
+	VolPct    int // 0..100
+	Part      bool
+	Stop      bool
+	Who       int
+	With      []int
+	Me        bool
+	debug     bool
+	volumeSet bool // Distinguishes an explicit /vol0 from omitted Go parameters.
 }
 
 // Internal state for assembling multipart songs.
@@ -245,14 +247,10 @@ func (s *sessionMusicState) startTracks(jobs []tuneJob, now time.Time) {
 	s.mu.Lock()
 	kept := s.active[:0]
 	for _, track := range s.active {
-		replaced := false
-		for _, job := range track.jobs {
-			if _, found := whos[job.who]; found {
-				replaced = true
-				break
-			}
+		for who := range whos {
+			track.jobs = musicJobsWithoutPerformer(track.jobs, who)
 		}
-		if !replaced {
+		if len(track.jobs) > 0 {
 			kept = append(kept, track)
 		}
 	}
@@ -272,19 +270,23 @@ func (s *sessionMusicState) stopTracks(who int) {
 	}
 	kept := s.active[:0]
 	for _, track := range s.active {
-		stopped := false
-		for _, job := range track.jobs {
-			if job.who == who {
-				stopped = true
-				break
-			}
-		}
-		if !stopped {
+		track.jobs = musicJobsWithoutPerformer(track.jobs, who)
+		if len(track.jobs) > 0 {
 			kept = append(kept, track)
 		}
 	}
 	s.active = kept
 	s.mu.Unlock()
+}
+
+func musicJobsWithoutPerformer(jobs []tuneJob, who int) []tuneJob {
+	kept := make([]tuneJob, 0, len(jobs))
+	for _, job := range jobs {
+		if job.who != who {
+			kept = append(kept, job)
+		}
+	}
+	return kept
 }
 
 func (s *sessionMusicState) activeTracks(now time.Time) []sessionMusicTrack {
@@ -347,7 +349,6 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 
 	if mp.Stop {
 		state.stopTracks(mp.Who)
-		invalidateSessionMusicRestore(session)
 		// Scoped stop: if who provided, clear that pending and stop if playing.
 		if mp.Who != 0 {
 			state.mu.Lock()
@@ -388,163 +389,108 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 	if mp.Inst < 0 || mp.Inst >= len(instruments) {
 		mp.Inst = defaultInstrument
 	}
-	if mp.Tempo <= 0 {
-		mp.Tempo = 120
-	}
-	if mp.VolPct <= 0 {
+	mp.Tempo = classicCommandTempo(mp.Tempo)
+	if mp.VolPct < 0 || mp.VolPct > 100 || mp.VolPct == 0 && !mp.volumeSet {
 		mp.VolPct = 100
 	}
 	id := mp.Who // 0 is the system queue
-
-	// Accumulate multipart songs when /part is present.
-	if mp.Part {
-		state.mu.Lock()
-		ps := state.pendingByID[id]
-		if ps == nil {
-			ps = &pendingSong{inst: mp.Inst, tempo: mp.Tempo, volPct: mp.VolPct, touched: now}
-			state.pendingByID[id] = ps
-		} else {
-			if mp.Inst != 0 {
-				ps.inst = mp.Inst
-			}
-			if mp.Tempo != 0 {
-				ps.tempo = mp.Tempo
-			}
-			if mp.VolPct != 0 {
-				ps.volPct = mp.VolPct
-			}
-		}
-		if n := strings.TrimSpace(mp.Notes); n != "" {
-			ps.notes = append(ps.notes, n)
-		}
-		if len(mp.With) > 0 {
-			ps.withIDs = append([]int(nil), mp.With...)
-		}
-		ps.touched = now
-		state.mu.Unlock()
-		return
-	}
-
-	// Finalize: merge any pending parts, then queue a single tune.
-	inst := mp.Inst
-	tempo := mp.Tempo
-	vol := mp.VolPct
-	notes := strings.TrimSpace(mp.Notes)
 	state.mu.Lock()
-	hadPending := false
-	if ps := state.pendingByID[id]; ps != nil {
-		if notes != "" {
-			ps.notes = append(ps.notes, notes)
-		}
-		notes = strings.Join(ps.notes, " ")
-		if ps.inst != 0 {
-			inst = ps.inst
-		}
-		if ps.tempo != 0 {
-			tempo = ps.tempo
-		}
-		if ps.volPct != 0 {
-			vol = ps.volPct
-		}
-		if len(mp.With) == 0 && len(ps.withIDs) > 0 {
-			mp.With = append([]int(nil), ps.withIDs...)
-		}
-		delete(state.pendingByID, id)
-		hadPending = true
+	ps := state.pendingByID[id]
+	// Classic retains the first part's settings for a performer. An instrument
+	// change begins a new song instead of applying that instrument to old parts.
+	if ps == nil || ps.inst != mp.Inst {
+		ps = &pendingSong{inst: mp.Inst, tempo: mp.Tempo, volPct: mp.VolPct}
+		state.pendingByID[id] = ps
 	}
-	// If sync requested via /with, require that all referenced IDs also have
-	// pending content; otherwise, store this song and return until ready.
-	if len(mp.With) > 0 {
-		// Save current as pending with its group
-		p := &pendingSong{inst: inst, tempo: tempo, volPct: vol, notes: []string{notes}, withIDs: append([]int(nil), mp.With...), ready: true, touched: now}
-		state.pendingByID[id] = p
-		// Deduplicate and sort the requested group IDs.
-		idmap := map[int]struct{}{}
-		for _, w := range append([]int{id}, mp.With...) {
-			idmap[w] = struct{}{}
-		}
-		ids := make([]int, 0, len(idmap))
-		for w := range idmap {
-			ids = append(ids, w)
-		}
-		// simple insertion sort
-		for i := 1; i < len(ids); i++ {
-			j := i
-			for j > 0 && ids[j-1] > ids[j] {
-				ids[j-1], ids[j] = ids[j], ids[j-1]
-				j--
-			}
-		}
-		for _, w := range ids {
-			song := state.pendingByID[w]
-			if song == nil || !song.ready {
-				state.mu.Unlock()
-				return
-			}
-		}
-		// All parts present: build jobs in sorted order.
-		jobs := make([]tuneJob, 0, len(ids))
-		for _, w := range ids {
-			ps := state.pendingByID[w]
-			nstr := strings.Join(ps.notes, " ")
-			jobs = append(jobs, makeTuneJob(w, ps.inst, ps.tempo, ps.volPct, nstr, mp.debug))
-			delete(state.pendingByID, w)
-		}
+	if notes := strings.TrimSpace(mp.Notes); notes != "" {
+		ps.notes = append(ps.notes, notes)
+	}
+	ps.withIDs = append(ps.withIDs, mp.With...)
+	ps.touched, ps.ready = now, !mp.Part
+	if mp.Part {
 		state.mu.Unlock()
-		// Enqueue jobs sequentially
-		// Clear any queued previous jobs so the synchronized set starts cleanly.
-		clearTuneQueue()
-		enqueueSessionTunes(session, jobs)
 		return
+	}
+	ids := pendingMusicGroup(state.pendingByID, id)
+	for _, who := range ids {
+		if song := state.pendingByID[who]; song == nil || !song.ready {
+			state.mu.Unlock()
+			return
+		}
+	}
+	jobs := make([]tuneJob, 0, len(ids))
+	for _, who := range ids {
+		song := state.pendingByID[who]
+		notes := strings.Join(song.notes, " ")
+		if notes != "" {
+			jobs = append(jobs, makeTuneJob(who, song.inst, song.tempo, song.volPct, notes, mp.debug))
+		}
+		delete(state.pendingByID, who)
 	}
 	state.mu.Unlock()
-	if notes == "" {
-		return
-	}
-
-	// If we just finalized pending parts for this id, clear any queued
-	// previous jobs so the freshly assembled song starts cleanly. Avoid
-	// clearing the queue for simple one-shot plays to reduce chances of
-	// racing with other enqueued tunes.
-	if hadPending {
-		clearTuneQueue()
-	}
-	job := makeTuneJob(id, inst, tempo, vol, notes, mp.debug)
-	enqueueSessionTune(session, job)
+	enqueueSessionTunes(session, jobs)
 	if mp.debug {
-		// Classic-only debug: compute notes via classic path and dump.
-		ns := classicNotesFromTune(notes, instruments[inst], tempo, 100)
-		var end time.Duration
-		for _, n := range ns {
-			if e := n.Start + n.Duration; e > end {
-				end = e
+		for _, job := range jobs {
+			var end time.Duration
+			for _, n := range job.notes {
+				if e := n.Start + n.Duration; e > end {
+					end = e
+				}
+			}
+			log.Printf("[musicDebug] notes who=%d program=%d count=%d end=%dms", job.who, job.program, len(job.notes), end.Milliseconds())
+			for i, n := range job.notes {
+				log.Printf("[musicDebug] %02d key=%3d start=%6dms dur=%6dms", i, n.Key, n.Start.Milliseconds(), n.Duration.Milliseconds())
 			}
 		}
-		log.Printf("[musicDebug] notes who=%d inst=%d tempo=%d count=%d end=%dms", id, inst, tempo, len(ns), end.Milliseconds())
-		for i, n := range ns {
-			log.Printf("[musicDebug] %02d key=%3d start=%6dms dur=%6dms", i, n.Key, n.Start.Milliseconds(), n.Duration.Milliseconds())
+	}
+}
+
+// Include both forward and reverse dependencies: a bard can finish without
+// repeating /with when another pending song is already waiting for that bard.
+func pendingMusicGroup(pending map[int]*pendingSong, id int) []int {
+	group := map[int]bool{id: true}
+	if id != 0 {
+		for changed := true; changed; {
+			changed = false
+			for who, song := range pending {
+				if who == 0 {
+					continue
+				}
+				for _, partner := range song.withIDs {
+					if partner <= 0 || !group[who] && !group[partner] {
+						continue
+					}
+					if !group[who] || !group[partner] {
+						changed = true
+					}
+					group[who], group[partner] = true, true
+				}
+			}
 		}
 	}
+	ids := make([]int, 0, len(group))
+	for who := range group {
+		ids = append(ids, who)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+func classicCommandTempo(tempo int) int {
+	if tempo < 60 || tempo > 180 {
+		return 120
+	}
+	return tempo
 }
 
 func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 	instData := instruments[inst]
 	prog := instData.program
-	// Scale 0..100 to 1..127 velocity.
-	vel := vol
-	if vel <= 0 {
-		vel = 100
+	// Classic's default velocity is 100, and /vol is a percentage of it.
+	if vol < 0 || vol > 100 {
+		vol = 100
 	}
-	if vel > 100 {
-		vel = 100
-	}
-	vel = int(float64(vel)*1.27 + 0.5)
-	if vel < 1 {
-		vel = 1
-	} else if vel > 127 {
-		vel = 127
-	}
-	notesOut, duration, parseErr := parseClassicTuneTimeline(notes, instData, tempo, vel)
+	notesOut, duration, parseErr := parseClassicTuneTimeline(notes, instData, classicCommandTempo(tempo), vol)
 	return tuneJob{program: prog, notes: notesOut, duration: duration, who: who, debug: debug, parseErr: parseErr}
 }
 
@@ -590,30 +536,33 @@ func enqueueSessionTunes(session *Session, jobs []tuneJob) {
 			return
 		}
 		session.music.startTracks(jobs, musicCommandNow())
-		invalidateSessionMusicRestore(session)
 	}
 	routeSessionMusic(session, func() {
+		for _, job := range jobs {
+			stopMusicFor(job.who)
+		}
 		soundMu.Lock()
 		context := audioContext
 		soundMu.Unlock()
 		settings := currentMusicPlaybackSettings()
+		parts := make([]musicPart, 0, len(jobs))
+		whos := make([]int, 0, len(jobs))
+		debug := false
+		for _, job := range jobs {
+			parts = append(parts, musicPart{program: job.program, notes: job.notes})
+			whos = append(whos, job.who)
+			debug = debug || job.debug
+		}
+		if movieMode {
+			parts = scaleMusicParts(parts, currentMovieMusicTempoRate())
+		}
+		reservation := reserveMusicPlayback(whos)
 		go func() {
 			if context == nil {
 				log.Printf("play tune: audio disabled")
 				return
 			}
-			parts := make([]musicPart, 0, len(jobs))
-			whos := make([]int, 0, len(jobs))
-			debug := false
-			for _, job := range jobs {
-				parts = append(parts, musicPart{program: job.program, notes: job.notes})
-				whos = append(whos, job.who)
-				debug = debug || job.debug
-			}
-			if movieMode {
-				parts = scaleMusicParts(parts, currentMovieMusicTempoRate())
-			}
-			if err := playMusicGroupWithSettings(context, parts, whos, nil, nil, settings); err != nil {
+			if err := playReservedMusicGroup(context, parts, whos, nil, nil, settings, 0, nil, reservation); err != nil {
 				log.Printf("play tune: %v", err)
 				if debug {
 					consoleMessage("play tune: " + err.Error())

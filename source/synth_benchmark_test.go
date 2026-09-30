@@ -70,7 +70,7 @@ func BenchmarkMusicGroupWorkerPool(b *testing.B) {
 				group.parts[part] = &songRenderer{
 					syn:          synth,
 					gain:         1,
-					active:       make(map[int]bool),
+					active:       make(map[int]int),
 					totalSamples: group.totalSamples,
 				}
 			}

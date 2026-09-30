@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: gothoom
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkClassifyScriptChat/Global-32      	 4911458	       239.8 ns/op	      96 B/op	       3 allocs/op
+BenchmarkClassifyScriptChat/Global-32      	 4969878	       234.3 ns/op	      96 B/op	       3 allocs/op
+BenchmarkClassifyScriptChat/Global-32      	 4813326	       234.2 ns/op	      96 B/op	       3 allocs/op
+BenchmarkClassifyScriptChat/Session-32     	 5226464	       230.3 ns/op	      96 B/op	       3 allocs/op
+BenchmarkClassifyScriptChat/Session-32     	 5243668	       230.4 ns/op	      96 B/op	       3 allocs/op
+BenchmarkClassifyScriptChat/Session-32     	 4267188	       251.4 ns/op	      96 B/op	       3 allocs/op
+BenchmarkPictureShiftDense-32              	   29337	     39009 ns/op	    8186 B/op	      10 allocs/op
+BenchmarkPictureShiftDense-32              	   33337	     36689 ns/op	    8186 B/op	      10 allocs/op
+BenchmarkPictureShiftDense-32              	   30998	     42554 ns/op	    8186 B/op	      10 allocs/op
+BenchmarkTourDrawState/StateUpdate-32      	       2	 534470444 ns/op	     31908 draw-packets/op	 4438008 B/op	  130043 allocs/op
+BenchmarkTourDrawState/StateUpdate-32      	       2	 536164540 ns/op	     31908 draw-packets/op	 4350160 B/op	  129223 allocs/op
+BenchmarkTourDrawState/StateUpdate-32      	       2	 545085050 ns/op	     31908 draw-packets/op	 4255124 B/op	  129057 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       2	 795630544 ns/op	     31908 draw-packets/op	 4373100 B/op	  129650 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       2	 765327436 ns/op	     31908 draw-packets/op	 4347092 B/op	  129625 allocs/op
+BenchmarkTourDrawState/StateUpdateAndRenderCaches-32         	       2	 749896318 ns/op	     31908 draw-packets/op	 4410768 B/op	  129593 allocs/op
+BenchmarkPrepareBusySceneRenderCache-32                      	   91981	     13330 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+BenchmarkPrepareBusySceneRenderCache-32                      	   88006	     13296 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+BenchmarkPrepareBusySceneRenderCache-32                      	   91899	     13639 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+BenchmarkCaptureBusySceneSnapshot-32                         	   74835	     15487 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+BenchmarkCaptureBusySceneSnapshot-32                         	   67431	     17228 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+BenchmarkCaptureBusySceneSnapshot-32                         	   77827	     15134 ns/op	        30.00 mobiles/op	       146.0 pictures/op	       0 B/op	       0 allocs/op
+PASS

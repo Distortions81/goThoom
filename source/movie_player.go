@@ -1036,6 +1036,7 @@ func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) <-chan struct{} {
 			whos = append(whos, job.who)
 		}
 		parts = scaleMusicParts(parts, rate)
+		reservation := reserveMusicPlayback(whos)
 		go func(parts []musicPart, whos []int, startFrame int) {
 			var preparedOnce sync.Once
 			markPrepared := func() { preparedOnce.Do(prepared.Done) }
@@ -1043,7 +1044,7 @@ func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) <-chan struct{} {
 			valid := func() bool {
 				return p.musicRestoreGeneration.Load() == generation && sessionIsMusicSource(p.playbackSession())
 			}
-			if err := playMusicGroupWithSettingsAtFrameIf(context, parts, whos, markPrepared, nil, settings, startFrame, valid); err != nil {
+			if err := playReservedMusicGroup(context, parts, whos, markPrepared, nil, settings, startFrame, valid, reservation); err != nil {
 				log.Printf("resume movie music: %v", err)
 			}
 		}(parts, whos, startFrame)
@@ -1071,14 +1072,8 @@ func activeMovieMusicAt(events []movieMusicEvent, idx, baseFPS int) []activeMovi
 			}
 			kept := active[:0]
 			for _, track := range active {
-				matches := false
-				for _, job := range track.jobs {
-					if job.who == event.stopWho {
-						matches = true
-						break
-					}
-				}
-				if !matches {
+				track.jobs = musicJobsWithoutPerformer(track.jobs, event.stopWho)
+				if len(track.jobs) > 0 {
 					kept = append(kept, track)
 				}
 			}
@@ -1146,13 +1141,19 @@ func movieMusicTimelineRanges(events []movieMusicEvent, totalFrames, ups int) []
 		if active < 0 || frame >= ranges[active].end {
 			continue
 		}
-		stopsActive := event.stopWho == 0
-		for _, job := range ranges[active].jobs {
-			stopsActive = stopsActive || job.who == event.stopWho
-		}
-		if stopsActive {
+		if event.stopWho == 0 {
 			ranges[active].end = frame
 			active = -1
+		} else {
+			ranges[active].jobs = musicJobsWithoutPerformer(ranges[active].jobs, event.stopWho)
+			if len(ranges[active].jobs) == 0 {
+				ranges[active].end = frame
+				active = -1
+			} else {
+				duration := movieMusicJobsDuration(ranges[active].jobs)
+				durationFrames := int((duration.Nanoseconds()*int64(ups) + int64(time.Second) - 1) / int64(time.Second))
+				ranges[active].end = min(ranges[active].end, max(frame, ranges[active].start+durationFrames))
+			}
 		}
 	}
 

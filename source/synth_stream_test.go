@@ -230,8 +230,8 @@ func TestMusicGroupBatches1024FramesInto64FrameSynthRenders(t *testing.T) {
 		t.Fatalf("music render batch %d is not aligned to synth block %d", musicRenderBatchFrames, block)
 	}
 	renderers := []*songRenderer{
-		{syn: &multiChannelStreamSynth{}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
-		{syn: &multiChannelStreamSynth{}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+		{syn: &multiChannelStreamSynth{}, active: make(map[int]int), totalSamples: musicRenderBatchFrames},
+		{syn: &multiChannelStreamSynth{}, active: make(map[int]int), totalSamples: musicRenderBatchFrames},
 	}
 	group := &musicGroupRenderer{parts: renderers, totalSamples: musicRenderBatchFrames}
 	left, right, err := group.render(musicRenderBatchFrames)
@@ -254,8 +254,8 @@ func TestMusicGroupWaitsForEveryInstrumentBatch(t *testing.T) {
 	blocked := &blockingStreamSynth{started: make(chan struct{}), release: make(chan struct{})}
 	group := &musicGroupRenderer{
 		parts: []*songRenderer{
-			{syn: blocked, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
-			{syn: &constantStreamSynth{value: 0.2}, active: make(map[int]bool), totalSamples: musicRenderBatchFrames},
+			{syn: blocked, active: make(map[int]int), totalSamples: musicRenderBatchFrames},
+			{syn: &constantStreamSynth{value: 0.2}, active: make(map[int]int), totalSamples: musicRenderBatchFrames},
 		},
 		totalSamples: musicRenderBatchFrames,
 	}
@@ -330,7 +330,7 @@ func TestSongRendererAppliesProgramGain(t *testing.T) {
 	renderer := &songRenderer{
 		syn:          &constantStreamSynth{value: 0.1},
 		gain:         2,
-		active:       make(map[int]bool),
+		active:       make(map[int]int),
 		totalSamples: block,
 	}
 	left, right, err := renderer.render(block)
@@ -348,7 +348,7 @@ func TestMusicChunksPreserveSynthContinuity(t *testing.T) {
 	}
 	renderer := &songRenderer{
 		syn:          &sequentialStreamSynth{},
-		active:       make(map[int]bool),
+		active:       make(map[int]int),
 		totalSamples: musicChunkFrames * 2,
 	}
 	first, _, err := renderer.render(musicChunkFrames)
