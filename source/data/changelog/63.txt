@@ -1,0 +1,15 @@
+goThoom 63 changes since test62.
+
+Rendering:
+- Reduced rendering work for character shadows, mobile recoloring, and light cone shadows while preserving their appearance.
+- The game view avoids repeated background drawing and uses fewer per-frame memory allocations.
+
+Movies and sessions:
+- Truncated movie headers are rejected safely.
+- Self-message text-to-speech uses the correct character in each session.
+- Reduced overhead when recording and reading recent session events for scripts.
+
+Inventory and server compatibility:
+- Inventory items retain their official names, custom labels, and correct instance numbers when added, removed, or renamed.
+- Inventory updates remain accurate when many sound effects arrive together.
+- Speech bubbles display text that resembles time-of-day or interrupt commands without treating it as a control message.

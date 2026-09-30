@@ -29,10 +29,29 @@ func TestViewportImageBuffersAreIndependent(t *testing.T) {
 	if first.image == second.image || first.imageBacking == second.imageBacking || first.imageItem == second.imageItem {
 		t.Fatal("viewport image resources alias each other")
 	}
+	firstImage := first.image
+	updateViewportImageSize(first, false)
+	if first.image != firstImage {
+		t.Fatal("unchanged viewport replaced its image view")
+	}
+	firstBacking := first.imageBacking
+	first.window.Size = eui.Point{X: 300, Y: 200}
+	updateViewportImageSize(first, false)
+	if first.image == firstImage || first.imageBacking != firstBacking {
+		t.Fatal("shrinking viewport did not replace only its image view")
+	}
+	shrunkenImage := first.image
+	updateViewportImageSize(first, false)
+	if first.image != shrunkenImage {
+		t.Fatal("unchanged shrunken viewport replaced its image view")
+	}
 
 	secondBacking := second.imageBacking
 	first.window.Size = eui.Point{X: 800, Y: 600}
 	updateViewportImageSize(first, false)
+	if first.imageBacking == firstBacking || first.image == shrunkenImage || first.imageItem.Image != first.image {
+		t.Fatal("growing viewport did not publish its new backing image")
+	}
 	if second.imageBacking != secondBacking {
 		t.Fatal("resizing one viewport replaced another viewport's backing image")
 	}

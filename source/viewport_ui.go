@@ -152,9 +152,13 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 			state.imageBacking.Deallocate()
 		}
 		state.imageBacking = replacement
+		state.image = nil
 		win.Dirty = true
 	}
-	state.image = state.imageBacking.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image)
+	bounds := image.Rect(0, 0, w, h)
+	if state.image == nil || state.image.Bounds() != bounds {
+		state.image = state.imageBacking.SubImage(bounds).(*ebiten.Image)
+	}
 	state.imageItem.Image = state.image
 	state.imageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
 	state.imageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset+tabHeight) / s}

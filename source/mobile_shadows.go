@@ -626,10 +626,29 @@ func clearLayeredShadowCoverageImage(source *ebiten.Image, drawOp *ebiten.DrawIm
 	if !frameLayeredShadowCompositeActive || layeredShadowCoverage == nil || source == nil || drawOp == nil {
 		return
 	}
+	// A receiver outside all existing shadows cannot clear any coverage. Avoid
+	// switching render targets so successive scene draws can stay batched.
+	if frameLayeredShadowCoverageBounds.Empty() {
+		return
+	}
+	if !overlapsLayeredShadowCoverage(shadowCoverageReceiverBounds(source.Bounds(), drawOp.GeoM)) {
+		return
+	}
 	op := *drawOp
 	op.Blend = shadowCoverageClearBlend
 	op.GeoM.Translate(float64(-layeredShadowOrigin.X), float64(-layeredShadowOrigin.Y))
 	layeredShadowCoverage.DrawImage(source, &op)
+}
+
+func shadowCoverageReceiverBounds(sourceBounds image.Rectangle, transform ebiten.GeoM) image.Rectangle {
+	// DrawImage treats even a source subimage's upper-left corner as (0, 0).
+	width, height := float64(sourceBounds.Dx()), float64(sourceBounds.Dy())
+	var quad [4]shadowPoint
+	for index, corner := range [4]shadowPoint{{0, 0}, {width, 0}, {0, height}, {width, height}} {
+		quad[index].x, quad[index].y = transform.Apply(corner.x, corner.y)
+	}
+	// Include the same conservative filtering/rounding margin as shadow draws.
+	return shadowQuadBounds(quad)
 }
 
 func clearLayeredShadowCoverageFrameBlend(previous, current *ebiten.Image, options frameBlendDrawOptions) {

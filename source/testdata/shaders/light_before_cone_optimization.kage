@@ -136,11 +136,6 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
                     if along > 0.0 {
                         halfWidth := casterGeometry.z * (1.0 + along*casterGeometry.w)
                         perpendicular := abs(behind.x*axis.y - behind.y*axis.x)
-                        // Outside the cone, this caster blocks neither reveal
-                        // nor halo. Avoid their falloff and color work entirely.
-                        if perpendicular >= halfWidth {
-                            continue
-                        }
                         edgeStart := halfWidth * 0.65
                         cone := 1.0 - smoothstep(edgeStart, halfWidth, perpendicular)
                         cutoff := 1.0 - smoothstep(LightCutoffStartSquared, LightCutoffEndSquared, nd2)

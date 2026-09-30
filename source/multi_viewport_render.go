@@ -97,7 +97,6 @@ func prepareDirectViewportTargets(frame *viewportRenderFrame) {
 	frame.output = worldView
 	if frame.useComposite {
 		frame.scene = ensureViewportLightingTmp(frame.request.state, worldView.Bounds())
-		frame.scene.Fill(playfieldBackgroundColor())
 	} else {
 		frame.scene = worldView
 	}
@@ -120,7 +119,11 @@ func renderViewportSceneStage(frame *viewportRenderFrame) {
 	if frame.scene == nil {
 		prepareDirectViewportTargets(frame)
 	}
-	frame.scene.Fill(playfieldBackgroundColor())
+	// The direct target was already filled during target preparation. Only the
+	// separate lighting source needs its own background.
+	if frame.useComposite {
+		frame.scene.Fill(playfieldBackgroundColor())
+	}
 	drawScene(frame.scene, 0, 0, frame.snap, frame.alpha, frame.mobileFade, frame.pictFade, frame.request.state)
 	drawReplacementEffects(frame.scene, frame.scene.Bounds().Min.X, frame.scene.Bounds().Min.Y, frame.snap.mobiles, frame.snap.prevMobiles, frame.snap.picShiftX, frame.snap.picShiftY, frame.alpha)
 	if frame.useLighting {

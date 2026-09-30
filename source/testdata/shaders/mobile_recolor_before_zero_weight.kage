@@ -22,10 +22,6 @@ func recolorAt(pos vec2) vec4 {
 	// Influence bytes store three 5-bit palette slots and an 8-bit weight.
 	encoded := ivec3(imageSrc1AtFromSrc0Pos(pos).rgb*255 + vec3(0.5))
 	center := encoded.x & 31
-	// Interior pixels have no edge weight and need only the center palette.
-	if (encoded.y & 128) == 0 && encoded.z == 0 {
-		return clamp(base + paletteDelta(center), vec4(0), vec4(1))
-	}
 	first := ((encoded.x >> 5) | (encoded.y << 3)) & 31
 	second := (encoded.y >> 2) & 31
 	weight := float((encoded.y >> 7) | (encoded.z << 1)) / 255

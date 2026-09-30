@@ -91,6 +91,7 @@ func TestRenderStallStudy(t *testing.T) {
 	primarySession.night.Azimuth = 135
 	clImages = fixture.images
 	movieMode, playingMovie = true, true
+	moviePlaybackSession = primarySession
 	blockSound, blockMusic, blockTTS = true, true, true
 	playerName = fixture.playerName
 	dataDirPath = t.TempDir()
@@ -121,6 +122,8 @@ func TestRenderStallStudy(t *testing.T) {
 	gameWin.Position = eui.Point{X: float32(200 * scale)}
 	gameWin.AddWindow(true)
 	gameWin.MarkOpen()
+	appViewports.showSession(primarySession.ID())
+	bindSelectedViewportWindow()
 	makeConsoleWindow()
 	makeChatWindow()
 	makeInventoryWindow()
