@@ -1,15 +1,29 @@
 goThoom 63 changes since test62.
 
 Rendering:
-- Reduced rendering work for character shadows, mobile recoloring, and light cone shadows while preserving their appearance.
-- The game view avoids repeated background drawing and uses fewer per-frame memory allocations.
+- Character shadows skip unnecessary shadow-mask updates for artwork outside existing shadows, allowing more scene artwork to be drawn together.
+- Mobile recoloring uses less shader work inside sprites, including smoothly filtered artwork and blended animation frames.
+- Optional mobile light cone shadows skip calculations outside each character's shadow cone, reducing GPU work in scenes with many lights and characters.
+- The game view avoids drawing the same background repeatedly, both with and without shader lighting.
+- The game view reuses image resources during ordinary play, reducing per-frame memory allocations.
+- Shadow layering, sprite colors, and lighting retain their appearance across these optimizations.
 
 Movies and sessions:
 - Truncated movie headers are rejected safely.
 - Self-message text-to-speech uses the correct character in each session.
-- Reduced overhead when recording and reading recent session events for scripts.
+- Recording frequent session events uses less processing time, and scripts can read the latest event without copying the full event history.
 
 Inventory and server compatibility:
 - Inventory items retain their official names, custom labels, and correct instance numbers when added, removed, or renamed.
 - Inventory updates remain accurate when many sound effects arrive together.
 - Speech bubbles display text that resembles time-of-day or interrupt commands without treating it as a control message.
+
+Measured optimization results:
+- Shadow drawing with 128 artwork receivers and four shadows: 1.623 ms to 0.459 ms per nearest-filtered draw, 71.7% less time. The smoothly filtered variant reduced GPU draw commands from 277 to 40, 85.6% fewer.
+- Mobile recoloring of a 768x512 real-artwork sprite grid with smooth filtering and animation blending: 0.218 ms to 0.185 ms per grid, 15.1% less time.
+- Light cone shadows at 768x512 with 64 lights and 32 shadow cones: 0.0744 ms to 0.0673 ms per lighting pass, 9.6% less time.
+- Background fills per rendered game view: three to two when a separate lighting pass is needed, and two to one when drawing directly to the game view.
+- Recording an event with a full 1,000-event history: 701 ns to 38.9 ns per event, about 18 times faster.
+- Reading the latest chat or console text from a 1,000-event history: temporary memory allocation fell from 104 KiB to zero per lookup.
+
+These are focused benchmark results on Linux with Go 1.27.1, Ebitengine 2.10.2, a Radeon RX 7900 XT, and a Ryzen 9 7950X. GPU timings include drawing and synchronized pixel readback. They measure the listed operations; overall frame-rate improvements depend on scene content, graphics settings, and hardware.
