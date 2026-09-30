@@ -351,12 +351,6 @@ func decodeSessionBubble(session *Session, data []byte) (verb, text, name, lang 
 		if s == "" {
 			continue
 		}
-		if parseNightCommandForSession(session, s) {
-			continue
-		}
-		if parseInterruptCommandForSession(session, s) {
-			continue
-		}
 		if text == "" {
 			text = s
 		} else {

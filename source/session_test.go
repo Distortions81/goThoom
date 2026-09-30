@@ -1644,16 +1644,19 @@ func TestCaptureSessionDrawSnapshotUsesRequestedSession(t *testing.T) {
 
 func TestSecondaryStateDataStaysSessionScoped(t *testing.T) {
 	secondary := mustNewSession(2)
+	originalImages := clImages
 	originalSettings := gs
 	originalMovieMode := movieMode
 	originalBlockSound := blockSound
 	originalCombined := combinedSessionEvents
 	t.Cleanup(func() {
+		clImages = originalImages
 		gs = originalSettings
 		movieMode = originalMovieMode
 		blockSound = originalBlockSound
 		combinedSessionEvents = originalCombined
 	})
+	clImages = nil
 	gs.SpeechBubbles = true
 	gs.BubbleNormal = true
 	gs.BubbleOtherPlayers = true
@@ -1673,7 +1676,7 @@ func TestSecondaryStateDataStaysSessionScoped(t *testing.T) {
 	}
 
 	items := secondary.inventory.snapshot()
-	if len(items) != 1 || items[0].ID != 100 || items[0].Name != "Staff" {
+	if len(items) != 1 || items[0].ID != 100 || items[0].Name != "Item 100 <Staff>" || items[0].Extra != "Staff" {
 		t.Fatalf("secondary inventory = %+v", items)
 	}
 	if after := primarySession.inventory.snapshot(); !reflect.DeepEqual(after, primaryInventoryBefore) {

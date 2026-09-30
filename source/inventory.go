@@ -48,6 +48,31 @@ func normalizeInventoryName(name string) string {
 	return invFoldCaser.String(name)
 }
 
+func inventoryBaseName(id uint16) string {
+	if clImages != nil {
+		if name := clImages.ItemName(uint32(id)); name != "" {
+			return name
+		}
+	}
+	if name := defaultInventoryNames[id]; name != "" {
+		return name
+	}
+	return fmt.Sprintf("Item %d", id)
+}
+
+func inventoryDisplayName(base string, idx int, custom string) string {
+	if idx >= 0 {
+		if custom != "" {
+			return fmt.Sprintf("%s <#%d: %s>", base, idx+1, custom)
+		}
+		return fmt.Sprintf("%s <#%d>", base, idx+1)
+	}
+	if custom != "" {
+		return fmt.Sprintf("%s <%s>", base, custom)
+	}
+	return base
+}
+
 func resetInventory() {
 	primarySession.inventory.reset()
 	inventoryDirty = true
@@ -86,20 +111,27 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 }
 
 func (s *inventoryState) add(id uint16, idx int, name string, equip bool) {
+	s.addNamed(id, idx, name, "", equip)
+}
+
+// addNamed keeps the asset's official name separate from the server's custom
+// label, including an empty label for a newly acquired unnamed item.
+func (s *inventoryState) addNamed(id uint16, idx int, base, custom string, equip bool) {
 	s.mu.Lock()
 	target := -1
+	name := inventoryDisplayName(base, idx, custom)
 	if idx >= 0 {
 		// Template item with explicit per-ID index; insert a new entry and renumber
 		// existing items of the same ID whose IDIndex >= idx.
 		for i := range s.items {
 			if s.items[i].ID == id && s.items[i].IDIndex >= idx {
 				s.items[i].IDIndex++
+				s.items[i].Name = inventoryDisplayName(s.items[i].Base, s.items[i].IDIndex, s.items[i].Extra)
 			}
 		}
 		// Append as a distinct instance; keep display order by placing at end
-		disp := fmt.Sprintf("%s <#%d>", name, idx+1)
 		target = len(s.items)
-		item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
+		item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: name, Base: base, Extra: custom, Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
 		s.items = append(s.items, item)
 	} else {
 		// Legacy/non-template: coalesce by ID only when normalized names match.
@@ -118,7 +150,7 @@ func (s *inventoryState) add(id uint16, idx int, name string, equip bool) {
 		}
 		if !found {
 			target = len(s.items)
-			item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
+			item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: name, Base: base, Extra: custom, Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
 			s.items = append(s.items, item)
 		}
 	}
@@ -162,6 +194,7 @@ func (s *inventoryState) remove(id uint16, idx int) {
 			for i := range s.items {
 				if s.items[i].ID == id && s.items[i].IDIndex > idx {
 					s.items[i].IDIndex--
+					s.items[i].Name = inventoryDisplayName(s.items[i].Base, s.items[i].IDIndex, s.items[i].Extra)
 				}
 			}
 			removed = true
@@ -381,6 +414,7 @@ func (s *inventoryState) rename(id uint16, idx int, name string) {
 			}
 		}
 	}
+	s.rebuildIndicesLocked()
 	s.mu.Unlock()
 	s.revision.Add(1)
 }
@@ -524,29 +558,12 @@ func (s *inventoryState) setFull(ids []uint16, equipped []bool) {
 			name = oldNames[inventoryKey{ID: id, IDIndex: -1}]
 		}
 
-		// Determine base (official) name
-		base := ""
-		if clImages != nil {
-			if n := clImages.ItemName(uint32(id)); n != "" {
-				base = n
-			}
-		}
-		if base == "" {
-			if n, ok := defaultInventoryNames[id]; ok {
-				base = n
-			} else {
-				base = fmt.Sprintf("Item %d", id)
-			}
-		}
+		base := inventoryBaseName(id)
 
 		// Compose canonical display name for the new list
 		disp := base
 		if isTemplate {
-			if strings.TrimSpace(name) != "" {
-				disp = fmt.Sprintf("%s <#%d: %s>", base, idx+1, name)
-			} else {
-				disp = fmt.Sprintf("%s <#%d>", base, idx+1)
-			}
+			disp = inventoryDisplayName(base, idx, strings.TrimSpace(name))
 			instanceID := oldTemplateIDs[inventoryKey{ID: id, IDIndex: int16(idx)}]
 			if instanceID == 0 {
 				instanceID = s.instanceSequence.Add(1)

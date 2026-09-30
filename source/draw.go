@@ -1265,9 +1265,9 @@ func handleSessionInvCmdOther(session *Session, cmd int, data []byte) ([]byte, b
 	}
 	switch base {
 	case kInvCmdAdd:
-		session.inventory.add(id, idx, name, false)
+		session.inventory.addNamed(id, idx, inventoryBaseName(id), name, false)
 	case kInvCmdAddEquip:
-		session.inventory.add(id, idx, name, true)
+		session.inventory.addNamed(id, idx, inventoryBaseName(id), name, true)
 	case kInvCmdDelete:
 		session.inventory.remove(id, idx)
 	case kInvCmdEquip:
@@ -2303,10 +2303,13 @@ stateRecordLoop:
 		}
 		sounds := make([]uint16, 0, min(soundCount, maxSounds))
 
-		for i := 0; i < soundCount && i < maxSounds; i++ {
+		// Consume every sound entry so the playback cap cannot shift inventory parsing.
+		for i := 0; i < soundCount; i++ {
 			id := binary.BigEndian.Uint16(stateData[:2])
 			stateData = stateData[2:]
-			sounds = append(sounds, id)
+			if i < maxSounds {
+				sounds = append(sounds, id)
+			}
 		}
 		newSounds := session.filterSounds(sounds, gs.ThrottleSounds)
 		session.publishSounds(newSounds)

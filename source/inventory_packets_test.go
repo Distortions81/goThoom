@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"log"
 	"testing"
+
+	"gothoom/climg"
 )
 
 func TestParseInventoryFull(t *testing.T) {
@@ -65,6 +67,9 @@ func TestParseInventoryOther(t *testing.T) {
 }
 
 func TestParseInventoryMacRomanName(t *testing.T) {
+	oldImages := clImages
+	clImages = testCLImages(map[uint32]*climg.ClientItem{100: {Name: "Bag", Flags: kItemFlagData}})
+	t.Cleanup(func() { clImages = oldImages })
 	resetInventory()
 	inventoryDirty = false
 	nameBytes := []byte{'M', 0x8e, 'm', 'e'}
@@ -81,8 +86,8 @@ func TestParseInventoryMacRomanName(t *testing.T) {
 		t.Fatalf("unexpected rest %v", rest)
 	}
 	inv := getInventory()
-	want := decodeMacRoman(nameBytes) + " <#1>"
-	if len(inv) != 1 || inv[0].Name != want {
+	want := "Bag <#1: " + decodeMacRoman(nameBytes) + ">"
+	if len(inv) != 1 || inv[0].Name != want || inv[0].Extra != decodeMacRoman(nameBytes) {
 		t.Fatalf("unexpected inventory %v", inv)
 	}
 	if !inventoryDirty {
@@ -157,12 +162,15 @@ func TestParseInventoryMidstreamD(t *testing.T) {
 }
 
 func TestInventoryRenameIndexed(t *testing.T) {
+	oldImages := clImages
+	clImages = testCLImages(map[uint32]*climg.ClientItem{100: {Name: "Bag", Flags: kItemFlagData}})
+	t.Cleanup(func() { clImages = oldImages })
 	resetInventory()
 	inventoryDirty = false
 	data := []byte{
 		byte(kInvCmdMultiple), 4,
-		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 0, 'B', 'a', 'g', 0,
-		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 1, 'B', 'a', 'g', 0,
+		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 0, 0,
+		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 1, 0,
 		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 0, 'F', 'i', 'r', 's', 't', 0,
 		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 1, 'S', 'e', 'c', 'o', 'n', 'd', 0,
 		byte(kInvCmdNone), 0x33,
