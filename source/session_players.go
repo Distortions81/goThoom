@@ -489,14 +489,17 @@ func (s *sessionPlayerState) parseShareText(raw []byte, text, self string) bool 
 		playersDirty = true
 		return true
 	case strings.HasPrefix(text, "You are sharing experiences with ") || strings.HasPrefix(text, "You begin sharing your experiences with "):
-		clearSharees()
+		if strings.HasPrefix(text, "You are sharing experiences with ") {
+			clearSharees()
+		}
 		markSharees(taggedNames(), true)
 		playersDirty = true
 		return true
 	case self != "" && (strings.HasPrefix(text, self+" is sharing experiences with ") || strings.HasPrefix(text, self+" begins sharing experiences with ")):
-		clearSharees()
 		prefix := self + " is sharing experiences with "
-		if !strings.HasPrefix(text, prefix) {
+		if strings.HasPrefix(text, prefix) {
+			clearSharees()
+		} else {
 			prefix = self + " begins sharing experiences with "
 		}
 		markSharees(textNames(prefix), true)

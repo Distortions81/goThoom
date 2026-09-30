@@ -72,11 +72,11 @@ func parseShareText(raw []byte, s string) bool {
 		return true
 	case strings.HasPrefix(s, "You are sharing experiences with ") || strings.HasPrefix(s, "You begin sharing your experiences with "):
 		// Self -> sharees
-		// Clear any existing sharees first
+		// Only a full recipient list replaces existing sharees.
 		playersMu.Lock()
 		cleared := make([]Player, 0, len(players))
 		for _, p := range players {
-			if p.Sharee {
+			if p.Sharee && strings.HasPrefix(s, "You are sharing experiences with ") {
 				p.Sharee = false
 				cleared = append(cleared, *p)
 			}
@@ -120,7 +120,7 @@ func parseShareText(raw []byte, s string) bool {
 		playersMu.Lock()
 		cleared := make([]Player, 0, len(players))
 		for _, p := range players {
-			if p.Sharee {
+			if p.Sharee && strings.HasPrefix(s, playerName+" is sharing experiences with ") {
 				p.Sharee = false
 				cleared = append(cleared, *p)
 			}

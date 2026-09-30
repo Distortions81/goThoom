@@ -3,10 +3,111 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"testing"
 
 	"gothoom/climg"
 )
+
+func TestPlainInfoTextRetainsWholeConsoleMessage(t *testing.T) {
+	// Classic HandleInfoText passes ordinary strings straight to ShowInfoText;
+	// speech bubble headers belong to the separate bubble section of the record.
+	s := mustNewSession(2)
+	lines := []string{"No room in your pack.", "It is raining.", "HP is full.", "OK"}
+	handleSessionInfoText(s, []byte("\r"+strings.Join(lines, "\r")+"\r"))
+	events := s.events.log.snapshot()
+	if len(events) != len(lines) {
+		t.Fatalf("info events = %+v, want %d console messages", events, len(lines))
+	}
+	for i, want := range lines {
+		if events[i].Kind != sessionEventConsole || events[i].Text != want || events[i].MessageType != messageTextTypeSystem {
+			t.Errorf("info line %q became %+v", want, events[i])
+		}
+	}
+}
+
+func TestWrappedBEPPStillUpdatesOwningSession(t *testing.T) {
+	// Classic ShowInfoText removes dd/tl/gm before parsing the contained BEPP
+	// message. A hidden backend response must still refresh the player list.
+	for _, wrappers := range [][]string{{"dd"}, {"tl"}, {"gm"}, {"dd", "tl"}, {"dd", "dd"}} {
+		t.Run(strings.Join(wrappers, "/"), func(t *testing.T) {
+			s := mustNewSession(2)
+			other := mustNewSession(3)
+			var packet []byte
+			for _, prefix := range wrappers {
+				packet = append(packet, 0xc2, prefix[0], prefix[1])
+			}
+			packet = append(packet, 0xc2, 'b', 'e', 0xc2, 'i', 'n')
+			packet = append(packet, pnTag("Alice")...)
+			packet = append(packet, []byte("\tHuman\tFemale\tFighter\tSun Dragon Clan\x00")...)
+			handleSessionInfoText(s, packet)
+			alice, ok := s.players.player("Alice")
+			if !ok || alice.Race != "Human" || alice.Gender != "Female" || alice.Class != "Fighter" || alice.clan != "Sun Dragon Clan" {
+				t.Fatalf("wrapped backend response lost: player=%+v found=%v", alice, ok)
+			}
+			if _, ok := other.players.player("Alice"); ok {
+				t.Fatal("wrapped backend response crossed sessions")
+			}
+			if events := s.events.log.snapshot(); len(events) != 0 {
+				t.Fatalf("backend response displayed console text: %+v", events)
+			}
+		})
+	}
+	for _, prefix := range []string{"dd", "tl", "gm"} {
+		s := mustNewSession(2)
+		packet := append([]byte{0xc2, prefix[0], prefix[1]}, []byte("No room in your pack.\x00ignored")...)
+		want := "No room in your pack."
+		if prefix == "dd" {
+			want = ""
+		}
+		if got := decodeSessionBEPP(s, packet); got != want {
+			t.Errorf("wrapper %s returned %q, want %q", prefix, got, want)
+		}
+	}
+}
+
+func TestShareAddsRecipientWithoutClearingExistingShares(t *testing.T) {
+	// Classic TestTextForShare resets recipients for a full list, but the
+	// "You begin sharing" acknowledgement only adds the named recipient.
+	for _, form := range []struct {
+		name, full, begin, stop string
+	}{
+		{"classic", "You are sharing experiences with ", "You begin sharing your experiences with ", "You are no longer sharing experiences with "},
+		{"third person", "Hero is sharing experiences with ", "Hero begins sharing experiences with ", "Hero is no longer sharing experiences with "},
+	} {
+		t.Run(form.name, func(t *testing.T) {
+			s := mustNewSession(2)
+			s.setCharacterName("Hero")
+			other := mustNewSession(3)
+			send := func(prefix, name string) {
+				raw := append([]byte(prefix), pnTag(name)...)
+				raw = append(raw, '.')
+				decodeSessionBEPP(s, append([]byte{0xc2, 's', 'h'}, raw...))
+			}
+			check := func(bobShares, carolShares bool) {
+				t.Helper()
+				bob, _ := s.players.player("Bob")
+				carol, _ := s.players.player("Carol")
+				if bob.Sharee != bobShares || carol.Sharee != carolShares {
+					t.Fatalf("recipients = Bob %v, Carol %v; want %v, %v", bob.Sharee, carol.Sharee, bobShares, carolShares)
+				}
+				if len(other.players.snapshot()) != 0 {
+					t.Fatal("share acknowledgement changed another session")
+				}
+			}
+			send(form.full, "Bob")
+			check(true, false)
+			send(form.begin, "Carol")
+			check(true, true)
+			send(form.stop, "Carol")
+			check(true, false)
+			send(form.full, "Carol")
+			check(false, true)
+			decodeSessionBEPP(s, append([]byte{0xc2, 's', 'u'}, []byte("You are no longer sharing experiences with anyone.")...))
+			check(false, false)
+		})
+	}
+}
 
 func TestSpeechCannotExecuteServerDirectives(t *testing.T) {
 	oldBlockMusic := blockMusic

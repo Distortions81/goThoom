@@ -17,6 +17,9 @@ Inventory and server compatibility:
 - Inventory items retain their official names, custom labels, and correct instance numbers when added, removed, or renamed.
 - Inventory updates remain accurate when many sound effects arrive together.
 - Speech bubbles display text that resembles time-of-day or interrupt commands without treating it as a control message.
+- Ordinary server messages retain their opening words and appear as console messages.
+- Hidden server replies still update player information and other session state.
+- Adding an experience-share recipient preserves existing recipients; full recipient-list updates still replace the list.
 
 Measured optimization results:
 - Shadow drawing with 128 artwork receivers and four shadows: 1.623 ms to 0.459 ms per nearest-filtered draw, 71.7% less time. The smoothly filtered variant reduced GPU draw commands from 277 to 40, 85.6% fewer.

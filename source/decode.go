@@ -125,9 +125,32 @@ func decodeBEPP(data []byte) string {
 	return decodeSessionBEPP(primarySession, data)
 }
 
-func decodeSessionBEPP(session *Session, data []byte) string {
+func decodeSessionBEPP(session *Session, data []byte) (result string) {
 	if len(data) < 3 || data[0] != 0xC2 {
 		return ""
+	}
+	// Classic removes display-only wrappers before interpreting the contained
+	// message. Hidden replies still update the owning session's player state.
+	hidden := false
+unwrap:
+	for len(data) >= 3 && data[0] == 0xC2 {
+		switch string(data[1:3]) {
+		case "dd":
+			hidden = true
+		case "tl", "gm":
+		default:
+			break unwrap
+		}
+		data = data[3:]
+	}
+	if hidden {
+		defer func() { result = "" }()
+	}
+	if len(data) < 3 || data[0] != 0xC2 {
+		if end := bytes.IndexByte(data, 0); end >= 0 {
+			data = data[:end]
+		}
+		return strings.TrimSpace(decodeServerText(stripBEPPTags(append([]byte(nil), data...))))
 	}
 	prefix := string(data[1:3])
 	// Keep a raw copy (without NUL terminator) for backend parsing.
@@ -212,11 +235,11 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 		if text != "" {
 			return text
 		}
-	case "dd", "dl", "cf":
+	case "dl", "cf":
 		return ""
-	case "yk", "iv", "hp", "pn", "ka", "tl":
+	case "yk", "iv", "hp", "pn", "ka":
 		// Known simple pass-through prefixes (e.g., iv: item/verb,
-		// ka: karma, tl: text log only)
+		// ka: karma)
 		if text != "" {
 			return text
 		}
@@ -462,15 +485,8 @@ func handleSessionInfoText(session *Session, data []byte) {
 			}
 			continue
 		}
-		if _, txt, _, _, _, bubbleType, _ := decodeSessionBubble(session, line); txt != "" {
-			messageType := messageTextTypeForBubble(bubbleType)
-			if isChatBubble(bubbleType) {
-				session.publishChat(txt, messageType)
-			} else {
-				session.publishConsole(txt, messageType)
-			}
-			continue
-		}
+		// Info text is a string, not a speech-bubble packet. Bubble headers are
+		// decoded separately from the bubble section of the logical state record.
 		s := strings.TrimSpace(decodeServerText(stripBEPPTags(line)))
 		if s == "" {
 			continue
