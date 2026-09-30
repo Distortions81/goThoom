@@ -87,7 +87,7 @@ func extractMovieFromZip(zr *zip.Reader) ([]byte, error) {
 }
 
 func parseMovieData(data []byte, clVersion int) ([]movieFrame, error) {
-	if len(data) < 8 {
+	if len(data) < 24 {
 		return nil, fmt.Errorf("short file")
 	}
 	if binary.BigEndian.Uint32(data[:4]) != movieSignature {

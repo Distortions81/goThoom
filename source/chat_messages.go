@@ -90,7 +90,7 @@ func handleSessionChatTTS(session *Session, msg, messageType, speaker string) {
 		})
 		return
 	}
-	if blockTTS || !chatTTSMessageSelected(msg, messageType) {
+	if blockTTS || !chatTTSMessageSelectedForSession(session, msg, messageType) {
 		return
 	}
 	if speaker != "" {
@@ -106,7 +106,15 @@ func handleSessionChatTTS(session *Session, msg, messageType, speaker string) {
 }
 
 func chatTTSMessageSelected(msg, messageType string) bool {
-	return chatTTSMessageTypeEnabled(messageType) && (gs.ChatTTSSelf || !isSelfChatMessage(msg))
+	return chatTTSMessageSelectedForSession(primarySession, msg, messageType)
+}
+
+func chatTTSMessageSelectedForSession(session *Session, msg, messageType string) bool {
+	character := playerName
+	if session != nil && session != primarySession {
+		character = session.characterName()
+	}
+	return chatTTSMessageTypeEnabled(messageType) && (gs.ChatTTSSelf || !isSelfChatMessageForCharacter(msg, character))
 }
 
 func chatTTSMessageTypeEnabled(messageType string) bool {
@@ -149,11 +157,15 @@ func getChatMessageEntries() ([]string, []string) {
 }
 
 func isSelfChatMessage(msg string) bool {
-	if playerName == "" {
+	return isSelfChatMessageForCharacter(msg, playerName)
+}
+
+func isSelfChatMessageForCharacter(msg, character string) bool {
+	if character == "" {
 		return false
 	}
 	m := strings.ToLower(strings.TrimSpace(msg))
-	name := strings.ToLower(playerName)
+	name := strings.ToLower(character)
 
 	// Emotes like "(Hero waves)"
 	if strings.HasPrefix(m, "("+name+" ") {

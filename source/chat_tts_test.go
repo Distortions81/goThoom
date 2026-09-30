@@ -328,3 +328,56 @@ func TestChatTTSSelfOption(t *testing.T) {
 		}
 	}
 }
+
+func TestSecondarySessionChatTTSSelfOption(t *testing.T) {
+	originalSettings, originalSessions := gs, appSessions
+	originalPlayerName := playerName
+	originalFocusMuted, originalBlockTTS := focusMuted, blockTTS
+	originalSpeaker, originalSpeakerTime := lastTTSSpeaker, lastTTSTime
+	originalFunc := playChatTTSFunc
+	stopAllTTS()
+	manager := newSessionManager(mustNewSession(primarySessionID))
+	session, ok := manager.addSession()
+	if !ok {
+		t.Fatal("create secondary session")
+	}
+	session.setCharacterName("Second Hero")
+	appSessions = manager
+	gs = gsdef
+	gs.ChatTTS, gs.Mute = true, false
+	focusMuted, blockTTS = false, false
+	playerName = "Hero"
+	lastTTSSpeaker, lastTTSTime = "", time.Time{}
+	spoken := make(chan string, 4)
+	playChatTTSFunc = func(_ context.Context, text string) { spoken <- text }
+	t.Cleanup(func() {
+		stopAllTTS()
+		playChatTTSFunc = originalFunc
+		gs, appSessions = originalSettings, originalSessions
+		playerName = originalPlayerName
+		focusMuted, blockTTS = originalFocusMuted, originalBlockTTS
+		lastTTSSpeaker, lastTTSTime = originalSpeaker, originalSpeakerTime
+	})
+
+	handleSessionChatTTS(session, "Second Hero says, my message", messageTextTypeSay, "Second Hero")
+	handleSessionChatTTS(session, "Hero says, another character", messageTextTypeSay, "Hero")
+	select {
+	case got := <-spoken:
+		if got != "Hero says, another character" {
+			t.Fatalf("secondary session spoke %q while own-message TTS is disabled", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("another character's message was suppressed")
+	}
+
+	gs.ChatTTSSelf = true
+	handleSessionChatTTS(session, "Second Hero says, now enabled", messageTextTypeSay, "Second Hero")
+	select {
+	case got := <-spoken:
+		if got != "Second Hero says, now enabled" {
+			t.Fatalf("enabled own-message TTS spoke %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("own message was suppressed after enabling own-message TTS")
+	}
+}

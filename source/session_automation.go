@@ -404,13 +404,7 @@ func (s *Session) latestEventText() string {
 	if s == nil || s.events == nil || s.events.log == nil {
 		return ""
 	}
-	events := s.events.log.snapshot()
-	for i := len(events) - 1; i >= 0; i-- {
-		if events[i].Kind == sessionEventChat || events[i].Kind == sessionEventConsole {
-			return events[i].Text
-		}
-	}
-	return ""
+	return s.events.log.latestText()
 }
 
 func (s *Session) legacyMacroEquippedItemName(slot int) string {

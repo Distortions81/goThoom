@@ -36,6 +36,7 @@ type sessionEventLog struct {
 	mu      sync.Mutex
 	entries []sessionEvent
 	max     int
+	start   int // oldest retained event in the circular buffer
 }
 
 func newSessionEventLog(maxEntries int) *sessionEventLog {
@@ -51,9 +52,11 @@ func (l *sessionEventLog) add(event sessionEvent) {
 		event.At = time.Now()
 	}
 	l.mu.Lock()
-	l.entries = append(l.entries, event)
-	if l.max > 0 && len(l.entries) > l.max {
-		l.entries = append(l.entries[:0], l.entries[len(l.entries)-l.max:]...)
+	if l.max > 0 && len(l.entries) == l.max {
+		l.entries[l.start] = event
+		l.start = (l.start + 1) % len(l.entries)
+	} else {
+		l.entries = append(l.entries, event)
 	}
 	l.mu.Unlock()
 }
@@ -65,11 +68,29 @@ func (l *sessionEventLog) snapshot() []sessionEvent {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	out := make([]sessionEvent, len(l.entries))
-	copy(out, l.entries)
+	n := copy(out, l.entries[l.start:])
+	copy(out[n:], l.entries[:l.start])
 	for i := range out {
 		out[i].SoundIDs = append([]uint16(nil), out[i].SoundIDs...)
 	}
 	return out
+}
+
+// latestText reads the newest chat or console event without copying history
+// or sound payloads on every legacy macro text-log lookup.
+func (l *sessionEventLog) latestText() string {
+	if l == nil {
+		return ""
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for i := len(l.entries) - 1; i >= 0; i-- {
+		event := l.entries[(l.start+i)%len(l.entries)]
+		if event.Kind == sessionEventChat || event.Kind == sessionEventConsole {
+			return event.Text
+		}
+	}
+	return ""
 }
 
 type sessionEventState struct {
