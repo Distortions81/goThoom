@@ -13,7 +13,7 @@ Rendering:
 Movies and sessions:
 - Truncated movie headers are rejected safely.
 - Self-message text-to-speech uses the correct character in each session.
-- Recording frequent session events uses less processing time, and scripts can read the latest event without copying the full event history.
+- Frequent session events use less processing time, and legacy macros retrieve the latest chat or console text with less temporary memory.
 - Chat and script chat triggers use less CPU time and temporary memory with large player directories.
 
 Inventory and server compatibility:
