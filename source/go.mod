@@ -18,7 +18,7 @@ require (
 	github.com/ncruces/zenity v0.10.15
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/tphakala/simd v1.10.0
+	github.com/tphakala/simd v1.11.0
 	github.com/traefik/yaegi v0.16.1
 	golang.design/x/clipboard v0.9.0
 	golang.org/x/image v0.46.0
