@@ -7,7 +7,7 @@ replace gt2 => ./gt2
 require (
 	github.com/Distortions81/go-meltysynth v0.1.4
 	github.com/chewxy/math32 v1.11.2
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/f1monkey/spellchecker v1.3.0
 	github.com/gen2brain/beeep v0.11.2
 	github.com/go-text/typesetting v0.3.5
