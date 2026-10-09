@@ -978,7 +978,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		// preferences. Other styles retain their existing per-flow appearance.
 		tabsFilled := item.Filled || (style.Border == 0 && style.Filled)
 		fontSize := tabFontSize(item, style)
-		layout, stripSize := layoutTabs(item, style)
+		var tabRects [16]rect
+		layout, stripSize := layoutTabsInto(tabRects[:0], item, style)
 		tabHeight := stripSize.Y
 		rowHeight := tabRowHeight(item, style)
 		textSize := (fontSize * uiScale) + 2

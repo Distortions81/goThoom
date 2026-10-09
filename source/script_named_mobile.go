@@ -38,7 +38,6 @@ func scriptClearNamedMobileEffect(owner, name string, outline bool) {
 // A name match takes precedence over a sprite match. Within each kind, the
 // lexicographically last script ID wins, just like sprite-only effects.
 func scriptMobileEffectForMobile(id uint16, name string, outline bool) (scriptMobileTint, bool) {
-	name = strings.ToLower(strings.TrimSpace(name))
 	overlayMu.RLock()
 	defer overlayMu.RUnlock()
 	named, sprites := scriptNamedMobileTints, scriptMobileTints
@@ -47,6 +46,9 @@ func scriptMobileEffectForMobile(id uint16, name string, outline bool) (scriptMo
 	}
 	var owner string
 	var effect scriptMobileTint
+	if len(named) != 0 {
+		name = strings.ToLower(strings.TrimSpace(name))
+	}
 	if name != "" {
 		for candidate, effects := range named {
 			if value, ok := effects[name]; ok && candidate > owner {

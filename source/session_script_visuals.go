@@ -309,11 +309,18 @@ func scriptFlashMobileForSession(session *Session, owner string, index uint8, r,
 }
 
 func (v *sessionScriptVisualState) overlaySnapshot() []overlayOp {
+	return v.overlaySnapshotInto(nil)
+}
+
+// overlaySnapshotInto copies into caller-owned storage so drawing can reuse its
+// buffers without sharing mutable operations with script goroutines.
+func (v *sessionScriptVisualState) overlaySnapshotInto(ops []overlayOp) []overlayOp {
+	clear(ops)
+	ops = ops[:0]
 	if v == nil {
-		return nil
+		return ops
 	}
 	v.mu.RLock()
-	ops := make([]overlayOp, 0, 64)
 	for _, owned := range v.overlays {
 		ops = append(ops, owned...)
 	}
@@ -325,7 +332,6 @@ func (v *sessionScriptVisualState) mobileEffect(id uint16, name string, outline 
 	if v == nil {
 		return scriptMobileTint{}, false
 	}
-	name = strings.ToLower(strings.TrimSpace(name))
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 	named, sprites := v.namedTints, v.tints
@@ -334,6 +340,9 @@ func (v *sessionScriptVisualState) mobileEffect(id uint16, name string, outline 
 	}
 	var owner string
 	var effect scriptMobileTint
+	if len(named) != 0 {
+		name = strings.ToLower(strings.TrimSpace(name))
+	}
 	if name != "" {
 		for candidate, effects := range named {
 			if value, ok := effects[name]; ok && candidate > owner {

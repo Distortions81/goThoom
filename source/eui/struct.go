@@ -281,6 +281,7 @@ type itemData struct {
 	WheelColor                  Color
 	TextPtr                     *string
 	wrappedLabel                *wrappedLabelLayout
+	textMeasure                 *textMeasureCache
 	Underlines                  []TextSpan
 	// Prediction is rendered after the primary caption in the disabled text
 	// color. It is display-only and is not included in selection or cursor positions.

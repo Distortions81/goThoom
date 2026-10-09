@@ -317,7 +317,10 @@ func NewText() (*itemData, *EventHandler) {
 	// Ensure a default text face is available immediately for code that
 	// queries metrics without drawing first.
 	if newItem.Face == nil {
-		newItem.Face = textFace(newItem.FontSize)
+		// Face is public and callers may mutate it. Keep EUI's shared faces
+		// private so their measured text can be cached safely.
+		face := *textFace(newItem.FontSize)
+		newItem.Face = &face
 	}
 	h := newHandler()
 	newItem.Handler = h

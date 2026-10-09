@@ -365,8 +365,7 @@ func decodeSessionBubble(session *Session, data []byte) (verb, text, name, lang 
 	if i := bytes.IndexByte(msgData, 0); i >= 0 {
 		msgData = msgData[:i]
 	}
-	lines := bytes.Split(msgData, []byte{'\r'})
-	for _, ln := range lines {
+	for ln := range bytes.SplitSeq(msgData, []byte{'\r'}) {
 		if len(ln) == 0 {
 			continue
 		}
@@ -475,7 +474,7 @@ func handleSessionInfoText(session *Session, data []byte) {
 	if session == nil {
 		return
 	}
-	for _, line := range bytes.Split(data, []byte{'\r'}) {
+	for line := range bytes.SplitSeq(data, []byte{'\r'}) {
 		if len(line) == 0 {
 			continue
 		}

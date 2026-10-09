@@ -121,11 +121,11 @@ func newLightingShaderVariant(shader *ebiten.Shader, lightLimit, darkLimit, shad
 		"ShadowCasterGeometry":      packedShadowCasterGeometry[:shadowLimit*4],
 		"ShadowAxis":                packedShadowAxis[:shadowLimit*2],
 		"ShadowCount":               0,
-		"LightStrength":             float32(1),
-		"GlowStrength":              float32(1),
-		"NightFactor":               float32(0),
-		"MaxLightPlane":             float32(32767),
-		"HasCharacterShadowMask":    float32(0),
+		"LightStrength":             []float32{1},
+		"GlowStrength":              []float32{1},
+		"NightFactor":               []float32{0},
+		"MaxLightPlane":             []float32{32767},
+		"HasCharacterShadowMask":    []float32{0},
 		"CharacterShadowMin":        characterShadowMin[:],
 		"CharacterShadowMax":        characterShadowMax[:],
 	}
@@ -439,9 +439,9 @@ func applyWorldCompositeForViewport(state *viewportRenderState, night nightRende
 	}
 
 	// Scalars
-	uniforms["LightStrength"] = float32(gs.ShaderLightStrength)
-	uniforms["GlowStrength"] = float32(gs.ShaderGlowStrength)
-	uniforms["MaxLightPlane"] = highestLightPlane(il)
+	setShaderFloat32(uniforms, "LightStrength", float32(gs.ShaderLightStrength))
+	setShaderFloat32(uniforms, "GlowStrength", float32(gs.ShaderGlowStrength))
+	setShaderFloat32(uniforms, "MaxLightPlane", highestLightPlane(il))
 
 	// Smoothed night factor (0..1)
 	nightFactor := float32(0)
@@ -459,15 +459,15 @@ func applyWorldCompositeForViewport(state *viewportRenderState, night nightRende
 		lvl := effectiveNightLevel(night)
 		nightFactor = float32(lvl) / 100
 	}
-	uniforms["NightFactor"] = nightFactor
-	uniforms["HasCharacterShadowMask"] = float32(0)
+	setShaderFloat32(uniforms, "NightFactor", nightFactor)
+	setShaderFloat32(uniforms, "HasCharacterShadowMask", 0)
 	op.Images[1] = whiteImage
 	if frame.detailedShadowMask != nil && !frame.detailedShadowBounds.Empty() {
 		characterShadowMin[0] = float32(frame.detailedShadowBounds.Min.X - dstBounds.Min.X)
 		characterShadowMin[1] = float32(frame.detailedShadowBounds.Min.Y - dstBounds.Min.Y)
 		characterShadowMax[0] = float32(frame.detailedShadowBounds.Max.X - dstBounds.Min.X)
 		characterShadowMax[1] = float32(frame.detailedShadowBounds.Max.Y - dstBounds.Min.Y)
-		uniforms["HasCharacterShadowMask"] = float32(1)
+		setShaderFloat32(uniforms, "HasCharacterShadowMask", 1)
 		op.Images[1] = frame.detailedShadowMask
 	}
 

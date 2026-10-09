@@ -214,6 +214,11 @@ func updateItemThemeTree(items []*itemData, old, new *Theme) {
 	for _, it := range items {
 		if it.Theme == old {
 			oldStyle := it.themeStyle()
+			if oldStyle != nil {
+				// A custom button reuses its resolved style on the next lookup.
+				previous := *oldStyle
+				oldStyle = &previous
+			}
 			it.Theme = new
 			// Constructors copy fills and outlines. Carry inherited colors across
 			// palette changes while preserving explicit per-control overrides.

@@ -3,6 +3,14 @@ package main
 import "testing"
 
 func BenchmarkPictureShiftDense(b *testing.B) {
+	benchmarkPictureShiftDense(b, false)
+}
+
+func BenchmarkPictureShiftDenseReused(b *testing.B) {
+	benchmarkPictureShiftDense(b, true)
+}
+
+func benchmarkPictureShiftDense(b *testing.B, reuse bool) {
 	const (
 		dx          = 3
 		dy          = -2
@@ -32,7 +40,8 @@ func BenchmarkPictureShiftDense(b *testing.B) {
 		pixelCountMu.Unlock()
 	})
 
-	if sx, sy, _, ok := pictureShift(prev, cur, maxInterpPixels); !ok || sx != dx || sy != dy {
+	sx, sy, idxs, ok := pictureShift(prev, cur, maxInterpPixels)
+	if !ok || sx != dx || sy != dy {
 		b.Fatalf("unexpected warm-up shift (%d,%d) ok=%v", sx, sy, ok)
 	}
 
@@ -40,7 +49,10 @@ func BenchmarkPictureShiftDense(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		sx, sy, idxs, ok := pictureShift(prev, cur, maxInterpPixels)
+		if !reuse {
+			idxs = nil
+		}
+		sx, sy, idxs, ok = pictureShiftInto(prev, cur, maxInterpPixels, idxs)
 		if !ok {
 			b.Fatal("expected successful pictureShift")
 		}

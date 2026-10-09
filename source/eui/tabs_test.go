@@ -310,3 +310,53 @@ func TestTabLabelsFitFixedPanels(t *testing.T) {
 		}
 	}
 }
+
+func TestTabLayoutScratchTracksChangingTabsAndKeepsHitGeometry(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	oldScale := uiScale
+	uiScale = 1
+	t.Cleanup(func() { uiScale = oldScale })
+	flow := &itemData{ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL, Fixed: true, Size: point{X: 240, Y: 400}}
+	win := NewWindow()
+	win.Open = true
+	win.Size = point{X: 300, Y: 450}
+	win.AddItem(flow)
+	screen := ebiten.NewImage(400, 500)
+	t.Cleanup(screen.Deallocate)
+	var storage [2]rect
+	rects := storage[:0]
+	var dropdowns []openDropdown
+	for _, names := range [][]string{{"One", "Two"}, {"Display", "Text", "Audio", "Controls"}, {"Files"}, {}, {"A renamed tab", "More"}} {
+		flow.Tabs = flow.Tabs[:0]
+		for _, name := range names {
+			flow.Tabs = append(flow.Tabs, &itemData{Name: name, ItemType: ITEM_FLOW})
+		}
+		flow.ActiveTab = 0
+		previous := rects[:cap(rects)]
+		var size point
+		rects, size = layoutTabsInto(rects, flow, flow.themeStyle())
+		if len(rects) != len(names) || size != measureTabLayout(flow, flow.themeStyle(), nil) {
+			t.Fatalf("layout retained stale tabs or bounds for %v", names)
+		}
+		if len(rects) > 0 && len(rects) <= len(previous) && &rects[0] != &previous[0] {
+			t.Fatal("layout replaced sufficient caller storage")
+		}
+		if len(names) == 0 {
+			continue
+		}
+		offset, base := point{X: 10, Y: 20}, point{X: 30, Y: 40}
+		flow.drawFlows(win, nil, offset, base, rect{X1: 400, Y1: 500}, screen, &dropdowns)
+		for i, tab := range flow.Tabs {
+			want := rectAdd(rects[i], pointAdd(offset, base))
+			if tab.DrawRect != want {
+				t.Fatalf("tab %d hit bounds = %+v, want %+v", i, tab.DrawRect, want)
+			}
+			center := point{X: (want.X0 + want.X1) / 2, Y: (want.Y0 + want.Y1) / 2}
+			if !flow.clickFlows(center, true) || flow.ActiveTab != i {
+				t.Fatalf("tab %d click selected %d after changing tabs", i, flow.ActiveTab)
+			}
+		}
+	}
+}

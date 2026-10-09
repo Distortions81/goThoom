@@ -199,41 +199,41 @@ func init() {
 		state := &replacementEffectShaderStates[kind]
 		state.uniforms = map[string]any{
 			"Size":            state.size[:],
-			"Phase":           float32(0),
-			"Alpha":           float32(0),
-			"Energy":          float32(0),
-			"HasMask":         float32(0),
+			"Phase":           []float32{0},
+			"Alpha":           []float32{0},
+			"Energy":          []float32{0},
+			"HasMask":         []float32{0},
 			"MaskOffset":      state.maskOffset[:],
-			"MaskInvScale":    float32(1),
-			"SpriteLightOnly": float32(0),
-			"HasPoolOutline":  float32(0),
+			"MaskInvScale":    []float32{1},
+			"SpriteLightOnly": []float32{0},
+			"HasPoolOutline":  []float32{0},
 			"OutlineSize":     state.outlineSize[:],
-			"FlagTheme":       float32(0),
-			"FlagMirror":      float32(0),
-			"TorchMirror":     float32(0),
-			"PathVariant":     float32(0),
-			"MagicTheme":      float32(0),
-			"FireTheme":       float32(0),
-			"PuddleVariant":   float32(0),
-			"HasReflection":   float32(0),
-			"WaveDirection":   float32(0),
+			"FlagTheme":       []float32{0},
+			"FlagMirror":      []float32{0},
+			"TorchMirror":     []float32{0},
+			"PathVariant":     []float32{0},
+			"MagicTheme":      []float32{0},
+			"FireTheme":       []float32{0},
+			"PuddleVariant":   []float32{0},
+			"HasReflection":   []float32{0},
+			"WaveDirection":   []float32{0},
 		}
 		if kind == replacementEffectTownPuddle {
 			state.uniforms["RippleFeet"] = state.rippleFeet[:]
 			state.uniforms["RippleMotion"] = state.rippleMotion[:]
 			state.uniforms["RippleSeeds"] = state.rippleSeeds[:]
 			state.uniforms["RippleAges"] = state.rippleAges[:]
-			state.uniforms["RippleTime"] = float32(0)
+			state.uniforms["RippleTime"] = []float32{0}
 		}
 		if kind == replacementEffectFirePlume || kind == replacementEffectBloodGush || replacementEffectTeleportTheme(kind) >= 0 {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
-			state.uniforms["TeleportTheme"] = float32(0)
+			state.uniforms["TeleportTheme"] = []float32{0}
 		}
 		if kind == replacementEffectCoinReward {
 			state.uniforms["CanvasSize"] = state.canvasSize[:]
-			state.uniforms["CoinValue"] = float32(0)
+			state.uniforms["CoinValue"] = []float32{0}
 			state.uniforms["CoinDigits"] = state.coinDigits[:]
-			state.uniforms["CoinDigitCount"] = float32(0)
+			state.uniforms["CoinDigitCount"] = []float32{0}
 		}
 		state.op.Uniforms = state.uniforms
 	}
@@ -1114,53 +1114,53 @@ func drawReplacementEffectsLayerSelected(screen *ebiten.Image, ox, oy int, mobil
 		state.canvasSize = [2]float32{float32(w), float32(h)}
 		state.maskOffset = [2]float32{effect.maskOffsetX, effect.maskOffsetY}
 		state.coinDigits = effect.coinDigits
-		state.uniforms["Phase"] = phase
-		state.uniforms["Alpha"] = visualAlpha
-		state.uniforms["Energy"] = energy
-		state.uniforms["HasMask"] = hasMask
-		state.uniforms["HasReflection"] = float32(0)
-		state.uniforms["HasPoolOutline"] = float32(0)
-		state.uniforms["MaskInvScale"] = effect.maskInvScale
+		setShaderFloat32(state.uniforms, "Phase", phase)
+		setShaderFloat32(state.uniforms, "Alpha", visualAlpha)
+		setShaderFloat32(state.uniforms, "Energy", energy)
+		setShaderFloat32(state.uniforms, "HasMask", hasMask)
+		setShaderFloat32(state.uniforms, "HasReflection", 0)
+		setShaderFloat32(state.uniforms, "HasPoolOutline", 0)
+		setShaderFloat32(state.uniforms, "MaskInvScale", effect.maskInvScale)
 		if effect.kind == replacementEffectWavingFlag {
-			state.uniforms["FlagTheme"] = replacementEffectFlagTheme(effect.pictID)
-			state.uniforms["FlagMirror"] = replacementEffectFlagMirror(effect.pictID)
+			setShaderFloat32(state.uniforms, "FlagTheme", replacementEffectFlagTheme(effect.pictID))
+			setShaderFloat32(state.uniforms, "FlagMirror", replacementEffectFlagMirror(effect.pictID))
 		}
 		if effect.kind == replacementEffectWallTorch {
-			state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(effect.pictID)
+			setShaderFloat32(state.uniforms, "TorchMirror", replacementEffectWallTorchMirror(effect.pictID))
 		}
 		if effect.kind == replacementEffectHiddenPath {
-			state.uniforms["PathVariant"] = replacementEffectPathVariant(effect.pictID)
+			setShaderFloat32(state.uniforms, "PathVariant", replacementEffectPathVariant(effect.pictID))
 		}
 		if effect.kind == replacementEffectFirePlume {
-			state.uniforms["FireTheme"] = replacementEffectFireTheme(effect.pictID)
+			setShaderFloat32(state.uniforms, "FireTheme", replacementEffectFireTheme(effect.pictID))
 		}
 		if effect.kind == replacementEffectTownPuddle {
-			state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(effect.pictID)
+			setShaderFloat32(state.uniforms, "PuddleVariant", replacementEffectPuddleVariant(effect.pictID))
 			state.rippleFeet = [12]float32{}
 			state.rippleMotion = [6]float32{}
 			state.rippleSeeds = [6]float32{}
 			state.rippleAges = [6]float32{}
-			state.uniforms["RippleTime"] = globalPhase
+			setShaderFloat32(state.uniforms, "RippleTime", globalPhase)
 		}
 		if effect.kind == replacementEffectShoreWave {
-			state.uniforms["WaveDirection"] = replacementEffectWaveDirection(effect.pictID)
+			setShaderFloat32(state.uniforms, "WaveDirection", replacementEffectWaveDirection(effect.pictID))
 		}
 		if effect.kind == replacementEffectMagicMoteRing {
-			state.uniforms["MagicTheme"] = replacementEffectMagicTheme(effect.pictID)
+			setShaderFloat32(state.uniforms, "MagicTheme", replacementEffectMagicTheme(effect.pictID))
 		}
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
-			state.uniforms["TeleportTheme"] = theme
+			setShaderFloat32(state.uniforms, "TeleportTheme", theme)
 		}
 		if effect.kind == replacementEffectCoinReward {
-			state.uniforms["CoinValue"] = float32(effect.frame % 10)
-			state.uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
+			setShaderFloat32(state.uniforms, "CoinValue", float32(effect.frame%10))
+			setShaderFloat32(state.uniforms, "CoinDigitCount", float32(effect.coinDigitCount))
 		}
 		state.op.Images[0], state.op.Images[1] = effect.maskImage, nil
 		if effect.kind == replacementEffectLavaPool {
 			if outline := loadImageFrameOriginal(effect.pictID, 0); outline != nil {
 				bounds := outline.Bounds()
 				state.outlineSize = [2]float32{float32(bounds.Dx()), float32(bounds.Dy())}
-				state.uniforms["HasPoolOutline"] = float32(1)
+				setShaderFloat32(state.uniforms, "HasPoolOutline", 1)
 				state.op.Images[0] = outline
 			}
 		}
@@ -1173,7 +1173,7 @@ func drawReplacementEffectsLayerSelected(screen *ebiten.Image, ox, oy int, mobil
 				// size. The puddle uses image 0 only for local coordinates, so the
 				// reflection texture can safely occupy both slots.
 				state.op.Images[0], state.op.Images[1] = reflection, reflection
-				state.uniforms["HasReflection"] = float32(1)
+				setShaderFloat32(state.uniforms, "HasReflection", 1)
 			}
 		}
 		if state.op.Images[0] == nil {
@@ -1181,11 +1181,11 @@ func drawReplacementEffectsLayerSelected(screen *ebiten.Image, ox, oy int, mobil
 		}
 		if effect.hasMask && effect.kind != replacementEffectCoinReward {
 			state.op.Blend = ebiten.BlendLighter
-			state.uniforms["SpriteLightOnly"] = float32(1)
+			setShaderFloat32(state.uniforms, "SpriteLightOnly", 1)
 			drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
 		}
 		state.op.Blend = ebiten.Blend{}
-		state.uniforms["SpriteLightOnly"] = float32(0)
+		setShaderFloat32(state.uniforms, "SpriteLightOnly", 0)
 		drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
 	}
 	if onlyKey != 0 {
@@ -1620,31 +1620,31 @@ func drawReplacementEffectPreview(screen *ebiten.Image, preview replacementEffec
 	state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
 	state.maskOffset = [2]float32{}
 	state.coinDigits = preview.coinDigits
-	state.uniforms["Phase"] = phase
-	state.uniforms["Alpha"] = float32(1)
-	state.uniforms["Energy"] = float32(1)
-	state.uniforms["HasMask"] = float32(0)
-	state.uniforms["HasReflection"] = float32(0)
-	state.uniforms["HasPoolOutline"] = float32(0)
-	state.uniforms["MaskInvScale"] = float32(1)
-	state.uniforms["SpriteLightOnly"] = float32(0)
+	setShaderFloat32(state.uniforms, "Phase", phase)
+	setShaderFloat32(state.uniforms, "Alpha", 1)
+	setShaderFloat32(state.uniforms, "Energy", 1)
+	setShaderFloat32(state.uniforms, "HasMask", 0)
+	setShaderFloat32(state.uniforms, "HasReflection", 0)
+	setShaderFloat32(state.uniforms, "HasPoolOutline", 0)
+	setShaderFloat32(state.uniforms, "MaskInvScale", 1)
+	setShaderFloat32(state.uniforms, "SpriteLightOnly", 0)
 	if preview.kind == replacementEffectWavingFlag {
-		state.uniforms["FlagTheme"] = replacementEffectFlagTheme(preview.pictID)
-		state.uniforms["FlagMirror"] = replacementEffectFlagMirror(preview.pictID)
+		setShaderFloat32(state.uniforms, "FlagTheme", replacementEffectFlagTheme(preview.pictID))
+		setShaderFloat32(state.uniforms, "FlagMirror", replacementEffectFlagMirror(preview.pictID))
 	}
 	if preview.kind == replacementEffectWallTorch {
-		state.uniforms["TorchMirror"] = replacementEffectWallTorchMirror(preview.pictID)
+		setShaderFloat32(state.uniforms, "TorchMirror", replacementEffectWallTorchMirror(preview.pictID))
 	}
 	if preview.kind == replacementEffectFirePlume {
-		state.uniforms["FireTheme"] = replacementEffectFireTheme(preview.pictID)
+		setShaderFloat32(state.uniforms, "FireTheme", replacementEffectFireTheme(preview.pictID))
 	}
 	if preview.kind == replacementEffectTownPuddle {
-		state.uniforms["PuddleVariant"] = replacementEffectPuddleVariant(preview.pictID)
+		setShaderFloat32(state.uniforms, "PuddleVariant", replacementEffectPuddleVariant(preview.pictID))
 		state.rippleFeet = [12]float32{}
 		state.rippleMotion = [6]float32{}
 		state.rippleSeeds = [6]float32{}
 		state.rippleAges = [6]float32{}
-		state.uniforms["RippleTime"] = float32(elapsed)
+		setShaderFloat32(state.uniforms, "RippleTime", float32(elapsed))
 		previewRippleAge := math.Mod(elapsed+float64(preview.pictID-888)*0.35, 1.25)
 		if previewRippleAge < 1 {
 			state.rippleFeet[0], state.rippleFeet[1] = float32(drawW)*0.5, float32(drawH)*0.5
@@ -1653,17 +1653,17 @@ func drawReplacementEffectPreview(screen *ebiten.Image, preview replacementEffec
 		}
 	}
 	if preview.kind == replacementEffectShoreWave {
-		state.uniforms["WaveDirection"] = replacementEffectWaveDirection(preview.pictID)
+		setShaderFloat32(state.uniforms, "WaveDirection", replacementEffectWaveDirection(preview.pictID))
 	}
 	if preview.kind == replacementEffectMagicMoteRing {
-		state.uniforms["MagicTheme"] = replacementEffectMagicTheme(preview.pictID)
+		setShaderFloat32(state.uniforms, "MagicTheme", replacementEffectMagicTheme(preview.pictID))
 	}
 	if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
-		state.uniforms["TeleportTheme"] = theme
+		setShaderFloat32(state.uniforms, "TeleportTheme", theme)
 	}
 	if preview.kind == replacementEffectCoinReward {
-		state.uniforms["CoinValue"] = preview.coinDigits[0]
-		state.uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
+		setShaderFloat32(state.uniforms, "CoinValue", preview.coinDigits[0])
+		setShaderFloat32(state.uniforms, "CoinDigitCount", float32(preview.coinDigitCount))
 	}
 	if replacementEffectsPreviewMode == replacementEffectPreviewOriginal {
 		return
@@ -1674,7 +1674,7 @@ func drawReplacementEffectPreview(screen *ebiten.Image, preview replacementEffec
 		if outline := loadImageFrameOriginal(preview.pictID, 0); outline != nil {
 			outlineBounds := outline.Bounds()
 			state.outlineSize = [2]float32{float32(outlineBounds.Dx()), float32(outlineBounds.Dy())}
-			state.uniforms["HasPoolOutline"] = float32(1)
+			setShaderFloat32(state.uniforms, "HasPoolOutline", 1)
 			state.op.Images[0] = outline
 		}
 	}

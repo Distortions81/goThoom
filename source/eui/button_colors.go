@@ -2,6 +2,7 @@ package eui
 
 type buttonColorOverride struct {
 	normal, hover Color
+	style         itemData
 }
 
 // SetButtonColors sets action-specific colors while retaining the current

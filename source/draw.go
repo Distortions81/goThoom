@@ -203,12 +203,17 @@ func pictureExcludedFromShift(p framePicture) bool {
 }
 
 type pictureShiftScratch struct {
-	counts     map[uint64]int
-	curIdx     map[uint32][]int
-	curIDs     []uint32
-	pixelCache map[uint32]int
-	matches    []pictureShiftMatch
-	seen       []bool
+	counts  map[uint64]int
+	byID    map[uint32]int
+	groups  []pictureShiftGroup
+	next    []int
+	matches []pictureShiftMatch
+	seen    []bool
+}
+
+type pictureShiftGroup struct {
+	first  int // First current-picture index; next links pictures with the same ID.
+	pixels int // Negative until the weight is needed by a matching previous picture.
 }
 
 type pictureShiftMatch struct {
@@ -226,6 +231,8 @@ type picturePositionScratch struct {
 	candidates []picturePositionMatch
 	matches    []int
 	used       []bool
+	byID       map[uint32]int
+	next       []int
 }
 
 var picturePositionScratchPool = sync.Pool{
@@ -256,6 +263,20 @@ func releasePicturePositionScratch(scratch *picturePositionScratch) {
 	picturePositionScratchPool.Put(scratch)
 }
 
+func (scratch *picturePositionScratch) addCandidate(prev, cur []framePicture, current, previous, shiftX, shiftY, maxDistance int) {
+	dh := int(cur[current].H) - int(prev[previous].H) - shiftX
+	dv := int(cur[current].V) - int(prev[previous].V) - shiftY
+	distance := dh*dh + dv*dv
+	// A retained picture can become fresh again at its camera-adjusted
+	// position. Do not attach a different nearby sprite to stale data.
+	if prev[previous].Again && distance != 0 {
+		return
+	}
+	if distance <= maxDistance {
+		scratch.candidates = append(scratch.candidates, picturePositionMatch{current, previous, distance})
+	}
+}
+
 // matchPicturePositions pairs each current picture with at most one previous
 // picture of the same ID. Matching is global and camera-adjusted, rather than
 // depending on draw order, so identical nearby sprites cannot steal one
@@ -266,21 +287,36 @@ func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, ag
 		scratch.used[i] = true
 	}
 	maxDistance := max * max
-	for current := again; current < len(cur); current++ {
-		for previous := range prev {
-			if prev[previous].PictID != cur[current].PictID {
-				continue
+	// For small scenes a direct scan costs less than building the ID index.
+	if len(prev)*(len(cur)-again) < 4096 {
+		for current := again; current < len(cur); current++ {
+			for previous := range prev {
+				if prev[previous].PictID == cur[current].PictID {
+					scratch.addCandidate(prev, cur, current, previous, shiftX, shiftY, maxDistance)
+				}
 			}
-			dh := int(cur[current].H) - int(prev[previous].H) - shiftX
-			dv := int(cur[current].V) - int(prev[previous].V) - shiftY
-			distance := dh*dh + dv*dv
-			// A retained picture can become fresh again at its camera-adjusted
-			// position. Do not attach a different nearby sprite to stale data.
-			if prev[previous].Again && distance != 0 {
-				continue
-			}
-			if distance <= maxDistance {
-				scratch.candidates = append(scratch.candidates, picturePositionMatch{current, previous, distance})
+		}
+	} else {
+		if scratch.byID == nil {
+			scratch.byID = make(map[uint32]int)
+		} else {
+			clear(scratch.byID)
+		}
+		if cap(scratch.next) < len(prev) {
+			scratch.next = make([]int, len(prev))
+		} else {
+			scratch.next = scratch.next[:len(prev)]
+		}
+		// Link equal IDs in ascending previous-picture order. Store index+1 so
+		// a missing map entry and the end of each list both use zero.
+		for previous := len(prev) - 1; previous >= 0; previous-- {
+			id := uint32(prev[previous].PictID)
+			scratch.next[previous] = scratch.byID[id]
+			scratch.byID[id] = previous + 1
+		}
+		for current := again; current < len(cur); current++ {
+			for index := scratch.byID[uint32(cur[current].PictID)]; index != 0; index = scratch.next[index-1] {
+				scratch.addCandidate(prev, cur, current, index-1, shiftX, shiftY, maxDistance)
 			}
 		}
 	}
@@ -318,24 +354,16 @@ func cmpInt(a, b int) int {
 
 func newPictureShiftScratch() *pictureShiftScratch {
 	return &pictureShiftScratch{
-		counts:     make(map[uint64]int),
-		curIdx:     make(map[uint32][]int),
-		pixelCache: make(map[uint32]int),
+		counts: make(map[uint64]int),
+		byID:   make(map[uint32]int),
 	}
 }
 
 func (s *pictureShiftScratch) reset() {
-	for k := range s.counts {
-		delete(s.counts, k)
-	}
+	clear(s.counts)
+	clear(s.byID)
+	s.groups = s.groups[:0]
 	s.matches = s.matches[:0]
-	for _, id := range s.curIDs {
-		s.curIdx[id] = s.curIdx[id][:0]
-	}
-	s.curIDs = s.curIDs[:0]
-	for k := range s.pixelCache {
-		delete(s.pixelCache, k)
-	}
 }
 
 var pictureShiftScratchPool = sync.Pool{
@@ -351,6 +379,7 @@ type drawParseScratch struct {
 	bubbles             []bubble
 	pictureShiftIndices []int
 	mobilePresent       map[uint8]struct{}
+	stateRecords        drawStateRecordScratch
 }
 
 func clearMap[K comparable, V any](m map[K]V) {
@@ -371,6 +400,7 @@ func (s *drawParseScratch) reset() {
 	s.mobiles = s.mobiles[:0]
 	s.bubbles = s.bubbles[:0]
 	s.pictureShiftIndices = s.pictureShiftIndices[:0]
+	s.stateRecords.reset()
 	if s.mobilePresent == nil {
 		s.mobilePresent = make(map[uint8]struct{})
 	} else {
@@ -485,25 +515,38 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	drawScriptOverlaysForSession(primarySession, worldView, scale)
 }
 
+// World draws are serialized. This scratch belongs to the renderer, never to
+// the scripts whose operations it snapshots.
+var scriptOverlayDrawScratch struct {
+	ops   []overlayOp
+	rects rectBatch
+}
+
+func scriptOverlaySnapshotForSession(session *Session, dst []overlayOp) []overlayOp {
+	if visuals := sessionScriptVisuals(session); visuals != nil {
+		return visuals.overlaySnapshotInto(dst)
+	}
+	clear(dst)
+	dst = dst[:0]
+	overlayMu.RLock()
+	for _, ops := range scriptOverlayOps {
+		dst = append(dst, ops...)
+	}
+	overlayMu.RUnlock()
+	return dst
+}
+
 func drawScriptOverlaysForSession(session *Session, worldView *ebiten.Image, scale float64) {
 	if worldView == nil || scale <= 0 {
 		return
 	}
-	var snap []overlayOp
-	if visuals := sessionScriptVisuals(session); visuals != nil {
-		snap = visuals.overlaySnapshot()
-	} else {
-		overlayMu.RLock()
-		// Snapshot to avoid holding the lock while drawing.
-		snap = make([]overlayOp, 0, 64)
-		for _, ops := range scriptOverlayOps {
-			snap = append(snap, ops...)
-		}
-		overlayMu.RUnlock()
-	}
+	snap := scriptOverlaySnapshotForSession(session, scriptOverlayDrawScratch.ops)
+	scriptOverlayDrawScratch.ops = snap
 	if len(snap) == 0 {
 		return
 	}
+	// Release text and follower-name references even if this is the last draw.
+	defer clear(snap)
 	hasFollower := false
 	for _, op := range snap {
 		if op.kind == overlayFollowCircleKind {
@@ -531,7 +574,7 @@ func drawScriptOverlaysForSession(session *Session, worldView *ebiten.Image, sca
 		return 0
 	})
 
-	var rects rectBatch
+	rects := &scriptOverlayDrawScratch.rects
 	for _, op := range snap {
 		switch op.kind {
 		case overlayRectKind:
@@ -932,25 +975,37 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 	scratch.reset()
 	defer pictureShiftScratchPool.Put(scratch)
 
-	const maxWeight = 100000
+	const (
+		maxWeight           = 100000
+		minBackgroundPixels = 900
+	)
 
 	counts := scratch.counts
-	curIdx := scratch.curIdx
-	pixelCache := scratch.pixelCache
 	total := 0
 	maxInt := int(^uint(0) >> 1)
 
-	// Build a map from PictID to indexes in the current frame to avoid
-	// repeatedly scanning the entire list for matches.
-	for i, c := range cur {
+	if cap(scratch.next) < len(cur) {
+		scratch.next = make([]int, len(cur))
+	} else {
+		scratch.next = scratch.next[:len(cur)]
+	}
+	// Group current pictures in reusable, flat storage. Prepending in reverse
+	// order keeps equal-distance matches in their original picture order.
+	// The group also holds its pixel weight, avoiding a second per-ID map.
+	for i := len(cur) - 1; i >= 0; i-- {
+		c := cur[i]
 		if pictureExcludedFromShift(c) {
 			continue
 		}
 		id := uint32(c.PictID)
-		if len(curIdx[id]) == 0 {
-			scratch.curIDs = append(scratch.curIDs, id)
+		if group, ok := scratch.byID[id]; ok {
+			scratch.next[i] = scratch.groups[group].first
+			scratch.groups[group].first = i
+		} else {
+			scratch.byID[id] = len(scratch.groups)
+			scratch.groups = append(scratch.groups, pictureShiftGroup{first: i, pixels: -1})
+			scratch.next[i] = -1
 		}
-		curIdx[id] = append(curIdx[id], i)
 	}
 
 	// Cache pixel counts locally so that each PictID is computed at most once
@@ -960,11 +1015,16 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 			continue
 		}
 		id := uint32(p.PictID)
+		groupIndex, ok := scratch.byID[id]
+		if !ok {
+			continue
+		}
+		group := &scratch.groups[groupIndex]
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
-		for _, j := range curIdx[id] {
+		for j := group.first; j >= 0; j = scratch.next[j] {
 			c := cur[j]
 			dx := int(c.H) - int(p.H)
 			dy := int(c.V) - int(p.V)
@@ -978,11 +1038,10 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 			}
 		}
 		if matched {
-			pixels, ok := pixelCache[id]
-			if !ok {
-				pixels = nonTransparentPixels(p.PictID)
-				pixelCache[id] = pixels
+			if group.pixels < 0 {
+				group.pixels = nonTransparentPixels(p.PictID)
 			}
+			pixels := group.pixels
 			if pixels > maxWeight {
 				pixels = maxWeight
 			}
@@ -990,7 +1049,11 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 			// int32. Pack them into one integer key for Go's fast map lookup.
 			key := uint64(uint32(bestDx))<<32 | uint64(uint32(bestDy))
 			counts[key] += pixels
-			scratch.matches = append(scratch.matches, pictureShiftMatch{offset: key, index: bestIdx})
+			// Small pictures still vote, but cannot pin the background. Keep
+			// only eligible matches so collecting the winner needs no ID lookup.
+			if pixels >= minBackgroundPixels {
+				scratch.matches = append(scratch.matches, pictureShiftMatch{offset: key, index: bestIdx})
+			}
 			total += pixels
 		}
 	}
@@ -1033,12 +1096,7 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		return 0, 0, idxs, false
 	}
 
-	// Collect candidate background indices for the winning motion.
-	// Filter out tiny sprites so we don't pin small pictures to
-	// the screen background when the camera pans. Pixel weights above
-	// maxWeight (100k) are clamped so a single large background doesn't
-	// dominate motion detection.
-	const minBackgroundPixels = 900
+	// Collect unique background indices for the winning motion.
 	if cap(scratch.seen) < len(cur) {
 		scratch.seen = make([]bool, len(cur))
 	} else {
@@ -1053,21 +1111,7 @@ func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, 
 		}
 		idx := match.index
 		scratch.seen[idx] = true
-		if idx >= 0 && idx < len(cur) {
-			// Use cached counts when possible; fall back to a fresh query.
-			pixels := 0
-			if p, ok := pixelCache[uint32(cur[idx].PictID)]; ok {
-				pixels = p
-			} else {
-				pixels = nonTransparentPixels(cur[idx].PictID)
-			}
-			if pixels > maxWeight {
-				pixels = maxWeight
-			}
-			if pixels >= minBackgroundPixels {
-				idxs = append(idxs, idx)
-			}
-		}
+		idxs = append(idxs, idx)
 	}
 	return dx, dy, idxs, true
 }
@@ -1406,35 +1450,8 @@ func appendDrawStateDataFragment(fragment []byte) [][]byte {
 }
 
 func appendSessionDrawStateDataFragment(session *Session, fragment []byte) [][]byte {
-	if len(fragment) == 0 {
-		return nil
-	}
-	if session == nil || session.draw == nil {
-		return nil
-	}
-
-	draw := session.draw
-	draw.mu.Lock()
-	draw.current.stateDataStream = append(draw.current.stateDataStream, fragment...)
-	stream := draw.current.stateDataStream
-	consumed := 0
-	var records [][]byte
-	for len(stream)-consumed >= 2 {
-		size := int(binary.BigEndian.Uint16(stream[consumed:]))
-		recordEnd := consumed + 2 + size
-		if recordEnd > len(stream) {
-			break
-		}
-		record := append([]byte(nil), stream[consumed+2:recordEnd]...)
-		records = append(records, record)
-		consumed = recordEnd
-	}
-	if consumed > 0 {
-		remaining := copy(stream, stream[consumed:])
-		draw.current.stateDataStream = stream[:remaining]
-	}
-	draw.mu.Unlock()
-	return records
+	var scratch drawStateRecordScratch
+	return scratch.appendFragment(session, fragment)
 }
 
 func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool) (int32, int32, error) {
@@ -2008,7 +2025,7 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 	if !processStateData {
 		return ack, resend, nil
 	}
-	stateRecords := appendSessionDrawStateDataFragment(session, stateFragment)
+	stateRecords := scratch.stateRecords.appendFragment(session, stateFragment)
 stateRecordLoop:
 	for recordIndex, stateData := range stateRecords {
 		rawStateData := stateData
@@ -2204,26 +2221,26 @@ stateRecordLoop:
 				switch {
 				case typ&kBubbleTypeMask == kBubbleNarrate:
 					if name != "" {
-						msg = fmt.Sprintf("(%v): %v", name, txt)
+						msg = "(" + name + "): " + txt
 					} else {
 						msg = txt
 					}
 				case verb == bubbleVerbVerbatim:
 					msg = txt
 				case verb == bubbleVerbParentheses:
-					msg = fmt.Sprintf("(%v)", txt)
+					msg = "(" + txt + ")"
 				default:
 					if name != "" {
 						if verb == "thinks" {
 							switch target {
 							case thinkToYou:
-								msg = fmt.Sprintf("%v thinks to you, %v", bubbleName, txt)
+								msg = bubbleName + " thinks to you, " + txt
 							case thinkToClan:
-								msg = fmt.Sprintf("%v thinks to your clan, %v", bubbleName, txt)
+								msg = bubbleName + " thinks to your clan, " + txt
 							case thinkToGroup:
-								msg = fmt.Sprintf("%v thinks to a group, %v", bubbleName, txt)
+								msg = bubbleName + " thinks to a group, " + txt
 							default:
-								msg = fmt.Sprintf("%v thinks, %v", bubbleName, txt)
+								msg = bubbleName + " thinks, " + txt
 							}
 							if !skipRender {
 								if target == thinkToYou && code == kBubbleCodeKnown {
@@ -2239,20 +2256,20 @@ stateRecordLoop:
 							}
 							if code == kBubbleCodeKnown {
 								if langWord == "Common" {
-									msg = fmt.Sprintf("%v %v %v", name, verb, txt)
+									msg = name + " " + verb + " " + txt
 								} else {
-									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+									msg = name + " " + verb + " in " + langWord + ", " + txt
 								}
 							} else if typ&kBubbleTypeMask == kBubbleYell {
 								switch code {
 								case kBubbleUnknownShort:
-									msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+									msg = name + " " + verb + ", " + txt
 								case kBubbleUnknownMedium:
-									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+									msg = name + " " + verb + " in " + langWord + ", " + txt
 								case kBubbleUnknownLong:
-									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+									msg = name + " " + verb + " in " + langWord + ", " + txt
 								default:
-									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+									msg = name + " " + verb + " in " + langWord + ", " + txt
 								}
 							} else {
 								var unknown string
@@ -2266,10 +2283,10 @@ stateRecordLoop:
 								default:
 									unknown = "something"
 								}
-								msg = fmt.Sprintf("%v %v %v in %v", name, verb, unknown, langWord)
+								msg = name + " " + verb + " " + unknown + " in " + langWord
 							}
 						} else {
-							msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+							msg = name + " " + verb + ", " + txt
 						}
 					} else {
 						if txt != "" {

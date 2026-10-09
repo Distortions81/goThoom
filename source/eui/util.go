@@ -32,10 +32,13 @@ func (item *itemData) themeStyle() *itemData {
 	switch item.ItemType {
 	case ITEM_BUTTON:
 		if item.buttonColors != nil {
-			style := th.Button
+			// Override storage belongs to this button and is refreshed on every
+			// lookup, including after direct edits to its theme's appearance.
+			style := &item.buttonColors.style
+			*style = th.Button
 			style.Color = item.buttonColors.normal
 			style.HoverColor, style.ClickColor = item.buttonColors.hover, item.buttonColors.hover
-			return &style
+			return style
 		}
 		return &th.Button
 	case ITEM_TEXT:
@@ -1179,27 +1182,16 @@ func (item *itemData) GetSize() Point {
 			}
 			textSize := (effFont * uiScale) + 2
 			face := textFace(textSize)
-			// Measure lines and compute bounding box.
-			lineCount := 0
-			maxW := float64(0)
-			for ln := range strings.SplitSeq(item.Text, "\n") {
-				lineCount++
-				if w, _ := text.Measure(ln, face, 0); w > maxW {
-					maxW = w
-				}
-			}
-			metrics := face.Metrics()
-			linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2)
-			totalH := float32(linePx) * float32(lineCount)
+			metrics := item.textContentSize(face)
 			if sz.X <= 0 {
-				if maxW <= 0 {
+				if metrics.width <= 0 {
 					sz.X = textSize // minimal width
 				} else {
-					sz.X = float32(maxW)
+					sz.X = float32(metrics.width)
 				}
 			}
 			if sz.Y <= 0 {
-				sz.Y = totalH
+				sz.Y = metrics.height
 			}
 		}
 
@@ -1252,11 +1244,15 @@ func (item *itemData) GetSize() Point {
 				effFont = 12
 			}
 		}
-		face := itemFace(item, effFont*uiScale+2)
-		for line := range strings.SplitSeq(item.Text, "\n") {
-			width, _ := text.Measure(line, face, 0)
-			sz.X = max(sz.X, float32(math.Ceil(width)))
+		textSize := effFont*uiScale + 2
+		face := itemFace(item, textSize)
+		var metrics textContentMetrics
+		if defaultFace := textFace(textSize); face == defaultFace {
+			metrics = item.textContentSize(defaultFace)
+		} else {
+			metrics = measureTextContent(item.Text, face)
 		}
+		sz.X = max(sz.X, float32(math.Ceil(metrics.width)))
 	}
 
 	if !item.ConstrainToSize || item.Size.X <= 0 {

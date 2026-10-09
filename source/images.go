@@ -431,6 +431,22 @@ func artworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) bool {
 	return ok
 }
 
+// scaledArtworkSheetReady avoids allocating preparation jobs for each sprite
+// draw after its sheet has been cached. Recolor masks can become eligible after
+// the base batch was built, so they must be ready too before skipping preparation.
+func scaledArtworkSheetReady(key sheetKey, factor, mode int) bool {
+	imageMu.Lock()
+	defer imageMu.Unlock()
+	if scaledCacheFactor != uint8(factor) || !artworkSheetBatchCompleteLocked(key, factor, mode) || sheetCache[key] == nil {
+		return false
+	}
+	if mobileRecolorSourceEligible(key) {
+		_, ready := mobileRecolorMaskBatches[mobileRecolorBatchKey(key.id, factor, mode)]
+		return ready
+	}
+	return true
+}
+
 func markArtworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) {
 	if key.forceTransparent {
 		baseKey := makeMobileKey(key.id, 0, key.colors[:int(key.colorsLen)])
@@ -1518,9 +1534,13 @@ func cacheScaledPictureFrames(id uint16, requestedFrame, frameCount, factor, mod
 	if clImages == nil {
 		return cacheScaledPictureFramesWithReader(id, requestedFrame, frameCount, factor, mode, requestedImage, readImageRGBA)
 	}
-	prepareArtworkSheets([]sheetKey{makeSheetKey(id, nil, false)})
+	key := makeSheetKey(id, nil, false)
+	if scaledArtworkSheetReady(key, factor, mode) {
+		return true
+	}
+	prepareArtworkSheets([]sheetKey{key})
 	imageMu.Lock()
-	complete := artworkSheetBatchCompleteLocked(makeSheetKey(id, nil, false), factor, mode)
+	complete := artworkSheetBatchCompleteLocked(key, factor, mode)
 	imageMu.Unlock()
 	return complete
 }
@@ -1683,6 +1703,9 @@ func cacheScaledMobileFrames(requestedKey mobileKey, factor, mode int, requested
 	}
 	colors := requestedKey.colors[:int(requestedKey.colorsLen)]
 	key := makeSheetKey(requestedKey.id, colors, true)
+	if scaledArtworkSheetReady(key, factor, mode) {
+		return true
+	}
 	prepareArtworkSheets([]sheetKey{key})
 	imageMu.Lock()
 	complete := artworkSheetBatchCompleteLocked(key, factor, mode)
