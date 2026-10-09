@@ -260,8 +260,7 @@ func Init() { gt2.Store("loaded_version", "compile-broken")
 		t.Fatal("compile failure stopped the last working script")
 	}
 	assertSingleRegistrationSet()
-	handler = scriptCommands["refresh_cmd"]
-	handler("")
+	sim.command(t, "refresh_cmd", "")
 	if got := scriptStorageGet(owner, "command_version"); got != "two" {
 		t.Fatalf("compile failure replaced the working callback: %v", got)
 	}
@@ -291,8 +290,7 @@ func Init() {
 		t.Fatal("Init panic stopped the last working script")
 	}
 	assertSingleRegistrationSet()
-	handler = scriptCommands["refresh_cmd"]
-	handler("")
+	sim.command(t, "refresh_cmd", "")
 	if got := scriptStorageGet(owner, "command_version"); got != "two" {
 		t.Fatalf("Init panic replaced the working callback: %v", got)
 	}
@@ -320,8 +318,7 @@ func Init() { for {} }
 	if got := scriptStorageGet(owner, "terminated_version"); got != "one" {
 		t.Fatalf("Init timeout terminated the working script: %v", got)
 	}
-	handler = scriptCommands["refresh_cmd"]
-	handler("")
+	sim.command(t, "refresh_cmd", "")
 	if got := scriptStorageGet(owner, "command_version"); got != "two" {
 		t.Fatalf("Init timeout replaced the working callback: %v", got)
 	}
