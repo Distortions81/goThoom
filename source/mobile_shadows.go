@@ -40,6 +40,17 @@ var shadowDarkenBlend = ebiten.Blend{
 	BlendOperationAlpha:         ebiten.BlendOperationAdd,
 }
 
+// The overlap shader returns a multiplier instead of sampling a scene copy.
+// Multiplication happens in the blend unit; destination alpha stays intact.
+var layeredShadowCompositeBlend = ebiten.Blend{
+	BlendFactorSourceRGB:        ebiten.BlendFactorZero,
+	BlendFactorSourceAlpha:      ebiten.BlendFactorZero,
+	BlendFactorDestinationRGB:   ebiten.BlendFactorSourceColor,
+	BlendFactorDestinationAlpha: ebiten.BlendFactorOne,
+	BlendOperationRGB:           ebiten.BlendOperationAdd,
+	BlendOperationAlpha:         ebiten.BlendOperationAdd,
+}
+
 // Detailed shadows are combined by maximum opacity before touching the scene.
 // This prevents neighboring character shadows from repeatedly darkening the
 // same ground pixels.
@@ -73,7 +84,6 @@ var (
 	layeredShadowCompositeShader      *ebiten.Shader
 	layeredShadowCoverage             *ebiten.Image
 	layeredShadowIncoming             *ebiten.Image
-	layeredShadowScene                *ebiten.Image
 	layeredShadowOrigin               image.Point
 	frameLayeredShadowCoverageBounds  image.Rectangle
 	frameLayeredShadowCoverageRects   []image.Rectangle
@@ -507,8 +517,8 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	}
 	// With no earlier coverage under this caster, maximum-opacity composition
 	// is identical to a direct darken. Draw the shadow and its coverage mask in
-	// two submissions instead of clearing/copying/compositing three scratch
-	// targets. Individual caster bounds avoid treating gaps in the union as
+	// two submissions, avoiding an incoming-mask clear and shader composite.
+	// Individual caster bounds avoid treating gaps in the union as
 	// covered. Bounds remain conservative when foreground artwork clears pixels.
 	if !overlapsLayeredShadowCoverage(bounds) {
 		drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
@@ -528,27 +538,19 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	}
 	size := bounds.Size()
 	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
-	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
 	incoming := layeredShadowIncoming.RecyclableSubImage(image.Rectangle{Max: size})
 	defer incoming.Recycle()
-	scene := layeredShadowScene.RecyclableSubImage(image.Rectangle{Max: size})
-	defer scene.Recycle()
 	incoming.Clear()
 
 	drawCharacterShadow(incoming, command.texture, command.size, command.x-bounds.Min.X, command.y-bounds.Min.Y, command.alpha, command.projection, command.upright, shadowMaskBlend)
-	sceneCopyOp := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
-	screenSource := screen.RecyclableSubImage(bounds)
-	defer screenSource.Recycle()
-	scene.DrawImage(screenSource, sceneCopyOp)
 	coverageRect := bounds.Sub(layeredShadowOrigin)
 	coverageSource := layeredShadowCoverage.RecyclableSubImage(coverageRect)
 	defer coverageSource.Recycle()
 
 	shaderOp := &ebiten.DrawRectShaderOptions{}
-	shaderOp.Images[0] = scene
-	shaderOp.Images[1] = coverageSource
-	shaderOp.Images[2] = incoming
-	shaderOp.Blend = ebiten.BlendCopy
+	shaderOp.Images[0] = coverageSource
+	shaderOp.Images[1] = incoming
+	shaderOp.Blend = layeredShadowCompositeBlend
 	shaderOp.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
 	screen.DrawRectShader(size.X, size.Y, layeredShadowCompositeShader, shaderOp)
 
@@ -586,29 +588,22 @@ func compositeLayeredShadowImage(screen, source *ebiten.Image, drawOp *ebiten.Dr
 
 	size := bounds.Size()
 	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
-	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
 	incoming := layeredShadowIncoming.RecyclableSubImage(image.Rectangle{Max: size})
 	defer incoming.Recycle()
-	scene := layeredShadowScene.RecyclableSubImage(image.Rectangle{Max: size})
-	defer scene.Recycle()
 	incoming.Clear()
 
 	incomingOp := *drawOp
 	incomingOp.Blend = shadowMaskBlend
 	incomingOp.GeoM.Translate(float64(-bounds.Min.X), float64(-bounds.Min.Y))
 	incoming.DrawImage(source, &incomingOp)
-	screenSource := screen.RecyclableSubImage(bounds)
-	defer screenSource.Recycle()
-	scene.DrawImage(screenSource, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
 	coverageRect := bounds.Sub(layeredShadowOrigin)
 	coverageSource := layeredShadowCoverage.RecyclableSubImage(coverageRect)
 	defer coverageSource.Recycle()
 
 	shaderOp := &ebiten.DrawRectShaderOptions{}
-	shaderOp.Images[0] = scene
-	shaderOp.Images[1] = coverageSource
-	shaderOp.Images[2] = incoming
-	shaderOp.Blend = ebiten.BlendCopy
+	shaderOp.Images[0] = coverageSource
+	shaderOp.Images[1] = incoming
+	shaderOp.Blend = layeredShadowCompositeBlend
 	shaderOp.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
 	screen.DrawRectShader(size.X, size.Y, layeredShadowCompositeShader, shaderOp)
 
@@ -1083,14 +1078,13 @@ func clearCharacterShadowCache() {
 		deallocateImage(contactShadowTexture)
 		contactShadowTexture = nil
 	}
-	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming, layeredShadowScene} {
+	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming} {
 		if target != nil {
 			target.Deallocate()
 		}
 	}
 	layeredShadowCoverage = nil
 	layeredShadowIncoming = nil
-	layeredShadowScene = nil
 }
 
 func drawCharacterShadow(screen *ebiten.Image, texture characterShadowTexture, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {

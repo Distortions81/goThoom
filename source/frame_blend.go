@@ -1,6 +1,10 @@
 package main
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"math"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
 
 var frameBlendIndices = []uint32{0, 1, 2, 1, 2, 3}
 
@@ -20,6 +24,24 @@ type frameBlendDrawOptions struct {
 // by Ebitengine's sprite ColorScale and our frame-blend shader output.
 func premultipliedDrawColor(red, green, blue, alpha float32) (float32, float32, float32, float32) {
 	return red * alpha, green * alpha, blue * alpha, alpha
+}
+
+// shaderDrawNeedsLinearFilter avoids the four-tap filter when every source
+// pixel covers a power-of-two number of destination pixels on aligned
+// boundaries. These scales have exact reciprocal derivatives, so the filter
+// returns exactly the nearest texel without rounding differences. Other
+// transforms still use the shader's original filtering path.
+func shaderDrawNeedsLinearFilter(options frameBlendDrawOptions) bool {
+	if !options.Linear {
+		return false
+	}
+	return !shaderDrawAlignedAxis(options.Left, options.ScaleX) || !shaderDrawAlignedAxis(options.Top, options.ScaleY)
+}
+
+func shaderDrawAlignedAxis(position, scale float64) bool {
+	fraction, _ := math.Frexp(math.Abs(scale))
+	return !math.IsInf(position, 0) && !math.IsInf(scale, 0) &&
+		position == math.Trunc(position) && fraction == 0.5 && math.Abs(scale) >= 1
 }
 
 func drawFrameBlend(destination, previous, current *ebiten.Image, options frameBlendDrawOptions) bool {
@@ -43,7 +65,7 @@ func drawFrameBlend(destination, previous, current *ebiten.Image, options frameB
 		previousOffsetY - currentOffsetY,
 		0,
 	}
-	if options.Linear {
+	if shaderDrawNeedsLinearFilter(options) {
 		custom[3] = 1
 	}
 

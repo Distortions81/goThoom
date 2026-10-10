@@ -912,10 +912,20 @@ func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
 	if !ok || g.request.far || g.noArrow {
 		return
 	}
+	drawPreparedBubbleTail(screen, g, bubbleAnimationPhase(ponderBubbleAnimationSpeed))
+}
+
+// Bubble drawing is serialized. FillPath and StrokePath copy submitted
+// geometry, so these paths can be reused for the next bubble immediately.
+var bubbleTailPaths struct {
+	fill, sides vector.Path
+}
+
+func drawPreparedBubbleTail(screen *ebiten.Image, g bubbleDrawGeometry, ponderPhase float64) {
 	fx, fy := float32(g.offsetX), float32(g.offsetY)
 	tailHalf := g.request.metrics.tailHalf
-	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
-	var tail vector.Path
+	tail := &bubbleTailPaths.fill
+	tail.Reset()
 	if g.bubbleType == kBubblePonder {
 		r1 := float32(tailHalf)
 		offset1 := r1 * 0.3 * float32(math.Sin(ponderPhase))
@@ -948,17 +958,19 @@ func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
 	compositeRegion := bubbleCompositeRegion(g, true).Intersect(screen.Bounds())
 	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
 	tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
-	tailOp.ColorScale.ScaleWithColor(fillColor)
-	vector.FillPath(backgroundTarget, &tail, nil, tailOp)
+	tailOp.ColorScale.Scale(float32(fillColor.R)/0xffff, float32(fillColor.G)/0xffff, float32(fillColor.B)/0xffff, float32(fillColor.A)/0xffff)
+	vector.FillPath(backgroundTarget, tail, nil, tailOp)
 	if g.bubbleType != kBubblePonder && g.bubbleType != kBubbleThought {
 		strokeOp := &vector.StrokeOptions{Width: max(1, g.scale)}
 		drawOp := &vector.DrawPathOptions{AntiAlias: true}
-		drawOp.ColorScale.ScaleWithColor(g.borderColor)
-		var sides vector.Path
+		border := g.borderColor
+		drawOp.ColorScale.Scale(float32(border.R)/0xffff, float32(border.G)/0xffff, float32(border.B)/0xffff, float32(border.A)/0xffff)
+		sides := &bubbleTailPaths.sides
+		sides.Reset()
 		sides.MoveTo(float32(g.baseX-tailHalf)+fx, float32(g.attachY)+fy)
 		sides.LineTo(float32(g.tailX)+fx, float32(g.tailY)+fy)
 		sides.LineTo(float32(g.baseX+tailHalf)+fx, float32(g.attachY)+fy)
-		vector.StrokePath(screen, &sides, strokeOp, drawOp)
+		vector.StrokePath(screen, sides, strokeOp, drawOp)
 	}
 	if compositeThought {
 		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)

@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -440,19 +441,17 @@ func prepareSessionRenderCacheLocked(session *Session) {
 	// used by picture-shift and interpolation processing.
 	current.sortedPics = append(current.sortedPics[:0], current.pictures...)
 	sortPictures(current.sortedPics)
-	current.picsNeg = current.picsNeg[:0]
-	current.picsZero = current.picsZero[:0]
-	current.picsPos = current.picsPos[:0]
-	for _, p := range current.sortedPics {
-		switch {
-		case p.Plane < 0:
-			current.picsNeg = append(current.picsNeg, p)
-		case p.Plane == 0:
-			current.picsZero = append(current.picsZero, p)
-		default:
-			current.picsPos = append(current.picsPos, p)
-		}
-	}
+	// Sorted planes are contiguous, so the partitions can share this buffer.
+	// Snapshots copy these views while holding draw.mu. Limit each capacity so
+	// appending to one partition cannot overwrite the following plane.
+	pictures := current.sortedPics
+	zeroStart := sort.Search(len(pictures), func(i int) bool { return pictures[i].Plane >= 0 })
+	positiveStart := zeroStart + sort.Search(len(pictures)-zeroStart, func(i int) bool {
+		return pictures[zeroStart+i].Plane > 0
+	})
+	current.picsNeg = pictures[:zeroStart:zeroStart]
+	current.picsZero = pictures[zeroStart:positiveStart:positiveStart]
+	current.picsPos = pictures[positiveStart:len(pictures):len(pictures)]
 	markSessionWorldStateChanged(session)
 }
 

@@ -1,0 +1,26 @@
+goThoom 64 changes since test63.
+
+Rendering and scene updates:
+- Drawing cached artwork, lighting, and replacement effects creates less temporary memory each frame.
+- Script overlays and scripted character highlights create less temporary rendering memory.
+- Camera tracking and movement interpolation use less CPU time in scenes with many artwork sprites.
+- Game updates, movie playback, chat, and server messages create less temporary memory.
+- Speech-bubble tails create less temporary memory while keeping the same appearance.
+- Preparing scene layers uses less memory and CPU time, especially in large scenes.
+- Lighting and overlapping character shadows require less rendering work.
+- Smoothed artwork and character colors render more efficiently when aligned to screen pixels, while fractional movement keeps its filtering.
+- Puddle ripples render faster when several characters move through the water.
+
+Interface:
+- Text-heavy windows use less CPU time to calculate layouts and redraw content.
+- Tabbed panels and buttons with custom colors create less temporary memory while drawing.
+- The Players window updates faster with large player lists and custom groups, and avoids unnecessary redraws when its contents and title are unchanged.
+
+Audio:
+- Sound enhancement uses less temporary memory while preserving the audio output.
+
+Measured optimization results:
+- Looking up already-cached artwork: four temporary allocations per lookup reduced to zero. In a sampled scene with 146 artwork sprites and 30 mobiles, this removed 968 allocations and about 51 KiB of temporary memory per rendered frame.
+- Matching movement for 512 artwork sprites with 128 distinct image IDs: 117.7 microseconds to 15.3 microseconds per update, about 7.7 times faster, with no temporary allocations after warmup.
+
+These are focused measurements on Linux/amd64 with Go 1.27.1 and Ebitengine 2.10.2. The rendering sample used Xvfb and software OpenGL. Results describe the listed operations; overall frame-rate improvements depend on scene content, graphics settings, and hardware.

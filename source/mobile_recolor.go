@@ -146,7 +146,7 @@ func drawRecoloredMobile(destination, base, influence *ebiten.Image, palette *mo
 		return false
 	}
 	linear := float32(0)
-	if options.Linear {
+	if shaderDrawNeedsLinearFilter(options) {
 		linear = 1
 	}
 	vertices := mobileShaderVertices(base.Bounds(), options, [4]float32{linear})
@@ -167,12 +167,18 @@ func drawRecoloredMobileFrameBlend(destination, previous, previousInfluence, cur
 	if width < 1 || height < 1 {
 		return false
 	}
+	// Unchanged poses and palettes need one recolor sample, even while the
+	// animation clock is between frames. Equal image pointers also guarantee
+	// identical source origins and dimensions.
+	if previous == current && previousInfluence == currentInfluence && previousPalette == currentPalette && mobileRecolorShader != nil {
+		return drawRecoloredMobile(destination, current, currentInfluence, currentPalette, options)
+	}
 	previousOffsetX := float32((width - previousBounds.Dx()) / 2)
 	previousOffsetY := float32((height - previousBounds.Dy()) / 2)
 	currentOffsetX := float32((width - currentBounds.Dx()) / 2)
 	currentOffsetY := float32((height - currentBounds.Dy()) / 2)
 	linear := float32(0)
-	if options.Linear {
+	if shaderDrawNeedsLinearFilter(options) {
 		linear = 1
 	}
 	custom := [4]float32{options.Fade, previousOffsetX - currentOffsetX, previousOffsetY - currentOffsetY, linear}

@@ -869,10 +869,12 @@ func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 
 	ambienceA := buildMicroAmbience(floatSamples, rate, 0)
 	offsetSamples := int(math32.Round(float32(rate) * 0.0025))
-	ambienceB := buildMicroAmbience(floatSamples, rate, offsetSamples)
+	// Each comb keeps its own history, so the second ambience can replace
+	// the converted input. The original dry samples remain in samples.
+	buildMicroAmbienceInto(floatSamples, floatSamples, rate, offsetSamples)
 
 	for i := range ambienceA {
-		ambienceA[i] += ambienceB[i]
+		ambienceA[i] += floatSamples[i]
 	}
 	wetBuffer := ambienceA
 
@@ -932,7 +934,8 @@ func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 
 	scatterIdx := 0
 	var wetState float32
-	for i, dry := range floatSamples {
+	for i, sample := range samples {
+		dry := float32(sample)
 		var wet float32
 		if combMix > 0 && i < len(wetBuffer) {
 			wet += wetBuffer[i] * combMix
@@ -957,7 +960,9 @@ func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 		floatSamples[i] = val
 	}
 
-	applySaturation(floatSamples, ambienceB, 1.15, 0.2)
+	// The ambience has been mixed into floatSamples; its buffer is now free
+	// for the saturation pass's temporary values.
+	applySaturation(floatSamples, wetBuffer, 1.15, 0.2)
 
 	for i, v := range floatSamples {
 		if v > maxInt32 {
@@ -977,10 +982,19 @@ type microComb struct {
 }
 
 func buildMicroAmbience(input []float32, rate int, offsetSamples int) []float32 {
+	out := make([]float32, len(input))
+	buildMicroAmbienceInto(out, input, rate, offsetSamples)
+	return out
+}
+
+// buildMicroAmbienceInto permits out and input to be the same slice. Delay
+// history belongs to the comb buffers, not the already-consumed input samples.
+func buildMicroAmbienceInto(out, input []float32, rate int, offsetSamples int) {
 	n := len(input)
-	out := make([]float32, n)
+	out = out[:n]
 	if n == 0 || rate <= 0 {
-		return out
+		clear(out)
+		return
 	}
 
 	taps := []struct {
@@ -1010,7 +1024,8 @@ func buildMicroAmbience(input []float32, rate int, offsetSamples int) []float32 
 		})
 	}
 	if len(combs) == 0 {
-		return out
+		clear(out)
+		return
 	}
 
 	invCount := 1 / float32(len(combs))
@@ -1030,7 +1045,6 @@ func buildMicroAmbience(input []float32, rate int, offsetSamples int) []float32 
 		}
 		out[i] = wet * invCount
 	}
-	return out
 }
 
 func lowpassCoefficient(rate int, cutoff float32) float32 {

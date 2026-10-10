@@ -124,14 +124,21 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// Feet disturb the water only while their mobile moves relative to the
 	// ground. Screen-space ellipses are circles projected through the pitched
 	// camera; two staggered rings leave each foot without looking like a spell.
+	pixelScale := Size.x/60.0
+	// At maximum age, radius plus wobble and the soft edge reaches 17.2
+	// scaled pixels. Leave margin before rejecting pixels outside both rings.
+	rippleReach := 18.0*pixelScale
 	for i := 0; i < 6; i++ {
 		if RippleMotion[i] <= 0 {
 			continue
 		}
 		delta := localPos - RippleFeet[i]
-		distance := length(vec2(delta.x, delta.y*1.7))
+		projectedDelta := vec2(delta.x, delta.y*1.7)
+		if dot(projectedDelta, projectedDelta) > rippleReach*rippleReach {
+			continue
+		}
+		distance := length(projectedDelta)
 		waveAngle := polarAngle(delta)
-		pixelScale := Size.x/60.0
 		for wave := 0; wave < 2; wave++ {
 			if wave > 0 && RippleAges[i] < 0.20 {
 				continue

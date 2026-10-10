@@ -170,13 +170,27 @@ func playerGroupTitle(group playerListGroup) string {
 }
 
 func playerDisplayGroup(p Player, now time.Time) string {
-	if group := gs.PlayerGroups.group(playerCustomGroupKey(p.Name)); group != "" {
-		return "custom:" + group
+	gs.PlayerGroups.normalize()
+	return playerDisplayGroupNormalized(p, now)
+}
+
+func playerDisplayGroupNormalized(p Player, now time.Time) string {
+	if len(gs.PlayerGroups.Assignments) > 0 {
+		if group := gs.PlayerGroups.Assignments[playerCustomGroupKey(p.Name)]; group != "" {
+			return "custom:" + group
+		}
 	}
 	if gs.GroupClanMembers && p.SameClan {
 		return "clan"
 	}
-	return fmt.Sprintf("auto:%d", playerGroup(p, now, gs.ShowRecentPlayers))
+	switch playerGroup(p, now, gs.ShowRecentPlayers) {
+	case playerGroupRecent:
+		return "auto:0"
+	case playerGroupOnline:
+		return "auto:1"
+	default:
+		return "auto:2"
+	}
 }
 
 func playerDisplayGroupTitle(group string) string {
@@ -206,6 +220,49 @@ func playerDisplayGroupOrder(group string) int {
 	var automatic int
 	fmt.Sscanf(group, "auto:%d", &automatic)
 	return len(gs.PlayerGroups.Names) + 1 + automatic
+}
+
+type playerListEntry struct {
+	player *Player
+	group  string
+	order  int
+}
+
+// Classify the owned player snapshot once. Sorting only moves these compact
+// entries, and counts and rows can reuse their group without normalizing the
+// entire custom-group configuration for every comparison.
+func orderedPlayerList(ps []Player, now time.Time) []playerListEntry {
+	gs.PlayerGroups.normalize()
+	entries := make([]playerListEntry, len(ps))
+	orders := make(map[string]int)
+	for i := range ps {
+		group := playerDisplayGroupNormalized(ps[i], now)
+		order, ok := orders[group]
+		if !ok {
+			order = playerDisplayGroupOrder(group)
+			orders[group] = order
+		}
+		entries[i] = playerListEntry{player: &ps[i], group: group, order: order}
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if a.group != b.group {
+			return a.order < b.order
+		}
+		// Labeled players sort before unlabeled players within each section.
+		li, lj := a.player.FriendLabel, b.player.FriendLabel
+		if li == 0 && lj != 0 {
+			return false
+		}
+		if lj == 0 && li != 0 {
+			return true
+		}
+		if li != lj {
+			return li < lj
+		}
+		return a.player.Name < b.player.Name
+	})
+	return entries
 }
 
 //go:embed data/icons/share-out.png
@@ -649,34 +706,17 @@ func updatePlayersWindow() {
 	// Gather current players and filter to non-NPCs with names.
 	ps := playersSnapshotForSession(session)
 	now := time.Now()
-	// Sort by section, then by label/color group and name.
-	sort.Slice(ps, func(i, j int) bool {
-		groupI := playerDisplayGroup(ps[i], now)
-		groupJ := playerDisplayGroup(ps[j], now)
-		if groupI != groupJ {
-			return playerDisplayGroupOrder(groupI) < playerDisplayGroupOrder(groupJ)
-		}
-		// Same online/offline status: sort by label group.
-		li := ps[i].FriendLabel
-		lj := ps[j].FriendLabel
-		// Treat unlabeled (0) as after labeled groups.
-		if li == 0 && lj != 0 {
-			return false
-		}
-		if lj == 0 && li != 0 {
-			return true
-		}
-		if li != lj {
-			return li < lj
-		}
-		// Final tie-breaker: by name.
-		return ps[i].Name < ps[j].Name
-	})
-	exiles := make([]Player, 0, len(ps))
+	entries := orderedPlayerList(ps, now)
+	exiles := entries[:0]
 	groupCounts := make(map[string]int)
 	shareCount, shareeCount := 0, 0
 	onlineCount := 0
-	for _, p := range ps {
+	myClan, foundSelf := "", false
+	for _, entry := range entries {
+		p := entry.player
+		if !foundSelf && selfName != "" && strings.EqualFold(p.Name, selfName) {
+			myClan, foundSelf = p.clan, true
+		}
 		if p.Name == "" || p.IsNPC {
 			continue
 		}
@@ -692,23 +732,15 @@ func updatePlayersWindow() {
 		if p.Sharee {
 			shareeCount++
 		}
-		exiles = append(exiles, p)
-		groupCounts[playerDisplayGroup(p, now)]++
+		exiles = append(exiles, entry)
+		groupCounts[entry.group]++
 		if !p.Offline {
 			onlineCount++
 		}
 	}
-	nextTitle := playersWindowTitle(onlineCount, shareeCount, shareCount)
+	nextTitle := sessionPanelTitle(session, playersWindowTitle(onlineCount, shareeCount, shareCount))
 	titleChanged := playersWin.Title != nextTitle
-	playersWin.Title = sessionPanelTitle(session, nextTitle)
-
-	myClan := ""
-	for _, player := range ps {
-		if selfName != "" && strings.EqualFold(player.Name, selfName) {
-			myClan = player.clan
-			break
-		}
-	}
+	playersWin.Title = nextTitle
 
 	// Compute client area for sizing children similar to updateTextWindow.
 	clientW := playersWin.GetSize().X
@@ -773,8 +805,8 @@ func updatePlayersWindow() {
 		nextContents = append(nextContents, header)
 		playersGroupHeaders[header] = true
 	}
-	for _, p := range exiles {
-		group := playerDisplayGroup(p, now)
+	for _, entry := range exiles {
+		p, group := *entry.player, entry.group
 		if group != lastGroup {
 			custom := strings.HasPrefix(group, "custom:")
 			headerSignature := playerHeaderSignature{
@@ -792,7 +824,7 @@ func updatePlayersWindow() {
 			playersGroupHeaders[header] = true
 			lastGroup = group
 		}
-		if group == fmt.Sprintf("auto:%d", playerGroupRecent) {
+		if group == "auto:0" {
 			expires := p.LastOnScreen.Add(recentPlayerWindow)
 			if nextRecentPlayersExpiry.IsZero() || expires.Before(nextRecentPlayersExpiry) {
 				nextRecentPlayersExpiry = expires
