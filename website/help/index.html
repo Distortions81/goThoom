@@ -42,7 +42,7 @@
           <a class="back-link" href="../index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
           <p class="eyebrow"><span></span> Player guide and reference</p>
           <h1 id="manual-title">goThoom<br><em>user manual.</em></h1>
-          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 60 · Clan Lord 1501 · September 16, 2026</p><!-- /help-metadata -->
+          <!-- help-metadata --><p class="manual-version">Updated for goThoom test 64 · Clan Lord 1501 · October 9, 2026</p><!-- /help-metadata -->
           <p class="lede">Everything you need to enter the Lands, arrange the client, tune its sound and picture, automate common actions, and solve the usual problems.</p>
         </div>
         <aside class="manual-start-card" aria-labelledby="start-card-title">
@@ -551,7 +551,7 @@
               <li><strong>Settings → Audio → Stagger simultaneous sounds</strong> separates effects arriving in the same game update. It starts on with a 50 ms spread; reduce the spread or turn it off if you prefer them to start together.</li>
               <li><strong>High quality resampling</strong> produces cleaner conversion at a higher CPU cost.</li>
               <li>Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio.</li>
-              <li>A downloaded SoundFont improves MIDI-style music playback.</li>
+              <li>Bard music uses the included <code>qt.sf2</code> instrument set by default. Choose a different SoundFont in <strong>Settings → Audio → Music SoundFont</strong>.</li>
             </ul>
 
             <h3 id="text-to-speech">Text to speech</h3>
@@ -586,7 +586,7 @@
             <ol>
               <li>Open <strong>Audio</strong> from the toolbar. Check that master output is not muted.</li>
               <li>Enable the channels you want and set their levels. Lower Music or Game if speech is hard to hear.</li>
-              <li>For music resources, open <strong>Settings → Audio → Music SoundFont</strong>. Install an optional SoundFont through Download Files if needed, then choose it from this menu.</li>
+              <li>Choose an instrument set in <strong>Settings → Audio → Music SoundFont</strong>. <code>qt.sf2</code> is included. For an alternative, install <code>soundfont.sf2</code> through <strong>Settings → Files → Download Files</strong>, then select it. The menu also finds other <code>.sf2</code> files you add to the Assets &amp; Audio folder.</li>
               <li>Try sound-effect and bard-music enhancements separately. Their ambience controls let you reduce the effect without changing the main channel volume.</li>
               <li>If bard music stutters, compare <strong>Music Buffer (s)</strong> in Settings → Audio. A larger buffer prepares more music before playback, helping slower SoundFonts at the cost of a longer start delay. The default is two seconds.</li>
             </ol>

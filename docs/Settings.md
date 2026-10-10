@@ -275,6 +275,9 @@ control:
   login state.
 - `updates.last_check` and `updates.last_notified_version` prevent redundant
   update checks and notifications.
+- `audio.soundfont_default_migrated` records the one-time switch from
+  `soundfont.sf2` to the included `qt.sf2`. After this switch, choosing another
+  SoundFont in **Settings → Audio** keeps that choice on future launches.
 - `windows.application_width`, `windows.application_height`, and the
   `windows.game`, `windows.inventory`, `windows.players`, `windows.messages`,
   `windows.chat`, `windows.movie`, and `windows.toolbar` objects remember
@@ -291,7 +294,7 @@ tiled dividers, or **Reset Windows** unless diagnosing a layout problem.
 ## File paths
 
 **Settings → Files → File Paths** configures four global, restart-scoped
-locations: assets and audio (including `CL_Images`, `CL_Sounds`, the SoundFont,
+locations: assets and audio (including `CL_Images`, `CL_Sounds`, installed SoundFonts,
 and Piper TTS files), diagnostic and text logs, legacy macros, and Go scripts.
 An empty JSON value uses the standard location in the user data folder.
 

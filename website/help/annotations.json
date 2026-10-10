@@ -52,7 +52,7 @@
   "settings-audio": [
     {
       "control": "Music SoundFont",
-      "explanation": "A SoundFont supplies the instrument sounds used for bard music. Changing it can change how the same tune sounds; it does not replace game sound effects or a Piper speaking voice. If the menu is empty, install a SoundFont through Files → Download Files."
+      "explanation": "A SoundFont supplies the instrument sounds for bard music. qt.sf2 is included and is the default. To try another set, download soundfont.sf2 through Files → Download Files or add a .sf2 file to Assets & Audio, then select it here. The choice also applies to music already playing."
     }
   ],
   "settings-tts": [

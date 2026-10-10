@@ -1,5 +1,5 @@
 {
-  "version": 60,
+  "version": 64,
   "clVersion": 1501,
   "screens": [
     {
@@ -789,8 +789,12 @@
       "controls": [
         {
           "label": "Music SoundFont",
-          "help": "Choose a valid .sf2 file from the Assets & Audio folder. The\nlist refreshes when opened.",
+          "help": "qt.sf2 is included. Download soundfont.sf2 as an alternative,\nor add your own .sf2 files to Assets & Audio. Changes apply\nto playing music.",
           "kind": "Choice",
+          "value": "qt.sf2 (included default)",
+          "options": [
+            "qt.sf2 (included default)"
+          ],
           "rect": [
             24,
             134,
@@ -4927,5 +4931,5 @@
       ]
     }
   ],
-  "updated": "2026-09-16"
+  "updated": "2026-10-09"
 }

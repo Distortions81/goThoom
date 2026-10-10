@@ -4,6 +4,12 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -s "${SCRIPT_DIR}/../source/data/audio/qt.sf2" ]; then
+  echo "Missing bundled SoundFont source/data/audio/qt.sf2. Restore the tracked asset from the repository before running setup." >&2
+  exit 1
+fi
+
 GO_VERSION="${GO_VERSION:-1.27.1}"
 export PATH="/usr/local/go/bin:$PATH"
 
@@ -42,7 +48,6 @@ if ! pgrep -x Xvfb >/dev/null 2>&1; then
 fi
 export DISPLAY=${DISPLAY:-:99}
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}/../source"
 
 bash "${SCRIPT_DIR}/download_emoji_font.sh"

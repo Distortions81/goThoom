@@ -85,7 +85,7 @@ func TestRenderBardBundledTrio(t *testing.T) {
 		t.Skip("set GOTHOOM_RENDER_BARD_TRIO to a WAV output path")
 	}
 	root := platformDataDir(runtime.GOOS, runtime.GOARCH, os.Getenv, os.UserHomeDir, os.Executable)
-	fontPath := filepath.Join(root, soundFontFile)
+	fontPath := filepath.Join(root, alternateSoundFontFile)
 	font, err := loadSoundFont(fontPath)
 	if err != nil {
 		t.Fatal("installed SoundFont:", err)

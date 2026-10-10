@@ -180,7 +180,7 @@ On first run the client writes an `Example.json` palette and style alongside thi
 ## Other Customizations
 
 - **Background and splash images** – place `background.png` and/or `splash.png` at the root of the user data folder to override the startup visuals.
-- **Sound font** – drop a `soundfont.sf2` file into the user data folder to replace the default music instrument set. The Download Files window can fetch a recommended one or you can supply any General MIDI sound font.
+- **SoundFont** – `qt.sf2` is included for bard music. Choose it or another instrument set in **Settings → Audio → Music SoundFont**. **Download Files** offers the optional `soundfont.sf2`; add other `.sf2` files to the **Assets & Audio** folder to make them available in the same menu.
 - **TTS voices** – download Piper voices (`.tar.gz` archives or `.onnx` with matching `.onnx.json`) and place them in `piper/voices` under the user data folder. Use the Download Files window for English voices or fetch others from online voice collections.
 
 ## Readability and style switching

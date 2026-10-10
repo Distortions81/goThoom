@@ -635,6 +635,7 @@ type settings struct {
 	GameVolume                     float64
 	MusicVolume                    float64
 	SoundFontFile                  string
+	SoundFontDefaultMigrated       bool
 	MusicBufferSeconds             int
 	Music                          bool
 	GameSound                      bool
@@ -839,6 +840,17 @@ const settingsFile = "settings.json"
 
 func loadSettings() bool {
 	defer syncTTSBlocklist()
+	defer func() {
+		// Mark the new default before any later user choice can be saved,
+		// including first launch and settings loads that fall back to defaults.
+		if !gs.SoundFontDefaultMigrated {
+			if gs.SoundFontFile == "" || gs.SoundFontFile == alternateSoundFontFile {
+				gs.SoundFontFile = soundFontFile
+			}
+			gs.SoundFontDefaultMigrated = true
+			settingsDirty = true
+		}
+	}()
 	path := filepath.Join(dataDirPath, settingsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {

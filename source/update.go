@@ -27,7 +27,7 @@ const defaultUpdateBase = "https://m45sci.xyz/downloads/clanlord"
 const fallbackUpdateBase = "https://www.deltatao.com/downloads/clanlord"
 const wasmUpdateBase = "https://gothoom.m45sci.xyz"
 const soundFontURL = "https://m45sci.xyz/u/dist/goThoom/soundfont.sf2.gz"
-const soundFontFile = "soundfont.sf2"
+const alternateSoundFontFile = "soundfont.sf2"
 const extraDataBase = "https://m45sci.xyz/u/dist/goThoom/"
 const piperVoiceBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 const piperFemaleVoice = "en_US-hfc_female-medium"
@@ -431,7 +431,7 @@ type fileInfo struct {
 type dataFilesStatus struct {
 	NeedImages    bool
 	NeedSounds    bool
-	NeedSoundfont bool
+	NeedSoundfont bool // Optional alternative to the bundled music SoundFont.
 	NeedPiper     bool
 	NeedPiperFem  bool
 	NeedPiperMale bool
@@ -507,7 +507,7 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 		return status, nil
 	}
 
-	sfPath := defaultSoundFontPath()
+	sfPath := alternateSoundFontPath()
 	if _, err := os.Stat(sfPath); errors.Is(err, os.ErrNotExist) {
 		status.NeedSoundfont = true
 		status.SoundfontSize = headSize(soundFontURL)
@@ -621,7 +621,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		if err := os.MkdirAll(soundFontsDirPath(), 0o755); err != nil {
 			return fmt.Errorf("create soundfont directory: %w", err)
 		}
-		sfPath := defaultSoundFontPath()
+		sfPath := alternateSoundFontPath()
 		if err := downloadGZ(soundFontURL, sfPath); err != nil {
 			logError("download %v: %v", soundFontURL, err)
 			return fmt.Errorf("download soundfont: %w", err)

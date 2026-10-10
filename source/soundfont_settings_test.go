@@ -45,7 +45,7 @@ func TestMusicSoundFontRequiresSelectedBankZeroProgram(t *testing.T) {
 	}
 }
 
-func TestDefaultSoundFontPathIgnoresCustomSelection(t *testing.T) {
+func TestAlternateSoundFontPathIgnoresCustomSelection(t *testing.T) {
 	preserveStoragePathTestState(t)
 	dir := t.TempDir()
 	gs = gsdef
@@ -53,8 +53,37 @@ func TestDefaultSoundFontPathIgnoresCustomSelection(t *testing.T) {
 	gs.SoundFontFile = "custom.sf2"
 	activeStoragePaths.assets = dir
 	storagePathsActivated = true
-	if got, want := defaultSoundFontPath(), filepath.Join(dir, soundFontFile); got != want {
-		t.Fatalf("default soundfont path = %q, want %q", got, want)
+	if got, want := alternateSoundFontPath(), filepath.Join(dir, alternateSoundFontFile); got != want {
+		t.Fatalf("alternate soundfont path = %q, want %q", got, want)
+	}
+}
+
+func TestSoundFontDownloadRetainsAlternativeFilenameAndSelection(t *testing.T) {
+	preserveStoragePathTestState(t)
+	gs = gsdef
+	gs.AssetsPath = t.TempDir()
+	activateStoragePaths()
+	originalDownload := downloadGZ
+	t.Cleanup(func() { downloadGZ = originalDownload })
+	called := false
+	downloadGZ = func(url, destination string) error {
+		called = true
+		if url != "https://m45sci.xyz/u/dist/goThoom/soundfont.sf2.gz" {
+			t.Fatalf("alternative download URL = %q", url)
+		}
+		if want := filepath.Join(gs.AssetsPath, "soundfont.sf2"); destination != want {
+			t.Fatalf("alternative download path = %q, want %q", destination, want)
+		}
+		return nil
+	}
+	if err := downloadDataFiles(clVersion, dataFilesStatus{}, true, false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("alternative SoundFont was not downloaded")
+	}
+	if gs.SoundFontFile != "qt.sf2" {
+		t.Fatalf("downloading alternative changed selection to %q", gs.SoundFontFile)
 	}
 }
 
@@ -100,7 +129,7 @@ func TestListSoundFontsSkipsInvalidFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fonts) != 0 {
+	if len(fonts) != 1 || fonts[0] != soundFontFile {
 		t.Fatalf("invalid files appeared in soundfont choices: %v", fonts)
 	}
 }

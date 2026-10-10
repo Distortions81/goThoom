@@ -42,6 +42,7 @@ func soundFontTestCandidates(root string) []string {
 		name = soundFontFile
 	}
 	candidates = append(candidates, filepath.Join(assets, name), filepath.Join(assets, soundFontFile), filepath.Join(root, soundFontFile))
+	candidates = append(candidates, filepath.Join(assets, alternateSoundFontFile), filepath.Join(root, alternateSoundFontFile), filepath.Join("data", "audio", soundFontFile))
 	return candidates
 }
 

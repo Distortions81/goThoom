@@ -55,6 +55,7 @@ Text Logs/
 # Local dependencies, media, and secrets
 *.pem
 *.sf2
+!source/data/audio/qt.sf2
 gothoom_deps.tar.gz
 spellcheck_words.txt
 

@@ -132,8 +132,8 @@ func soundFontPath() string {
 	return filepath.Join(soundFontsDirPath(), configuredSoundFontFile())
 }
 
-func defaultSoundFontPath() string {
-	return filepath.Join(soundFontsDirPath(), soundFontFile)
+func alternateSoundFontPath() string {
+	return filepath.Join(soundFontsDirPath(), alternateSoundFontFile)
 }
 
 func ttsDataDirPath() string {
@@ -305,7 +305,15 @@ func copyStoragePathFiles(kind storagePathKind, sourceRoot, destinationRoot stri
 	case storagePathAssets:
 		add(CL_ImagesFile)
 		add(CL_SoundsFile)
-		add(soundFontFile)
+		entries, err := os.ReadDir(sourceRoot)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.EqualFold(filepath.Ext(entry.Name()), ".sf2") {
+				add(entry.Name())
+			}
+		}
 		add("piper")
 		add(ttsSubstituteFile)
 	case storagePathLogs:

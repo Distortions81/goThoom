@@ -1507,20 +1507,27 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 	soundFontDD, soundFontEvents := eui.NewDropdown()
 	soundFontDD.Label = "Music SoundFont"
 	soundFontDD.Size = eui.Point{X: 400, Y: settingsControlHeight}
-	soundFontDD.SetTooltip("Choose a valid .sf2 file from the Assets & Audio folder. The list refreshes when opened.")
+	soundFontDD.SetTooltip("qt.sf2 is included. Download soundfont.sf2 as an alternative, or add your own .sf2 files to Assets & Audio. Changes apply to playing music.")
+	var soundFontFiles []string
 	refreshSoundFonts := func() {
 		fonts, err := listSoundFonts()
-		if err != nil || len(fonts) == 0 {
-			soundFontDD.Options = nil
-			soundFontDD.Selected = 0
-			return
+		if err != nil {
+			logError("list music soundfonts: %v", err)
 		}
-		soundFontDD.Options = fonts
+		soundFontFiles = fonts
+		soundFontDD.Options = make([]string, len(fonts))
 		soundFontDD.Selected = 0
 		for i, name := range fonts {
+			label := name
+			switch name {
+			case soundFontFile:
+				label += " (included default)"
+			case alternateSoundFontFile:
+				label += " (alternative)"
+			}
+			soundFontDD.Options[i] = label
 			if name == configuredSoundFontFile() {
 				soundFontDD.Selected = i
-				break
 			}
 		}
 	}
@@ -1531,10 +1538,10 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 		}
 	}
 	soundFontEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(soundFontDD.Options) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(soundFontFiles) {
 			return
 		}
-		if err := selectSoundFont(soundFontDD.Options[ev.Index]); err != nil {
+		if err := selectSoundFont(soundFontFiles[ev.Index]); err != nil {
 			logError("select music soundfont: %v", err)
 			refreshSoundFonts()
 		}

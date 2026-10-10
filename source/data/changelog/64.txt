@@ -17,6 +17,7 @@ Interface:
 - The Players window updates faster with large player lists and custom groups, and avoids unnecessary redraws when its contents and title are unchanged.
 
 Audio:
+- Bard music includes qt.sf2 as the default SoundFont. Existing soundfont.sf2 selections switch once; custom selections are kept. Choose soundfont.sf2 again under Settings → Audio to switch back, or install it through Download Files.
 - Sound enhancement uses less temporary memory while preserving the audio output.
 
 Measured optimization results:

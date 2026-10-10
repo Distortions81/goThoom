@@ -167,6 +167,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "GameVolume", category: settingsAudio, name: "sound_volume"},
 	{field: "MusicVolume", category: settingsAudio, name: "music_volume"},
 	{field: "SoundFontFile", category: settingsAudio, name: "music_soundfont"},
+	{field: "SoundFontDefaultMigrated", category: settingsAudio, name: "soundfont_default_migrated"},
 	{field: "MusicBufferSeconds", category: settingsAudio, name: "music_buffer_seconds"},
 	{field: "Music", category: settingsAudio, name: "music_enabled"},
 	{field: "GameSound", category: settingsAudio, name: "sound_enabled"},

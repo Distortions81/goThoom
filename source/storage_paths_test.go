@@ -50,10 +50,12 @@ func TestChangeStoragePathCopiesAndVerifiesAssetsBeforeCommit(t *testing.T) {
 	gs = gsdef
 	storagePathsActivated = false
 	for name, contents := range map[string]string{
-		CL_ImagesFile:     "image archive",
-		CL_SoundsFile:     "sound archive",
-		soundFontFile:     "soundfont",
-		ttsSubstituteFile: "foo=bar",
+		CL_ImagesFile:          "image archive",
+		CL_SoundsFile:          "sound archive",
+		soundFontFile:          "soundfont",
+		alternateSoundFontFile: "alternate soundfont",
+		"custom.SF2":           "custom soundfont",
+		ttsSubstituteFile:      "foo=bar",
 		filepath.Join("piper", "voices", "voice.onnx"): "voice",
 	} {
 		path := filepath.Join(dataDirPath, name)
@@ -75,10 +77,12 @@ func TestChangeStoragePathCopiesAndVerifiesAssetsBeforeCommit(t *testing.T) {
 		t.Fatalf("saved assets path = %q, returned %q", gs.AssetsPath, got)
 	}
 	for name, want := range map[string]string{
-		CL_ImagesFile:     "image archive",
-		CL_SoundsFile:     "sound archive",
-		soundFontFile:     "soundfont",
-		ttsSubstituteFile: "foo=bar",
+		CL_ImagesFile:          "image archive",
+		CL_SoundsFile:          "sound archive",
+		soundFontFile:          "soundfont",
+		alternateSoundFontFile: "alternate soundfont",
+		"custom.SF2":           "custom soundfont",
+		ttsSubstituteFile:      "foo=bar",
 		filepath.Join("piper", "voices", "voice.onnx"): "voice",
 	} {
 		data, err := os.ReadFile(filepath.Join(destination, name))

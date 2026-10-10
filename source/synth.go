@@ -172,9 +172,9 @@ const (
 
 var programCalibrationKeys = [...]int32{48, 60, 72}
 
-// configuredSoundFontFile returns the selected SoundFont's base name. Older
-// settings files do not have a selection, so they continue to use the bundled
-// soundfont.sf2. Do not allow a hand-edited setting to escape the audio folder.
+// configuredSoundFontFile returns the selected SoundFont's base name, or the
+// bundled default when no valid selection is saved. Do not allow a hand-edited
+// setting to escape the audio folder.
 func configuredSoundFontFile() string {
 	name := gs.SoundFontFile
 	if name == "" {
@@ -243,23 +243,27 @@ func newSynthSettings() *meltysynth.SynthesizerSettings {
 	return settings
 }
 
-// listSoundFonts returns the valid SF2 files in the configured Assets & Audio
-// folder. Parsing each candidate keeps malformed files out of the selector.
+// listSoundFonts offers the bundled default first, followed by valid SF2 files
+// in the configured Assets & Audio folder. Parsing each candidate keeps
+// malformed files out of the selector.
 func listSoundFonts() ([]string, error) {
+	fonts := []string{soundFontFile}
 	entries, err := os.ReadDir(soundFontsDirPath())
-	if err != nil {
-		return nil, err
+	if errors.Is(err, os.ErrNotExist) {
+		return fonts, nil
 	}
-	fonts := make([]string, 0)
+	if err != nil {
+		return fonts, err
+	}
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".sf2") {
+		if entry.Name() == soundFontFile || entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".sf2") {
 			continue
 		}
 		if _, err := loadSoundFont(filepath.Join(soundFontsDirPath(), entry.Name())); err == nil {
 			fonts = append(fonts, entry.Name())
 		}
 	}
-	sort.Strings(fonts)
+	sort.Strings(fonts[1:])
 	return fonts, nil
 }
 
@@ -269,7 +273,7 @@ func selectSoundFont(name string) error {
 	if filepath.Base(name) != name || !strings.EqualFold(filepath.Ext(name), ".sf2") {
 		return fmt.Errorf("invalid soundfont filename %q", name)
 	}
-	font, err := loadSoundFont(filepath.Join(soundFontsDirPath(), name))
+	font, err := loadMusicSoundFont(name)
 	if err != nil {
 		return fmt.Errorf("load soundfont %q: %w", name, err)
 	}
@@ -280,6 +284,7 @@ func selectSoundFont(name string) error {
 	synthCacheMu.Unlock()
 	SettingsLock.Lock()
 	gs.SoundFontFile = name
+	gs.SoundFontDefaultMigrated = true
 	SettingsLock.Unlock()
 	settingsDirty = true
 	restartMusicWithSelectedSoundFont()
@@ -396,8 +401,7 @@ func resumeAllMusic() bool {
 
 func setupSynth() {
 	selectedName := configuredSoundFontFile()
-	sfPath := filepath.Join(soundFontsDirPath(), selectedName)
-	sfnt, err := loadSoundFont(sfPath)
+	sfnt, err := loadMusicSoundFont(selectedName)
 	if err != nil {
 		log.Printf("soundfont missing: %v", err)
 		return

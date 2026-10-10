@@ -167,7 +167,12 @@ These event comparisons do not establish audible equivalence with QuickTime.
 
 ## SoundFont verification
 
-The default `soundfont.sf2` contains every corrected classic program. Sample
+Bard music uses the included `qt.sf2` by default. Choose an instrument set in
+**Settings → Audio → Music SoundFont**. The optional `soundfont.sf2` is
+available through **Settings → Files → Download Files**; other `.sf2` files
+can be added to the **Assets & Audio** folder and selected from the same menu.
+
+The optional `soundfont.sf2` contains every corrected classic program. Sample
 notes for Starbuck Harp, Conch, Centaur Organ, and Orga Drum all rendered with
 nonzero output. Its Centaur presets are distinct: program 76 is Bottle Blow
 and program 19 is Pipe Organ.
@@ -184,12 +189,14 @@ for each classic instrument:
 cd source
 CGO_ENABLED=0 go run . \
   -exportInstrumentAudition ../bard-instrument-audition \
-  -auditionSoundFont soundfont.sf2
+  -auditionSoundFont qt.sf2
 ```
 
 This writes `bard-instrument-audition.mid` and
 `bard-instrument-audition.wav`. Each instrument occupies four seconds in index
 order from 0 through 22. The MIDI track also contains an instrument marker with
 the classic resource number and zero-based synthesizer program at the start of
-every segment. The main README links those files and a 92-second WAV rendered
-from the same MIDI with QuickTime Musical Instruments for Windows.
+every segment. Use `-auditionSoundFont soundfont.sf2` to compare the optional
+instrument set. The main README links a `soundfont.sf2` audition and a
+92-second WAV rendered from the same MIDI with QuickTime Musical Instruments
+for Windows.

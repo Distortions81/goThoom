@@ -101,7 +101,7 @@ func BenchmarkMusicGroupWorkerPool(b *testing.B) {
 func installedBenchmarkSoundFont(b *testing.B) *meltysynth.SoundFont {
 	b.Helper()
 	root := platformDataDir(runtime.GOOS, runtime.GOARCH, os.Getenv, os.UserHomeDir, os.Executable)
-	fontPath := filepath.Join(root, soundFontFile)
+	fontPath := filepath.Join(root, alternateSoundFontFile)
 	if info, err := os.Stat(fontPath); err != nil || !info.Mode().IsRegular() {
 		b.Skipf("normal installed SoundFont is unavailable: %s", fontPath)
 	}

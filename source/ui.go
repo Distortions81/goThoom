@@ -1796,19 +1796,21 @@ func makeMixerWindow() {
 				if ev.Checked {
 					gs.Music = true
 					musicMixSlider.Disabled = false
-					if s, err := checkDataFiles(clVersion); err == nil {
-						status = s
-						if status.NeedSoundfont {
-							disableMusic()
-							if downloadWin != nil {
-								downloadWin.Close()
-								downloadWin = nil
+					if configuredSoundFontFile() == alternateSoundFontFile {
+						if s, err := checkDataFiles(clVersion); err == nil {
+							status = s
+							if status.NeedSoundfont {
+								disableMusic()
+								if downloadWin != nil {
+									downloadWin.Close()
+									downloadWin = nil
+								}
+								makeDownloadsWindow()
+								if downloadWin != nil {
+									downloadWin.MarkOpen()
+								}
+								return
 							}
-							makeDownloadsWindow()
-							if downloadWin != nil {
-								downloadWin.MarkOpen()
-							}
-							return
 						}
 					}
 					settingsDirty = true
@@ -2702,20 +2704,21 @@ func makeDownloadsWindow(preferTTS ...bool) {
 		flow.AddItem(opt)
 
 		info, _ := eui.NewText()
-		info.Text = "Download TTS voices and the music soundfont."
+		info.Text = "Music includes qt.sf2.\nChoose optional music and speech files."
 		info.FontSize = 13
-		info.Size = eui.Point{X: 320, Y: 25}
+		info.Size = eui.Point{X: 320, Y: 40}
 		flow.AddItem(info)
 	}
 	if status.NeedSoundfont {
 		sfCB, _ := eui.NewCheckbox()
-		label := "Download soundfont (music)"
+		label := "Music alternative: soundfont.sf2"
 		if status.SoundfontSize > 0 {
-			label = fmt.Sprintf("Download soundfont (%s) (Music)", humanize.Bytes(uint64(status.SoundfontSize)))
+			label = fmt.Sprintf("Music alternative: soundfont.sf2 (%s)", humanize.Bytes(uint64(status.SoundfontSize)))
 		}
 		sfCB.Text = label
+		sfCB.SetTooltip("Download another instrument set for bard music. Select soundfont.sf2 in Settings → Audio → Music SoundFont after downloading.")
 		sfCB.Size = eui.Point{X: 320, Y: 24}
-		sfCB.Checked = !ttsRequested
+		sfCB.Checked = !ttsRequested && configuredSoundFontFile() == alternateSoundFontFile
 		downloadSoundfontCB = sfCB
 		flow.AddItem(sfCB)
 	}
@@ -4864,6 +4867,7 @@ var SettingsLock sync.Mutex
 // resetAllSettings restores gs to defaults, reapplies, and refreshes windows.
 func resetAllSettings() {
 	gs = gsdef
+	gs.SoundFontDefaultMigrated = true
 	ensureMessageTextColors()
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 	clampWindowSettings()

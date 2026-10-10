@@ -136,14 +136,18 @@ On Debian or Ubuntu, install Zenity with `sudo apt install zenity`.
 Windows and macOS use native dialogs without an extra installation.
 ## Downloads and customization
 
+Bard music uses the included `qt.sf2` instrument set by default. Choose a
+different set in **Settings → Audio → Music SoundFont**. The menu also finds
+`.sf2` files you add to the **Assets & Audio** folder.
+
 Open **Download Files** in the client to install optional extras:
 
-- A SoundFont for higher-quality music.
+- `soundfont.sf2`, an alternative instrument set for bard music.
 - Piper voices for local text-to-speech.
 
 For bard-instrument comparison, the repository includes a
 [23-instrument MIDI audition](bard-instrument-audition.mid) and the matching
-[goThoom SoundFont render](bard-instrument-audition.wav). A
+[`soundfont.sf2` render](bard-instrument-audition.wav). A
 [QuickTime Musical Instruments render](bard-instrument-audition-quicktime.wav)
 of the same MIDI provides a classic-client reference. The
 [side-by-side stereo comparison](bard-instrument-compare-LR.wav) makes the two
